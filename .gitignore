@@ -1,0 +1,53 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+/pm
+/pommeld
+
+# Go
+*.test
+*.out
+go.work
+go.work.sum
+vendor/
+
+# Python (for embedding model tooling)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+env/
+.env/
+*.egg-info/
+dist/
+build/
+
+# Pommel project data (user-specific, not committed)
+.pommel/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test and coverage
+coverage.out
+coverage.html
+*.cover
+*.prof
+
+# Build artifacts
+/bin/
+/dist/
