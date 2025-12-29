@@ -2,22 +2,29 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Working Directory Constraints
-
-Only edit files within this project structure. The sole exception is when installing or configuring third-party dependencies used by the project (e.g., Chroma vector database, Ollama for embedding models).
-
-## Code Quality Principles
-
-- **SOLID principles** - Single responsibility, open/closed, Liskov substitution, interface segregation, dependency inversion
-- **DRY with domain sensitivity** - Eliminate duplication, but don't over-abstract across domain boundaries
-- **Performance-critical** - This system will be called frequently by AI agents; optimize for low latency on search operations
-- **Fast indexing** - File changes must be detected and re-indexed as quickly as possible; minimize time between file save and searchability
-
 ## Project Overview
 
 Pommel is a local-first semantic code search system designed to reduce context window consumption for AI coding agents. It maintains an always-current vector database of code embeddings, enabling targeted semantic searches instead of reading numerous files into context.
 
-**Status:** Planning phase (v0.1.0-draft) - no implementation code yet
+**Status:** v0.1.0 - Fully functional with CLI, daemon, and semantic search
+
+## Quick Start
+
+```bash
+# Initialize Pommel in a project
+pm init --auto --claude --start
+
+# Search the codebase semantically
+pm search "database connection handling"
+pm search "error handling patterns" --limit 5
+pm search "CLI command setup" --json
+
+# Check status
+pm status
+
+# Reindex after major changes
+pm reindex
+```
 
 ## Architecture
 
@@ -25,61 +32,167 @@ Pommel is a local-first semantic code search system designed to reduce context w
 AI Agent / Developer
         │
         ▼
-    Pommel CLI (pm)  ──────► search, status, config
+    Pommel CLI (pm)  ──────► search, status, init, start, stop, reindex, config
         │
         ▼
     Pommel Daemon (pommeld)
-    • File watcher (debounced)
-    • Multi-level chunker
-    • Embedding generator
+    ├── File watcher (fsnotify, debounced)
+    ├── Tree-sitter chunker (AST-aware)
+    └── Embedding generator (Ollama client)
         │
         ▼
-    Chroma Vector DB (local)
+    SQLite + sqlite-vec (local vector DB)
         ▲
         │
-    Jina Code Embeddings (local model, 768-dim)
+    Jina Code Embeddings via Ollama (768-dim vectors)
 ```
 
-**Two data flows:**
-1. **Indexing:** File changes → Daemon → Chunker → Embedder → Vector DB
-2. **Search:** Query → CLI → Embedder → Vector DB → Ranked results
+**Data flows:**
+1. **Indexing:** File changes → Watcher → Chunker → Embedder → Vector DB
+2. **Search:** Query → CLI → Daemon → Embedder → Vector DB → Ranked results
 
-## Planned CLI Commands
+## CLI Commands
+
+| Command | Description |
+|---------|-------------|
+| `pm init` | Initialize Pommel in project (flags: `--auto`, `--claude`, `--start`) |
+| `pm search <query>` | Semantic search (flags: `--json`, `--limit`, `--level`, `--path`) |
+| `pm status` | Show daemon status and index statistics |
+| `pm start` | Start the daemon |
+| `pm stop` | Stop the daemon |
+| `pm reindex` | Force full reindex of the codebase |
+| `pm config` | View/modify configuration |
+| `pm version` | Show version information |
+
+All commands support `--json` for structured output and `-p/--project` to specify project root.
+
+## Technology Stack
+
+| Component | Technology |
+|-----------|------------|
+| Language | Go 1.24+ |
+| CLI Framework | Cobra + Viper |
+| Vector Database | SQLite + sqlite-vec |
+| Embedding Model | jina-embeddings-v2-base-code (via Ollama) |
+| Code Parsing | Tree-sitter (Go, Python, TypeScript, JavaScript, Java, C#, Rust, C, C++) |
+| File Watching | fsnotify |
+| HTTP Server | go-chi |
+
+## Project Structure
+
+```
+pommel/
+├── cmd/
+│   ├── pm/              # CLI entry point
+│   └── pommeld/         # Daemon entry point
+├── internal/
+│   ├── api/             # HTTP API types and handlers
+│   ├── chunker/         # Tree-sitter based code chunking
+│   ├── cli/             # Cobra command implementations
+│   ├── config/          # YAML configuration loading/validation
+│   ├── daemon/          # Daemon server, watcher, indexer
+│   ├── db/              # SQLite + sqlite-vec database layer
+│   ├── embedder/        # Ollama embedding client
+│   ├── models/          # Shared data models
+│   ├── search/          # Vector similarity search
+│   └── setup/           # Dependency detection
+├── scripts/
+│   └── install.sh       # Installation script
+├── docs/                # Documentation and plans
+└── .pommel/             # Per-project data (gitignored)
+    ├── config.yaml      # Project configuration
+    └── pommel.db        # SQLite database with vectors
+```
+
+## Development
+
+### Prerequisites
+
+- Go 1.24+
+- Ollama with `unclemusclez/jina-embeddings-v2-base-code` model
+
+### Building
 
 ```bash
-pm init                    # Initialize Pommel in project
-pm search <query> --json   # Semantic search (agent-optimized)
-pm status                  # Show daemon status
-pm start / pm stop         # Daemon control
-pm reindex                 # Force full reindex
-pm config                  # View/modify configuration
+go build -o pm ./cmd/pm
+go build -o pommeld ./cmd/pommeld
 ```
 
-All commands support `--json` for structured output, `--limit`, `--level`, and `--path` flags.
+### Testing
 
-## Key Design Decisions
-
-- **Implementation language:** Go
-- **Target platforms:** macOS, Linux
-- **Vector database:** Chroma (local)
-- **Embedding model:** Jina Code Embeddings (jinaai/jina-embeddings-v2-base-code)
-- **Chunking levels:** file, class/module, method/function, block, line group
-- **Initial language support:** C#, Go, Python, JavaScript, TypeScript, Java, Rust
-
-## Project Structure (Planned)
-
+```bash
+go test ./...                    # Run all tests
+go test ./internal/cli/...       # Run CLI tests
+go test -v -run TestInitCmd      # Run specific test
 ```
-project/
-├── .pommel/
-│   ├── config.yaml    # Project configuration
-│   ├── state.json     # Daemon state
-│   └── chroma/        # Vector database files
-├── .pommelignore      # Patterns to exclude (like .gitignore)
-└── source files...
+
+### Installation
+
+```bash
+# Quick install
+curl -fsSL https://raw.githubusercontent.com/dbinky/Pommel/main/scripts/install.sh | bash
+
+# Or manual
+go install ./cmd/pm ./cmd/pommeld
+ollama pull unclemusclez/jina-embeddings-v2-base-code
 ```
+
+## Code Quality Principles
+
+- **SOLID principles** - Single responsibility, open/closed, Liskov substitution, interface segregation, dependency inversion
+- **DRY with domain sensitivity** - Eliminate duplication, but don't over-abstract across domain boundaries
+- **Performance-critical** - Optimize for low latency on search operations (sub-second response times)
+- **Fast indexing** - Minimize time between file save and searchability
+- **Test-driven** - Write tests first for new features
+
+## Key Packages
+
+### `internal/cli`
+Cobra command implementations. Each command has its own file (init.go, search.go, etc.) with a corresponding test file. Commands communicate with the daemon via HTTP client in `client.go`.
+
+### `internal/daemon`
+The pommeld server that watches files, indexes changes, and serves search requests. Key components:
+- `daemon.go` - HTTP server and request routing
+- `watcher.go` - fsnotify file watcher with debouncing
+- `indexer.go` - Coordinates chunking and embedding
+- `ignorer.go` - .pommelignore pattern matching
+
+### `internal/chunker`
+Tree-sitter based code chunking. Parses source files into AST and extracts meaningful chunks (files, classes, functions, blocks). Language-specific grammars in separate files.
+
+### `internal/db`
+SQLite database with sqlite-vec extension for vector storage. Handles chunk storage, vector indexing, and similarity search queries.
+
+### `internal/embedder`
+Embedding generation via Ollama's local API. Includes caching layer and mock implementation for testing.
 
 ## Related System
 
-Pommel is designed to complement **Beads** (task/issue tracking):
-- Pommel: "Where is this logic implemented?" (code search)
-- Beads: "What should I work on next?" (task memory)
+Pommel complements **Beads** (https://github.com/steveyegge/beads) for task/issue tracking:
+- **Pommel:** "Where is this logic implemented?" (semantic code search)
+- **Beads:** "What should I work on next?" (task memory and tracking)
+
+## Using Pommel While Coding
+
+```bash
+# Find code by semantic meaning
+pm search "authentication logic"
+pm search "error handling patterns"
+pm search "database connection setup"
+
+# Search with JSON output for programmatic use
+pm search "user validation" --json
+
+# Limit results
+pm search "API endpoints" --limit 5
+
+# Search specific chunk levels
+pm search "class definitions" --level class
+pm search "function implementations" --level function
+```
+
+**Tips:**
+- Use natural language queries - Pommel understands semantic meaning
+- Keep the daemon running (`pm start`) for always-current search results
+- Use `--json` flag when you need structured output for processing
+- Run `pm reindex` after major refactoring or branch switches
