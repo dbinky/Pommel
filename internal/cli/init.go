@@ -215,6 +215,12 @@ coverage/
 		}
 	}
 
+	// Add .pommel/ to .gitignore if it exists and doesn't already contain it
+	if err := addToGitignore(projectRoot); err != nil {
+		// Non-fatal - just log warning
+		fmt.Fprintf(stderr, "Warning: Could not update .gitignore: %v\n", err)
+	}
+
 	// Handle --auto flag: detect languages and update config
 	if flags.Auto {
 		detectedPatterns := detectLanguagePatterns(projectRoot)
@@ -583,6 +589,40 @@ pm search "shared utilities" --all
 - Use `+"`--all`"+` to search across the entire monorepo
 - Use `+"`--path`"+` to search specific paths
 `, sp.ID)
+}
+
+// addToGitignore adds .pommel/ to .gitignore if it doesn't already contain it
+func addToGitignore(projectRoot string) error {
+	gitignorePath := filepath.Join(projectRoot, ".gitignore")
+
+	// Check if .gitignore exists
+	content, err := os.ReadFile(gitignorePath)
+	if os.IsNotExist(err) {
+		// No .gitignore file - create one with .pommel/
+		return os.WriteFile(gitignorePath, []byte(".pommel/\n"), 0644)
+	}
+	if err != nil {
+		return err
+	}
+
+	// Check if .pommel is already in the file
+	lines := strings.Split(string(content), "\n")
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		// Check various forms that would ignore .pommel
+		if trimmed == ".pommel" || trimmed == ".pommel/" || trimmed == "/.pommel" || trimmed == "/.pommel/" {
+			return nil // Already present
+		}
+	}
+
+	// Append .pommel/ to the file
+	newContent := string(content)
+	if !strings.HasSuffix(newContent, "\n") {
+		newContent += "\n"
+	}
+	newContent += ".pommel/\n"
+
+	return os.WriteFile(gitignorePath, []byte(newContent), 0644)
 }
 
 // startDaemonProcess starts the pommeld daemon in the background

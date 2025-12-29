@@ -911,3 +911,73 @@ func TestInitCmd_MonorepoAndNoMonorepo_Conflict(t *testing.T) {
 	// --no-monorepo should win - no scanning message
 	assert.NotContains(t, output, "Scanning for project markers", "--no-monorepo should skip detection")
 }
+
+// =============================================================================
+// .gitignore Tests
+// =============================================================================
+
+func TestInitCmd_CreatesGitignoreIfNotExists(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "pommel-init-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	var outBuf, errBuf bytes.Buffer
+	err = runInitCmd(tmpDir, &outBuf, &errBuf)
+	require.NoError(t, err)
+
+	// Verify .gitignore was created with .pommel/
+	gitignorePath := filepath.Join(tmpDir, ".gitignore")
+	content, err := os.ReadFile(gitignorePath)
+	require.NoError(t, err, ".gitignore should be created")
+	assert.Contains(t, string(content), ".pommel/", ".gitignore should contain .pommel/")
+}
+
+func TestInitCmd_AppendsToExistingGitignore(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "pommel-init-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	// Create existing .gitignore
+	existingContent := "node_modules/\n*.log\n"
+	gitignorePath := filepath.Join(tmpDir, ".gitignore")
+	require.NoError(t, os.WriteFile(gitignorePath, []byte(existingContent), 0644))
+
+	var outBuf, errBuf bytes.Buffer
+	err = runInitCmd(tmpDir, &outBuf, &errBuf)
+	require.NoError(t, err)
+
+	// Verify .gitignore has both old and new content
+	content, err := os.ReadFile(gitignorePath)
+	require.NoError(t, err)
+	assert.Contains(t, string(content), "node_modules/", "Should preserve existing content")
+	assert.Contains(t, string(content), "*.log", "Should preserve existing content")
+	assert.Contains(t, string(content), ".pommel/", "Should add .pommel/")
+}
+
+func TestInitCmd_DoesNotDuplicateGitignoreEntry(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "pommel-init-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	// Create .gitignore that already has .pommel/
+	existingContent := "node_modules/\n.pommel/\n*.log\n"
+	gitignorePath := filepath.Join(tmpDir, ".gitignore")
+	require.NoError(t, os.WriteFile(gitignorePath, []byte(existingContent), 0644))
+
+	var outBuf, errBuf bytes.Buffer
+	err = runInitCmd(tmpDir, &outBuf, &errBuf)
+	require.NoError(t, err)
+
+	// Verify .gitignore doesn't have duplicate entries
+	content, err := os.ReadFile(gitignorePath)
+	require.NoError(t, err)
+
+	// Count occurrences of .pommel
+	count := 0
+	for _, line := range bytes.Split(content, []byte("\n")) {
+		if bytes.Contains(line, []byte(".pommel")) {
+			count++
+		}
+	}
+	assert.Equal(t, 1, count, "Should not duplicate .pommel/ entry")
+}
