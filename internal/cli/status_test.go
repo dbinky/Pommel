@@ -225,10 +225,3 @@ func executeStatusWithOutput(daemonURL string, jsonOutput bool) (string, error) 
 
 	return buf.String(), nil
 }
-
-func boolToStatus(b bool) string {
-	if b {
-		return "available"
-	}
-	return "unavailable"
-}

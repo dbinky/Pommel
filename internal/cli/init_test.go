@@ -194,3 +194,310 @@ func runInitCmd(projectRoot string, out, errOut *bytes.Buffer) error {
 func runInitCmdJSON(projectRoot string, out, errOut *bytes.Buffer) error {
 	return runInit(projectRoot, out, errOut, true)
 }
+
+// =============================================================================
+// Tests for --auto flag
+// =============================================================================
+
+func TestInitCmd_AutoFlag_DetectsGoFiles(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "pommel-init-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	// Create some Go files
+	err = os.WriteFile(filepath.Join(tmpDir, "main.go"), []byte("package main"), 0644)
+	require.NoError(t, err)
+	err = os.WriteFile(filepath.Join(tmpDir, "utils.go"), []byte("package main"), 0644)
+	require.NoError(t, err)
+
+	// Run init with --auto flag
+	var outBuf, errBuf bytes.Buffer
+	err = runInitWithFlags(tmpDir, &outBuf, &errBuf, InitFlags{Auto: true})
+	require.NoError(t, err, "Init with --auto should succeed")
+
+	// Verify config includes Go pattern
+	loader := config.NewLoader(tmpDir)
+	cfg, err := loader.Load()
+	require.NoError(t, err)
+	assert.Contains(t, cfg.IncludePatterns, "**/*.go", "Should include Go files pattern")
+}
+
+func TestInitCmd_AutoFlag_DetectsPythonFiles(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "pommel-init-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	// Create some Python files
+	err = os.WriteFile(filepath.Join(tmpDir, "main.py"), []byte("print('hello')"), 0644)
+	require.NoError(t, err)
+	err = os.MkdirAll(filepath.Join(tmpDir, "src"), 0755)
+	require.NoError(t, err)
+	err = os.WriteFile(filepath.Join(tmpDir, "src", "utils.py"), []byte("# utils"), 0644)
+	require.NoError(t, err)
+
+	// Run init with --auto flag
+	var outBuf, errBuf bytes.Buffer
+	err = runInitWithFlags(tmpDir, &outBuf, &errBuf, InitFlags{Auto: true})
+	require.NoError(t, err)
+
+	// Verify config includes Python pattern
+	loader := config.NewLoader(tmpDir)
+	cfg, err := loader.Load()
+	require.NoError(t, err)
+	assert.Contains(t, cfg.IncludePatterns, "**/*.py", "Should include Python files pattern")
+}
+
+func TestInitCmd_AutoFlag_DetectsTypeScriptFiles(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "pommel-init-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	// Create TypeScript files
+	err = os.WriteFile(filepath.Join(tmpDir, "index.ts"), []byte("const x = 1"), 0644)
+	require.NoError(t, err)
+	err = os.WriteFile(filepath.Join(tmpDir, "app.tsx"), []byte("export default {}"), 0644)
+	require.NoError(t, err)
+
+	// Run init with --auto flag
+	var outBuf, errBuf bytes.Buffer
+	err = runInitWithFlags(tmpDir, &outBuf, &errBuf, InitFlags{Auto: true})
+	require.NoError(t, err)
+
+	// Verify config includes TypeScript patterns
+	loader := config.NewLoader(tmpDir)
+	cfg, err := loader.Load()
+	require.NoError(t, err)
+	assert.Contains(t, cfg.IncludePatterns, "**/*.ts", "Should include .ts pattern")
+	assert.Contains(t, cfg.IncludePatterns, "**/*.tsx", "Should include .tsx pattern")
+}
+
+func TestInitCmd_AutoFlag_DetectsMultipleLanguages(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "pommel-init-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	// Create files of multiple languages
+	err = os.WriteFile(filepath.Join(tmpDir, "main.go"), []byte("package main"), 0644)
+	require.NoError(t, err)
+	err = os.WriteFile(filepath.Join(tmpDir, "script.py"), []byte("# python"), 0644)
+	require.NoError(t, err)
+	err = os.WriteFile(filepath.Join(tmpDir, "app.js"), []byte("// js"), 0644)
+	require.NoError(t, err)
+
+	// Run init with --auto flag
+	var outBuf, errBuf bytes.Buffer
+	err = runInitWithFlags(tmpDir, &outBuf, &errBuf, InitFlags{Auto: true})
+	require.NoError(t, err)
+
+	// Verify config includes all detected patterns
+	loader := config.NewLoader(tmpDir)
+	cfg, err := loader.Load()
+	require.NoError(t, err)
+	assert.Contains(t, cfg.IncludePatterns, "**/*.go", "Should include Go pattern")
+	assert.Contains(t, cfg.IncludePatterns, "**/*.py", "Should include Python pattern")
+	assert.Contains(t, cfg.IncludePatterns, "**/*.js", "Should include JavaScript pattern")
+}
+
+func TestInitCmd_AutoFlag_NoFilesUsesDefaults(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "pommel-init-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	// Empty directory - no source files
+
+	// Run init with --auto flag
+	var outBuf, errBuf bytes.Buffer
+	err = runInitWithFlags(tmpDir, &outBuf, &errBuf, InitFlags{Auto: true})
+	require.NoError(t, err)
+
+	// Should use default patterns when no files detected
+	loader := config.NewLoader(tmpDir)
+	cfg, err := loader.Load()
+	require.NoError(t, err)
+	assert.NotEmpty(t, cfg.IncludePatterns, "Should have some include patterns even if no files found")
+}
+
+// =============================================================================
+// Tests for --claude flag
+// =============================================================================
+
+func TestInitCmd_ClaudeFlag_CreatesCLAUDEMD(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "pommel-init-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	// Run init with --claude flag
+	var outBuf, errBuf bytes.Buffer
+	err = runInitWithFlags(tmpDir, &outBuf, &errBuf, InitFlags{Claude: true})
+	require.NoError(t, err)
+
+	// Verify CLAUDE.md was created
+	claudePath := filepath.Join(tmpDir, "CLAUDE.md")
+	_, err = os.Stat(claudePath)
+	require.NoError(t, err, "CLAUDE.md should be created")
+
+	// Verify it contains Pommel instructions
+	content, err := os.ReadFile(claudePath)
+	require.NoError(t, err)
+	assert.Contains(t, string(content), "pm search", "Should contain pm search instructions")
+	assert.Contains(t, string(content), "--json", "Should mention --json flag for agents")
+}
+
+func TestInitCmd_ClaudeFlag_AppendsToExistingCLAUDEMD(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "pommel-init-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	// Create existing CLAUDE.md with some content
+	claudePath := filepath.Join(tmpDir, "CLAUDE.md")
+	existingContent := "# CLAUDE.md\n\nExisting project instructions.\n"
+	err = os.WriteFile(claudePath, []byte(existingContent), 0644)
+	require.NoError(t, err)
+
+	// Run init with --claude flag
+	var outBuf, errBuf bytes.Buffer
+	err = runInitWithFlags(tmpDir, &outBuf, &errBuf, InitFlags{Claude: true})
+	require.NoError(t, err)
+
+	// Verify existing content is preserved and Pommel instructions added
+	content, err := os.ReadFile(claudePath)
+	require.NoError(t, err)
+	assert.Contains(t, string(content), "Existing project instructions", "Should preserve existing content")
+	assert.Contains(t, string(content), "pm search", "Should add Pommel instructions")
+}
+
+func TestInitCmd_ClaudeFlag_DoesNotDuplicateInstructions(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "pommel-init-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	// Run init with --claude flag twice
+	var outBuf, errBuf bytes.Buffer
+	err = runInitWithFlags(tmpDir, &outBuf, &errBuf, InitFlags{Claude: true})
+	require.NoError(t, err)
+
+	// Get content after first init
+	claudePath := filepath.Join(tmpDir, "CLAUDE.md")
+	content1, err := os.ReadFile(claudePath)
+	require.NoError(t, err)
+
+	// Reset pommel dir so init can run again
+	os.RemoveAll(filepath.Join(tmpDir, ".pommel"))
+
+	// Run init with --claude flag again
+	outBuf.Reset()
+	errBuf.Reset()
+	err = runInitWithFlags(tmpDir, &outBuf, &errBuf, InitFlags{Claude: true})
+	require.NoError(t, err)
+
+	// Verify instructions are not duplicated
+	content2, err := os.ReadFile(claudePath)
+	require.NoError(t, err)
+
+	// Count occurrences of "pm search" - should only appear once per section
+	count1 := bytes.Count(content1, []byte("## Pommel"))
+	count2 := bytes.Count(content2, []byte("## Pommel"))
+	assert.Equal(t, count1, count2, "Should not duplicate Pommel section")
+}
+
+func TestInitCmd_ClaudeFlag_IncludesSearchExamples(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "pommel-init-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	// Run init with --claude flag
+	var outBuf, errBuf bytes.Buffer
+	err = runInitWithFlags(tmpDir, &outBuf, &errBuf, InitFlags{Claude: true})
+	require.NoError(t, err)
+
+	// Verify CLAUDE.md contains useful examples
+	claudePath := filepath.Join(tmpDir, "CLAUDE.md")
+	content, err := os.ReadFile(claudePath)
+	require.NoError(t, err)
+
+	contentStr := string(content)
+	assert.Contains(t, contentStr, "pm search", "Should contain pm search command")
+	assert.Contains(t, contentStr, "--json", "Should mention JSON output for agents")
+	assert.Contains(t, contentStr, "pm status", "Should mention pm status command")
+}
+
+// =============================================================================
+// Tests for --start flag
+// =============================================================================
+
+func TestInitCmd_StartFlag_FlagRegistered(t *testing.T) {
+	// Verify the --start flag is registered on the init command
+	flag := initCmd.Flags().Lookup("start")
+	assert.NotNil(t, flag, "--start flag should be registered")
+	assert.Equal(t, "bool", flag.Value.Type(), "--start should be a boolean flag")
+}
+
+func TestInitCmd_StartFlag_InitializesBeforeStart(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "pommel-init-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	// Run init with --start flag (daemon start will likely fail in test env, but init should complete)
+	var outBuf, errBuf bytes.Buffer
+	err = runInitWithFlags(tmpDir, &outBuf, &errBuf, InitFlags{Start: true})
+
+	// Init should succeed even if daemon start fails
+	// The .pommel directory should exist
+	pommelDir := filepath.Join(tmpDir, ".pommel")
+	_, statErr := os.Stat(pommelDir)
+	assert.NoError(t, statErr, ".pommel directory should be created before starting daemon")
+}
+
+func TestInitCmd_StartFlag_CombinesWithOtherFlags(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "pommel-init-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	// Create a Go file for auto-detection
+	err = os.WriteFile(filepath.Join(tmpDir, "main.go"), []byte("package main"), 0644)
+	require.NoError(t, err)
+
+	// Run init with multiple flags
+	var outBuf, errBuf bytes.Buffer
+	err = runInitWithFlags(tmpDir, &outBuf, &errBuf, InitFlags{
+		Auto:   true,
+		Claude: true,
+		Start:  true,
+	})
+
+	// Verify --auto worked (Go pattern in config)
+	loader := config.NewLoader(tmpDir)
+	cfg, err := loader.Load()
+	require.NoError(t, err)
+	assert.Contains(t, cfg.IncludePatterns, "**/*.go", "Auto-detection should work with other flags")
+
+	// Verify --claude worked (CLAUDE.md exists)
+	claudePath := filepath.Join(tmpDir, "CLAUDE.md")
+	_, err = os.Stat(claudePath)
+	assert.NoError(t, err, "CLAUDE.md should be created when using multiple flags")
+}
+
+// =============================================================================
+// Tests for flag registration
+// =============================================================================
+
+func TestInitCmd_AllFlagsRegistered(t *testing.T) {
+	// Verify all documented flags are registered
+	autoFlag := initCmd.Flags().Lookup("auto")
+	assert.NotNil(t, autoFlag, "--auto flag should be registered")
+
+	claudeFlag := initCmd.Flags().Lookup("claude")
+	assert.NotNil(t, claudeFlag, "--claude flag should be registered")
+
+	startFlag := initCmd.Flags().Lookup("start")
+	assert.NotNil(t, startFlag, "--start flag should be registered")
+}
+
+// =============================================================================
+// Helper functions for flag tests
+// =============================================================================
+
+// runInitWithFlags runs the init command with the specified flags
+func runInitWithFlags(projectRoot string, out, errOut *bytes.Buffer, flags InitFlags) error {
+	return runInitFull(projectRoot, out, errOut, false, flags)
+}
