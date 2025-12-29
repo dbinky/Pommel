@@ -178,9 +178,9 @@ func TestCachedEmbedder_EmbedMultiple_PartialCache(t *testing.T) {
 
 	// Request mix of cached and uncached
 	allTexts := []string{
-		"func cached1() {}",  // cached
+		"func cached1() {}",   // cached
 		"func uncached1() {}", // not cached
-		"func cached2() {}",  // cached
+		"func cached2() {}",   // cached
 		"func uncached2() {}", // not cached
 	}
 

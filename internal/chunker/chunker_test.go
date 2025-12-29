@@ -235,73 +235,73 @@ func TestChunkerRegistry_Routes(t *testing.T) {
 	require.NoError(t, err)
 
 	tests := []struct {
-		name     string
-		path     string
-		source   string
-		language string
+		name      string
+		path      string
+		source    string
+		language  string
 		minChunks int
 	}{
 		{
-			name:     "C# file",
-			path:     "test.cs",
-			source:   "public class Test { }",
-			language: string(LangCSharp),
+			name:      "C# file",
+			path:      "test.cs",
+			source:    "public class Test { }",
+			language:  string(LangCSharp),
 			minChunks: 1,
 		},
 		{
-			name:     "Python file",
-			path:     "test.py",
-			source:   "class Test:\n    pass",
-			language: string(LangPython),
+			name:      "Python file",
+			path:      "test.py",
+			source:    "class Test:\n    pass",
+			language:  string(LangPython),
 			minChunks: 1,
 		},
 		{
-			name:     "JavaScript file",
-			path:     "test.js",
-			source:   "class Test { }",
-			language: string(LangJavaScript),
+			name:      "JavaScript file",
+			path:      "test.js",
+			source:    "class Test { }",
+			language:  string(LangJavaScript),
 			minChunks: 1,
 		},
 		{
-			name:     "TypeScript file",
-			path:     "test.ts",
-			source:   "class Test { }",
-			language: string(LangTypeScript),
+			name:      "TypeScript file",
+			path:      "test.ts",
+			source:    "class Test { }",
+			language:  string(LangTypeScript),
 			minChunks: 1,
 		},
 		{
-			name:     "TSX file",
-			path:     "test.tsx",
-			source:   "function Test() { return <div/>; }",
-			language: string(LangTSX),
+			name:      "TSX file",
+			path:      "test.tsx",
+			source:    "function Test() { return <div/>; }",
+			language:  string(LangTSX),
 			minChunks: 1,
 		},
 		{
-			name:     "JSX file",
-			path:     "test.jsx",
-			source:   "function Test() { return <div/>; }",
-			language: string(LangJSX),
+			name:      "JSX file",
+			path:      "test.jsx",
+			source:    "function Test() { return <div/>; }",
+			language:  string(LangJSX),
 			minChunks: 1,
 		},
 		{
-			name:     "Go file (fallback)",
-			path:     "test.go",
-			source:   "package main",
-			language: "go",
+			name:      "Go file (fallback)",
+			path:      "test.go",
+			source:    "package main",
+			language:  "go",
 			minChunks: 1,
 		},
 		{
-			name:     "Ruby file (fallback)",
-			path:     "test.rb",
-			source:   "class Test\nend",
-			language: "ruby",
+			name:      "Ruby file (fallback)",
+			path:      "test.rb",
+			source:    "class Test\nend",
+			language:  "ruby",
 			minChunks: 1,
 		},
 		{
-			name:     "Unknown file (fallback)",
-			path:     "test.xyz",
-			source:   "some content",
-			language: "unknown",
+			name:      "Unknown file (fallback)",
+			path:      "test.xyz",
+			source:    "some content",
+			language:  "unknown",
 			minChunks: 1,
 		},
 	}

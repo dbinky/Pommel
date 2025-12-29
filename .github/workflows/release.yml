@@ -9,15 +9,28 @@ permissions:
   contents: write
 
 jobs:
-  release:
-    name: Create Release
-    runs-on: ubuntu-latest
+  build:
+    name: Build ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            goos: linux
+            goarch: amd64
+            suffix: linux-amd64
+          - os: macos-latest
+            goos: darwin
+            goarch: arm64
+            suffix: darwin-arm64
+          - os: macos-13
+            goos: darwin
+            goarch: amd64
+            suffix: darwin-amd64
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -32,49 +45,58 @@ jobs:
       - name: Build binaries
         run: |
           VERSION=${{ steps.version.outputs.VERSION }}
+          mkdir -p dist
 
-          # Linux AMD64
-          GOOS=linux GOARCH=amd64 go build -ldflags "-X main.version=$VERSION" -o dist/pm-linux-amd64 ./cmd/pm
-          GOOS=linux GOARCH=amd64 go build -ldflags "-X main.version=$VERSION" -o dist/pommeld-linux-amd64 ./cmd/pommeld
+          go build -ldflags "-X main.version=$VERSION" -o dist/pm-${{ matrix.suffix }} ./cmd/pm
+          go build -ldflags "-X main.version=$VERSION" -o dist/pommeld-${{ matrix.suffix }} ./cmd/pommeld
 
-          # Linux ARM64
-          GOOS=linux GOARCH=arm64 go build -ldflags "-X main.version=$VERSION" -o dist/pm-linux-arm64 ./cmd/pm
-          GOOS=linux GOARCH=arm64 go build -ldflags "-X main.version=$VERSION" -o dist/pommeld-linux-arm64 ./cmd/pommeld
-
-          # macOS AMD64
-          GOOS=darwin GOARCH=amd64 go build -ldflags "-X main.version=$VERSION" -o dist/pm-darwin-amd64 ./cmd/pm
-          GOOS=darwin GOARCH=amd64 go build -ldflags "-X main.version=$VERSION" -o dist/pommeld-darwin-amd64 ./cmd/pommeld
-
-          # macOS ARM64 (Apple Silicon)
-          GOOS=darwin GOARCH=arm64 go build -ldflags "-X main.version=$VERSION" -o dist/pm-darwin-arm64 ./cmd/pm
-          GOOS=darwin GOARCH=arm64 go build -ldflags "-X main.version=$VERSION" -o dist/pommeld-darwin-arm64 ./cmd/pommeld
-
-      - name: Create archives
+      - name: Create archive
         run: |
           cd dist
           VERSION=${{ steps.version.outputs.VERSION }}
+          tar -czvf pommel-${VERSION}-${{ matrix.suffix }}.tar.gz pm-${{ matrix.suffix }} pommeld-${{ matrix.suffix }}
 
-          # Create tarballs
-          tar -czvf pommel-${VERSION}-linux-amd64.tar.gz pm-linux-amd64 pommeld-linux-amd64
-          tar -czvf pommel-${VERSION}-linux-arm64.tar.gz pm-linux-arm64 pommeld-linux-arm64
-          tar -czvf pommel-${VERSION}-darwin-amd64.tar.gz pm-darwin-amd64 pommeld-darwin-amd64
-          tar -czvf pommel-${VERSION}-darwin-arm64.tar.gz pm-darwin-arm64 pommeld-darwin-arm64
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pommel-${{ matrix.suffix }}
+          path: dist/*.tar.gz
 
-          # Generate checksums
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Generate checksums
+        run: |
+          cd dist
           sha256sum *.tar.gz > checksums.txt
+          cat checksums.txt
 
       - name: Generate release notes
         id: notes
         run: |
           VERSION=${{ steps.version.outputs.VERSION }}
-
-          # Get the tag message as release notes
           TAG_MESSAGE=$(git tag -l --format='%(contents)' $VERSION)
-
           if [ -z "$TAG_MESSAGE" ]; then
             TAG_MESSAGE="Release $VERSION"
           fi
-
           echo "NOTES<<EOF" >> $GITHUB_OUTPUT
           echo "$TAG_MESSAGE" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT

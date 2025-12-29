@@ -414,10 +414,10 @@ func TestDetectLanguage_Unknown(t *testing.T) {
 		{"file.md", LangUnknown},
 		{"file.json", LangUnknown},
 		{"file.yaml", LangUnknown},
-		{"file", LangUnknown},          // No extension
-		{".gitignore", LangUnknown},    // Hidden file
-		{"Makefile", LangUnknown},      // No extension
-		{"Dockerfile", LangUnknown},    // No extension
+		{"file", LangUnknown},       // No extension
+		{".gitignore", LangUnknown}, // Hidden file
+		{"Makefile", LangUnknown},   // No extension
+		{"Dockerfile", LangUnknown}, // No extension
 	}
 
 	for _, tt := range tests {
@@ -434,10 +434,10 @@ func TestDetectLanguage_CaseSensitivity(t *testing.T) {
 		filename string
 		expected Language
 	}{
-		{"file.CS", LangUnknown},   // Uppercase should not match
-		{"file.PY", LangUnknown},   // Uppercase should not match
-		{"file.JS", LangUnknown},   // Uppercase should not match
-		{"file.Ts", LangUnknown},   // Mixed case should not match
+		{"file.CS", LangUnknown}, // Uppercase should not match
+		{"file.PY", LangUnknown}, // Uppercase should not match
+		{"file.JS", LangUnknown}, // Uppercase should not match
+		{"file.Ts", LangUnknown}, // Mixed case should not match
 	}
 
 	for _, tt := range tests {

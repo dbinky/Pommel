@@ -4,8 +4,8 @@ import (
 	"context"
 	"strings"
 
-	sitter "github.com/smacker/go-tree-sitter"
 	"github.com/pommel-dev/pommel/internal/models"
+	sitter "github.com/smacker/go-tree-sitter"
 )
 
 // PythonChunker extracts chunks from Python source files
