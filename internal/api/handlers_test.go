@@ -98,9 +98,10 @@ func (m *mockSearcher) Search(ctx context.Context, req SearchRequest) (*SearchRe
 		return m.searchFunc(ctx, req)
 	}
 	return &SearchResponse{
-		Results: []SearchResult{},
-		Query:   req.Query,
-		Limit:   req.Limit,
+		Query:        req.Query,
+		Results:      []SearchResult{},
+		TotalResults: 0,
+		SearchTimeMs: 0,
 	}, nil
 }
 
@@ -337,9 +338,10 @@ func TestSearchEndpointWithLimitAppliesLimit(t *testing.T) {
 		searchFunc: func(ctx context.Context, req SearchRequest) (*SearchResponse, error) {
 			receivedLimit = req.Limit
 			return &SearchResponse{
-				Results: []SearchResult{},
-				Query:   req.Query,
-				Limit:   req.Limit,
+				Query:        req.Query,
+				Results:      []SearchResult{},
+				TotalResults: 0,
+				SearchTimeMs: 1,
 			}, nil
 		},
 	}
@@ -366,6 +368,406 @@ func TestSearchEndpointWithLimitAppliesLimit(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.Equal(t, 5, receivedLimit, "expected limit to be passed to searcher")
+}
+
+// TestSearchHandler_Success verifies that a valid search request returns results
+// TDD: This test should FAIL until search handler properly returns results with new format
+func TestSearchHandler_Success(t *testing.T) {
+	expectedResults := []SearchResult{
+		{
+			ID:        "chunk-abc123",
+			File:      "/project/internal/auth/handler.go",
+			StartLine: 45,
+			EndLine:   67,
+			Level:     "method",
+			Language:  "go",
+			Name:      "HandleLogin",
+			Score:     0.95,
+			Content:   "func HandleLogin(w http.ResponseWriter, r *http.Request) {\n\t// authentication logic\n}",
+			Parent: &ParentInfo{
+				ID:    "class-auth-handler",
+				Name:  "AuthHandler",
+				Level: "class",
+			},
+		},
+		{
+			ID:        "chunk-def456",
+			File:      "/project/internal/auth/middleware.go",
+			StartLine: 12,
+			EndLine:   28,
+			Level:     "method",
+			Language:  "go",
+			Name:      "AuthMiddleware",
+			Score:     0.87,
+			Content:   "func AuthMiddleware(next http.Handler) http.Handler {\n\t// middleware logic\n}",
+			Parent:    nil,
+		},
+	}
+
+	searcher := &mockSearcher{
+		searchFunc: func(ctx context.Context, req SearchRequest) (*SearchResponse, error) {
+			return &SearchResponse{
+				Query:        req.Query,
+				Results:      expectedResults,
+				TotalResults: 2,
+				SearchTimeMs: 15,
+			}, nil
+		},
+	}
+
+	tmpDir := t.TempDir()
+	cfg := testConfig()
+	database := setupTestDB(t, tmpDir)
+	defer database.Close()
+	indexer := setupTestIndexer(t, tmpDir, cfg, database)
+	handler := NewHandler(indexer, cfg, searcher)
+
+	searchReq := SearchRequest{
+		Query: "authentication handler",
+		Limit: 10,
+	}
+	body, err := json.Marshal(searchReq)
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodPost, "/search", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+
+	handler.Search(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code, "expected 200 OK status")
+
+	var response SearchResponse
+	err = json.Unmarshal(rr.Body.Bytes(), &response)
+	require.NoError(t, err, "failed to unmarshal response")
+
+	// Verify response structure matches new SearchResponse format
+	assert.Equal(t, "authentication handler", response.Query, "expected query to be echoed back")
+	assert.Equal(t, 2, response.TotalResults, "expected total_results to be 2")
+	assert.GreaterOrEqual(t, response.SearchTimeMs, int64(0), "expected search_time_ms to be non-negative")
+	assert.Len(t, response.Results, 2, "expected 2 results")
+
+	// Verify first result structure
+	result1 := response.Results[0]
+	assert.Equal(t, "chunk-abc123", result1.ID, "expected result ID")
+	assert.Equal(t, "/project/internal/auth/handler.go", result1.File, "expected result file")
+	assert.Equal(t, 45, result1.StartLine, "expected start_line")
+	assert.Equal(t, 67, result1.EndLine, "expected end_line")
+	assert.Equal(t, "method", result1.Level, "expected level")
+	assert.Equal(t, "go", result1.Language, "expected language")
+	assert.Equal(t, "HandleLogin", result1.Name, "expected name")
+	assert.InDelta(t, 0.95, result1.Score, 0.001, "expected score")
+	assert.NotEmpty(t, result1.Content, "expected content")
+
+	// Verify parent info
+	assert.NotNil(t, result1.Parent, "expected parent info")
+	assert.Equal(t, "class-auth-handler", result1.Parent.ID, "expected parent ID")
+	assert.Equal(t, "AuthHandler", result1.Parent.Name, "expected parent name")
+	assert.Equal(t, "class", result1.Parent.Level, "expected parent level")
+
+	// Verify second result has nil parent
+	result2 := response.Results[1]
+	assert.Nil(t, result2.Parent, "expected second result to have no parent")
+}
+
+// TestSearchHandler_EmptyQuery verifies that an empty query returns 400 error
+// TDD: This test should PASS as handler already validates empty query
+func TestSearchHandler_EmptyQuery(t *testing.T) {
+	handler, cleanup := newTestHandler(t)
+	defer cleanup()
+
+	// Test with empty string query
+	searchReq := SearchRequest{
+		Query: "",
+		Limit: 10,
+	}
+	body, err := json.Marshal(searchReq)
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodPost, "/search", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+
+	handler.Search(rr, req)
+
+	assert.Equal(t, http.StatusBadRequest, rr.Code, "expected 400 Bad Request for empty query")
+
+	var response ErrorResponse
+	err = json.Unmarshal(rr.Body.Bytes(), &response)
+	require.NoError(t, err, "failed to unmarshal error response")
+
+	assert.Contains(t, response.Error, "query", "expected error to mention 'query'")
+}
+
+// TestSearchHandler_EmptyQueryWhitespaceOnly verifies whitespace-only query returns 400
+// TDD: This test may FAIL if handler doesn't trim whitespace
+func TestSearchHandler_EmptyQueryWhitespaceOnly(t *testing.T) {
+	handler, cleanup := newTestHandler(t)
+	defer cleanup()
+
+	// Test with whitespace-only query
+	searchReq := SearchRequest{
+		Query: "   \t\n  ",
+		Limit: 10,
+	}
+	body, err := json.Marshal(searchReq)
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodPost, "/search", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+
+	handler.Search(rr, req)
+
+	// Whitespace-only query should be treated as empty
+	assert.Equal(t, http.StatusBadRequest, rr.Code, "expected 400 Bad Request for whitespace-only query")
+
+	var response ErrorResponse
+	err = json.Unmarshal(rr.Body.Bytes(), &response)
+	require.NoError(t, err, "failed to unmarshal error response")
+
+	assert.Contains(t, response.Error, "query", "expected error to mention 'query'")
+}
+
+// TestSearchHandler_WithFilters verifies that level and path filters work correctly
+// TDD: This test verifies filters are passed through to searcher
+func TestSearchHandler_WithFilters(t *testing.T) {
+	var receivedReq SearchRequest
+	searcher := &mockSearcher{
+		searchFunc: func(ctx context.Context, req SearchRequest) (*SearchResponse, error) {
+			receivedReq = req
+			return &SearchResponse{
+				Query:        req.Query,
+				Results:      []SearchResult{},
+				TotalResults: 0,
+				SearchTimeMs: 5,
+			}, nil
+		},
+	}
+
+	tmpDir := t.TempDir()
+	cfg := testConfig()
+	database := setupTestDB(t, tmpDir)
+	defer database.Close()
+	indexer := setupTestIndexer(t, tmpDir, cfg, database)
+	handler := NewHandler(indexer, cfg, searcher)
+
+	searchReq := SearchRequest{
+		Query:      "database connection",
+		Limit:      5,
+		Levels:     []string{"method", "class"},
+		PathPrefix: "internal/db",
+	}
+	body, err := json.Marshal(searchReq)
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodPost, "/search", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+
+	handler.Search(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code, "expected 200 OK status")
+
+	// Verify all filters were passed through
+	assert.Equal(t, "database connection", receivedReq.Query, "expected query to be passed")
+	assert.Equal(t, 5, receivedReq.Limit, "expected limit to be passed")
+	assert.Equal(t, []string{"method", "class"}, receivedReq.Levels, "expected levels to be passed")
+	assert.Equal(t, "internal/db", receivedReq.PathPrefix, "expected path_prefix to be passed")
+}
+
+// TestSearchHandler_WithFilters_SingleLevel verifies single level filter works
+func TestSearchHandler_WithFilters_SingleLevel(t *testing.T) {
+	var receivedReq SearchRequest
+	searcher := &mockSearcher{
+		searchFunc: func(ctx context.Context, req SearchRequest) (*SearchResponse, error) {
+			receivedReq = req
+			return &SearchResponse{
+				Query:        req.Query,
+				Results:      []SearchResult{},
+				TotalResults: 0,
+				SearchTimeMs: 2,
+			}, nil
+		},
+	}
+
+	tmpDir := t.TempDir()
+	cfg := testConfig()
+	database := setupTestDB(t, tmpDir)
+	defer database.Close()
+	indexer := setupTestIndexer(t, tmpDir, cfg, database)
+	handler := NewHandler(indexer, cfg, searcher)
+
+	searchReq := SearchRequest{
+		Query:  "file operations",
+		Limit:  10,
+		Levels: []string{"file"},
+	}
+	body, err := json.Marshal(searchReq)
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodPost, "/search", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+
+	handler.Search(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Equal(t, []string{"file"}, receivedReq.Levels, "expected single level filter")
+}
+
+// TestSearchHandler_WithFilters_DeepPathPrefix verifies deep path prefix filter works
+func TestSearchHandler_WithFilters_DeepPathPrefix(t *testing.T) {
+	var receivedReq SearchRequest
+	searcher := &mockSearcher{
+		searchFunc: func(ctx context.Context, req SearchRequest) (*SearchResponse, error) {
+			receivedReq = req
+			return &SearchResponse{
+				Query:        req.Query,
+				Results:      []SearchResult{},
+				TotalResults: 0,
+				SearchTimeMs: 3,
+			}, nil
+		},
+	}
+
+	tmpDir := t.TempDir()
+	cfg := testConfig()
+	database := setupTestDB(t, tmpDir)
+	defer database.Close()
+	indexer := setupTestIndexer(t, tmpDir, cfg, database)
+	handler := NewHandler(indexer, cfg, searcher)
+
+	searchReq := SearchRequest{
+		Query:      "nested component",
+		Limit:      20,
+		PathPrefix: "internal/api/handlers/auth/oauth",
+	}
+	body, err := json.Marshal(searchReq)
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodPost, "/search", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+
+	handler.Search(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Equal(t, "internal/api/handlers/auth/oauth", receivedReq.PathPrefix, "expected deep path prefix")
+}
+
+// TestSearchHandler_InvalidJSON verifies that malformed JSON returns 400 error
+// TDD: This test should PASS as handler already validates JSON
+func TestSearchHandler_InvalidJSON(t *testing.T) {
+	handler, cleanup := newTestHandler(t)
+	defer cleanup()
+
+	testCases := []struct {
+		name     string
+		body     string
+		wantCode int
+	}{
+		{
+			name:     "malformed JSON - missing closing brace",
+			body:     `{"query": "test"`,
+			wantCode: http.StatusBadRequest,
+		},
+		{
+			name:     "malformed JSON - invalid syntax",
+			body:     `{query: test}`,
+			wantCode: http.StatusBadRequest,
+		},
+		{
+			name:     "malformed JSON - trailing comma",
+			body:     `{"query": "test",}`,
+			wantCode: http.StatusBadRequest,
+		},
+		{
+			name:     "malformed JSON - unquoted string value",
+			body:     `{"query": test}`,
+			wantCode: http.StatusBadRequest,
+		},
+		{
+			name:     "malformed JSON - random text",
+			body:     `this is not json at all`,
+			wantCode: http.StatusBadRequest,
+		},
+		{
+			name:     "empty body",
+			body:     ``,
+			wantCode: http.StatusBadRequest,
+		},
+		{
+			name:     "null body",
+			body:     `null`,
+			wantCode: http.StatusBadRequest,
+		},
+		{
+			name:     "array instead of object",
+			body:     `["query", "test"]`,
+			wantCode: http.StatusBadRequest,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, "/search", bytes.NewBufferString(tc.body))
+			req.Header.Set("Content-Type", "application/json")
+			rr := httptest.NewRecorder()
+
+			handler.Search(rr, req)
+
+			assert.Equal(t, tc.wantCode, rr.Code, "expected 400 Bad Request for %s", tc.name)
+
+			var response ErrorResponse
+			err := json.Unmarshal(rr.Body.Bytes(), &response)
+			require.NoError(t, err, "failed to unmarshal error response for %s", tc.name)
+
+			assert.NotEmpty(t, response.Error, "expected error message for %s", tc.name)
+		})
+	}
+}
+
+// TestSearchHandler_InvalidJSON_WrongTypes verifies type mismatches return 400
+func TestSearchHandler_InvalidJSON_WrongTypes(t *testing.T) {
+	handler, cleanup := newTestHandler(t)
+	defer cleanup()
+
+	testCases := []struct {
+		name string
+		body string
+	}{
+		{
+			name: "limit as string",
+			body: `{"query": "test", "limit": "ten"}`,
+		},
+		{
+			name: "levels as string instead of array",
+			body: `{"query": "test", "levels": "method"}`,
+		},
+		{
+			name: "query as number",
+			body: `{"query": 12345}`,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, "/search", bytes.NewBufferString(tc.body))
+			req.Header.Set("Content-Type", "application/json")
+			rr := httptest.NewRecorder()
+
+			handler.Search(rr, req)
+
+			assert.Equal(t, http.StatusBadRequest, rr.Code, "expected 400 Bad Request for %s", tc.name)
+
+			var response ErrorResponse
+			err := json.Unmarshal(rr.Body.Bytes(), &response)
+			require.NoError(t, err, "failed to unmarshal error response for %s", tc.name)
+
+			assert.NotEmpty(t, response.Error, "expected error message for %s", tc.name)
+		})
+	}
 }
 
 // TestSearchEndpointWithEmptyBodyReturns400 verifies that POST /search with empty body returns 400
@@ -425,9 +827,10 @@ func TestSearchEndpointWithLevelsFilter(t *testing.T) {
 		searchFunc: func(ctx context.Context, req SearchRequest) (*SearchResponse, error) {
 			receivedLevels = req.Levels
 			return &SearchResponse{
-				Results: []SearchResult{},
-				Query:   req.Query,
-				Limit:   req.Limit,
+				Query:        req.Query,
+				Results:      []SearchResult{},
+				TotalResults: 0,
+				SearchTimeMs: 1,
 			}, nil
 		},
 	}
@@ -464,9 +867,10 @@ func TestSearchEndpointWithPathPrefix(t *testing.T) {
 		searchFunc: func(ctx context.Context, req SearchRequest) (*SearchResponse, error) {
 			receivedPathPrefix = req.PathPrefix
 			return &SearchResponse{
-				Results: []SearchResult{},
-				Query:   req.Query,
-				Limit:   req.Limit,
+				Query:        req.Query,
+				Results:      []SearchResult{},
+				TotalResults: 0,
+				SearchTimeMs: 1,
 			}, nil
 		},
 	}
@@ -501,24 +905,33 @@ func TestSearchEndpointReturnsResults(t *testing.T) {
 	searcher := &mockSearcher{
 		searchFunc: func(ctx context.Context, req SearchRequest) (*SearchResponse, error) {
 			return &SearchResponse{
+				Query: req.Query,
 				Results: []SearchResult{
 					{
-						ChunkID:  "chunk-1",
-						FilePath: "/project/main.go",
-						Content:  "func main() {}",
-						Level:    "method",
-						Score:    0.95,
+						ID:        "chunk-1",
+						File:      "/project/main.go",
+						StartLine: 1,
+						EndLine:   3,
+						Level:     "method",
+						Language:  "go",
+						Name:      "main",
+						Score:     0.95,
+						Content:   "func main() {}",
 					},
 					{
-						ChunkID:  "chunk-2",
-						FilePath: "/project/utils.go",
-						Content:  "func helper() {}",
-						Level:    "method",
-						Score:    0.85,
+						ID:        "chunk-2",
+						File:      "/project/utils.go",
+						StartLine: 10,
+						EndLine:   15,
+						Level:     "method",
+						Language:  "go",
+						Name:      "helper",
+						Score:     0.85,
+						Content:   "func helper() {}",
 					},
 				},
-				Query: req.Query,
-				Limit: req.Limit,
+				TotalResults: 2,
+				SearchTimeMs: 10,
 			}, nil
 		},
 	}
@@ -551,7 +964,8 @@ func TestSearchEndpointReturnsResults(t *testing.T) {
 
 	assert.Len(t, response.Results, 2, "expected 2 results")
 	assert.Equal(t, "find functions", response.Query)
-	assert.Equal(t, 10, response.Limit)
+	assert.Equal(t, 2, response.TotalResults, "expected total_results to be 2")
+	assert.GreaterOrEqual(t, response.SearchTimeMs, int64(0), "expected search_time_ms to be non-negative")
 }
 
 // =============================================================================

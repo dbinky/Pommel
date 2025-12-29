@@ -109,9 +109,10 @@ type mockRouterSearcher struct{}
 
 func (m *mockRouterSearcher) Search(ctx context.Context, req SearchRequest) (*SearchResponse, error) {
 	return &SearchResponse{
-		Results: []SearchResult{},
-		Query:   req.Query,
-		Limit:   req.Limit,
+		Query:        req.Query,
+		Results:      []SearchResult{},
+		TotalResults: 0,
+		SearchTimeMs: 1,
 	}, nil
 }
 
@@ -453,7 +454,7 @@ func TestRouterFullSearchFlow(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "find functions", response.Query)
-	assert.Equal(t, 10, response.Limit)
+	assert.Equal(t, 0, response.TotalResults)
 }
 
 // TestRouterFullReindexFlow verifies the complete reindex flow through router

@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/pommel-dev/pommel/internal/config"
 	"github.com/pommel-dev/pommel/internal/daemon"
+	"github.com/pommel-dev/pommel/internal/search"
 )
 
 // Handler handles HTTP requests for the Pommel API
@@ -72,31 +74,8 @@ type DependenciesStatus struct {
 	Embedder  bool `json:"embedder"`
 }
 
-// SearchRequest represents a search query request
-type SearchRequest struct {
-	Query      string   `json:"query"`
-	Limit      int      `json:"limit,omitempty"`
-	Levels     []string `json:"levels,omitempty"`
-	PathPrefix string   `json:"path_prefix,omitempty"`
-}
-
-// SearchResponse represents the search results response
-type SearchResponse struct {
-	Results []SearchResult `json:"results"`
-	Query   string         `json:"query"`
-	Limit   int            `json:"limit"`
-}
-
-// SearchResult represents a single search result
-type SearchResult struct {
-	ChunkID   string  `json:"chunk_id"`
-	FilePath  string  `json:"file_path"`
-	Content   string  `json:"content"`
-	Level     string  `json:"level"`
-	Score     float64 `json:"score"`
-	StartLine int     `json:"start_line,omitempty"`
-	EndLine   int     `json:"end_line,omitempty"`
-}
+// NOTE: SearchRequest, SearchResponse, SearchResult, and ParentInfo types
+// are defined in types.go
 
 // ReindexResponse represents the reindex endpoint response
 type ReindexResponse struct {
@@ -161,6 +140,9 @@ func (h *Handler) Search(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Trim whitespace from query before validation
+	req.Query = strings.TrimSpace(req.Query)
+
 	if req.Query == "" {
 		writeJSON(w, http.StatusBadRequest, ErrorResponse{
 			Error: "query is required",
@@ -211,4 +193,69 @@ func writeJSON(w http.ResponseWriter, statusCode int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
 	json.NewEncoder(w).Encode(data)
+}
+
+// =============================================================================
+// Search Service Adapter
+// =============================================================================
+
+// SearchServiceAdapter adapts search.Service to implement the Searcher interface.
+type SearchServiceAdapter struct {
+	service *search.Service
+}
+
+// NewSearchServiceAdapter creates a new adapter for the given search service.
+func NewSearchServiceAdapter(service *search.Service) *SearchServiceAdapter {
+	return &SearchServiceAdapter{service: service}
+}
+
+// Search implements the Searcher interface by delegating to the search service.
+func (a *SearchServiceAdapter) Search(ctx context.Context, req SearchRequest) (*SearchResponse, error) {
+	// Convert SearchRequest to search.Query
+	query := search.Query{
+		Text:       req.Query,
+		Limit:      req.Limit,
+		Levels:     req.Levels,
+		PathPrefix: req.PathPrefix,
+	}
+
+	// Call search service
+	resp, err := a.service.Search(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert search.Response to SearchResponse
+	results := make([]SearchResult, 0, len(resp.Results))
+	for _, r := range resp.Results {
+		result := SearchResult{
+			ID:        r.Chunk.ID,
+			File:      r.Chunk.FilePath,
+			StartLine: r.Chunk.StartLine,
+			EndLine:   r.Chunk.EndLine,
+			Level:     string(r.Chunk.Level),
+			Language:  r.Chunk.Language,
+			Name:      r.Chunk.Name,
+			Score:     r.Score,
+			Content:   r.Chunk.Content,
+		}
+
+		// Convert parent info if present
+		if r.Parent != nil {
+			result.Parent = &ParentInfo{
+				ID:    r.Parent.ID,
+				Name:  r.Parent.Name,
+				Level: r.Parent.Level,
+			}
+		}
+
+		results = append(results, result)
+	}
+
+	return &SearchResponse{
+		Query:        resp.Query,
+		Results:      results,
+		TotalResults: resp.TotalResults,
+		SearchTimeMs: resp.SearchTimeMs,
+	}, nil
 }

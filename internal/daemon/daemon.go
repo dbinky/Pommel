@@ -14,6 +14,7 @@ import (
 	"github.com/pommel-dev/pommel/internal/config"
 	"github.com/pommel-dev/pommel/internal/db"
 	"github.com/pommel-dev/pommel/internal/embedder"
+	"github.com/pommel-dev/pommel/internal/search"
 )
 
 // SearchRequest represents a search query request
@@ -45,15 +46,16 @@ type SearchResult struct {
 // Daemon orchestrates the Pommel daemon, coordinating file watching,
 // indexing, and API services.
 type Daemon struct {
-	projectRoot string
-	config      *config.Config
-	logger      *slog.Logger
-	db          *db.DB
-	embedder    embedder.Embedder
-	indexer     *Indexer
-	watcher     *Watcher
-	server      *http.Server
-	state       *StateManager
+	projectRoot   string
+	config        *config.Config
+	logger        *slog.Logger
+	db            *db.DB
+	embedder      embedder.Embedder
+	indexer       *Indexer
+	watcher       *Watcher
+	server        *http.Server
+	state         *StateManager
+	searchService *search.Service
 }
 
 // New creates a new Daemon instance with all components initialized.
@@ -117,15 +119,19 @@ func New(projectRoot string, cfg *config.Config, logger *slog.Logger) (*Daemon, 
 	// Create state manager
 	state := NewStateManager(projectRoot)
 
+	// Create search service
+	searchSvc := search.NewService(database, cachedEmb)
+
 	return &Daemon{
-		projectRoot: projectRoot,
-		config:      cfg,
-		logger:      logger,
-		db:          database,
-		embedder:    cachedEmb,
-		indexer:     indexer,
-		watcher:     watcher,
-		state:       state,
+		projectRoot:   projectRoot,
+		config:        cfg,
+		logger:        logger,
+		db:            database,
+		embedder:      cachedEmb,
+		indexer:       indexer,
+		watcher:       watcher,
+		state:         state,
+		searchService: searchSvc,
 	}, nil
 }
 
@@ -465,4 +471,10 @@ func (d *Daemon) Search(ctx context.Context, req SearchRequest) (*SearchResponse
 		Query:   req.Query,
 		Limit:   limit,
 	}, nil
+}
+
+// SearchService returns the daemon's search service.
+// This is used to create adapters for the api.Searcher interface.
+func (d *Daemon) SearchService() *search.Service {
+	return d.searchService
 }
