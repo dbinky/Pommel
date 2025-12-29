@@ -551,12 +551,13 @@ pm reindex --rescan-subprojects
 | **Phase 12: Runtime Detection** | Watch for marker file creation/deletion, dynamic sub-project registration | Small |
 | **Phase 13: Init Changes** | Monorepo detection prompt, `--monorepo`/`--no-monorepo` flags, multi-CLAUDE.md updates | Medium |
 | **Phase 14: Search Scoping** | Auto-detect cwd scope, `--all`/`--path`/`--subproject` flags, updated JSON output | Medium |
+| **Phase 15: Feature Audit & Completion** | Audit all documented CLI commands/flags against implementation, implement any gaps, ensure docs match reality | Medium |
 
 ### Implementation Order
 
-8 → 9 → 10 → 11 → 12 → 13 → 14
+8 → 9 → 10 → 11 → 12 → 13 → 14 → 15
 
-**Rationale:** Infrastructure first (ports, schema, detection, scanning), then user-facing changes (init, search). Search scoping comes last since it depends on everything else.
+**Rationale:** Infrastructure first (ports, schema, detection, scanning), then user-facing changes (init, search). Search scoping comes last since it depends on everything else. Feature audit runs final to catch any gaps between documentation and implementation.
 
 ---
 
@@ -585,6 +586,11 @@ Pommel v0.2 will be considered successful when:
    - Creating a new `go.mod` triggers sub-project registration within seconds
    - New sub-project files are indexed automatically
 
+6. **Feature Completeness**
+   - All CLI commands and flags documented in design docs are implemented
+   - All JSON output formats match documentation
+   - README, CLAUDE.md, and design docs are consistent with actual behavior
+
 ---
 
 ## Document History
@@ -592,6 +598,7 @@ Pommel v0.2 will be considered successful when:
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 0.2.0-draft | 2025-12-29 | Ryan + Claude | Initial multi-repo design |
+| 0.2.0-draft | 2025-12-29 | Ryan + Claude | Added Phase 15: Feature Audit & Completion |
 
 ---
 
