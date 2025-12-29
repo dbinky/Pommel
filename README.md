@@ -19,26 +19,22 @@ Pommel maintains a vector database of your code, enabling fast semantic search w
 
 ## Installation
 
+### Quick Install (Recommended)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/dbinky/Pommel/main/scripts/install.sh | bash
+```
+
+This will:
+- Check for Go and Ollama dependencies
+- Build and install `pm` and `pommeld` to `~/.local/bin`
+- Pull the embedding model (~300MB)
+
 ### Prerequisites
 
-**Ollama** - Local LLM runtime for generating embeddings:
+Before installing, ensure you have:
 
-```bash
-# macOS
-brew install ollama
-
-# Linux
-curl -fsSL https://ollama.com/install.sh | sh
-```
-
-**Embedding Model** - Pull the Jina code embeddings model:
-
-```bash
-ollama pull unclemusclez/jina-embeddings-v2-base-code
-```
-
-**Go 1.21+** - Required for building from source:
-
+**1. Go 1.21+**
 ```bash
 # macOS
 brew install go
@@ -47,17 +43,28 @@ brew install go
 sudo apt install golang-go
 ```
 
-### Install Pommel
+**2. Ollama** (for local embeddings)
+```bash
+# macOS
+brew install ollama
+
+# Linux
+curl -fsSL https://ollama.com/install.sh | sh
+```
+
+### Manual Install
 
 ```bash
-# From source
-go install github.com/pommel-dev/pommel/cmd/pm@latest
-go install github.com/pommel-dev/pommel/cmd/pommeld@latest
-
-# Or build locally
-git clone https://github.com/pommel-dev/pommel.git
-cd pommel
+# Clone and build
+git clone https://github.com/dbinky/Pommel.git
+cd Pommel
 make build
+
+# Install to PATH
+cp bin/pm bin/pommeld ~/.local/bin/
+
+# Pull embedding model
+ollama pull unclemusclez/jina-embeddings-v2-base-code
 ```
 
 ## Quick Start
