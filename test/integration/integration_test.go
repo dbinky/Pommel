@@ -478,7 +478,7 @@ func TestIntegration_FullFlow(t *testing.T) {
 	// Create config with Ollama embedder
 	port := getFreePort(t)
 	cfg := config.Default()
-	cfg.Daemon.Port = port
+	cfg.Daemon.Port = &port
 	cfg.Daemon.Host = "127.0.0.1"
 	cfg.Watcher.DebounceMs = 100 // Fast debounce for tests
 	cfg.IncludePatterns = []string{"**/*.py", "**/*.js", "**/*.go"}
@@ -588,7 +588,7 @@ func TestIntegration_SearchReturnsRelevantResults(t *testing.T) {
 
 	port := getFreePort(t)
 	cfg := config.Default()
-	cfg.Daemon.Port = port
+	cfg.Daemon.Port = &port
 	cfg.Daemon.Host = "127.0.0.1"
 	cfg.Watcher.DebounceMs = 100
 	cfg.IncludePatterns = []string{"**/*.py", "**/*.js", "**/*.go"}
@@ -698,7 +698,7 @@ func TestIntegration_StatusEndpoint(t *testing.T) {
 
 	port := getFreePort(t)
 	cfg := config.Default()
-	cfg.Daemon.Port = port
+	cfg.Daemon.Port = &port
 	cfg.Daemon.Host = "127.0.0.1"
 	cfg.Watcher.DebounceMs = 100
 	cfg.IncludePatterns = []string{"**/*.py", "**/*.js", "**/*.go"}
@@ -776,7 +776,7 @@ func TestIntegration_ReindexEndpoint(t *testing.T) {
 
 	port := getFreePort(t)
 	cfg := config.Default()
-	cfg.Daemon.Port = port
+	cfg.Daemon.Port = &port
 	cfg.Daemon.Host = "127.0.0.1"
 	cfg.Watcher.DebounceMs = 100
 	cfg.IncludePatterns = []string{"**/*.py", "**/*.js", "**/*.go"}
@@ -847,7 +847,7 @@ func TestIntegration_FileWatchingAndReindexing(t *testing.T) {
 
 	port := getFreePort(t)
 	cfg := config.Default()
-	cfg.Daemon.Port = port
+	cfg.Daemon.Port = &port
 	cfg.Daemon.Host = "127.0.0.1"
 	cfg.Watcher.DebounceMs = 100
 	cfg.IncludePatterns = []string{"**/*.py", "**/*.js", "**/*.go"}

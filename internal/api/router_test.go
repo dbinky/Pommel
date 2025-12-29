@@ -63,7 +63,7 @@ func testRouterConfig() *config.Config {
 		},
 		Daemon: config.DaemonConfig{
 			Host:     "127.0.0.1",
-			Port:     7331,
+			Port:     intPtr(7331),
 			LogLevel: "info",
 		},
 		Embedding: config.EmbeddingConfig{

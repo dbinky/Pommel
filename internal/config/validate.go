@@ -113,10 +113,11 @@ func Validate(cfg *Config) ValidationErrors {
 			Message: "must not be empty",
 		})
 	}
-	if cfg.Daemon.Port < 1 || cfg.Daemon.Port > 65535 {
+	// Port is optional (nil = hash-based), but if specified, must be valid
+	if cfg.Daemon.Port != nil && (*cfg.Daemon.Port < 0 || *cfg.Daemon.Port > 65535) {
 		errors = append(errors, ValidationError{
 			Field:   "daemon.port",
-			Message: "must be between 1 and 65535",
+			Message: "must be between 0 and 65535 (0 = system-assigned)",
 		})
 	}
 	if !validLogLevels[cfg.Daemon.LogLevel] {

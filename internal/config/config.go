@@ -26,7 +26,7 @@ type WatcherConfig struct {
 // DaemonConfig contains daemon server settings
 type DaemonConfig struct {
 	Host     string `yaml:"host" json:"host" mapstructure:"host"`
-	Port     int    `yaml:"port" json:"port" mapstructure:"port"`
+	Port     *int   `yaml:"port" json:"port,omitempty" mapstructure:"port"` // nil = use hash-based port
 	LogLevel string `yaml:"log_level" json:"log_level" mapstructure:"log_level"`
 }
 
@@ -49,7 +49,17 @@ func (w WatcherConfig) DebounceDuration() time.Duration {
 	return time.Duration(w.DebounceMs) * time.Millisecond
 }
 
-// Address returns the full host:port address for the daemon
+// Address returns the full host:port address for the daemon.
+// If Port is nil, returns just the host (port will be determined elsewhere).
+// If Port is 0, returns host:0 (system-assigned port).
 func (d DaemonConfig) Address() string {
-	return fmt.Sprintf("%s:%d", d.Host, d.Port)
+	if d.Port == nil {
+		return d.Host
+	}
+	return fmt.Sprintf("%s:%d", d.Host, *d.Port)
+}
+
+// AddressWithPort returns the full host:port address using the provided port.
+func (d DaemonConfig) AddressWithPort(port int) string {
+	return fmt.Sprintf("%s:%d", d.Host, port)
 }

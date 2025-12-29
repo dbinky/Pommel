@@ -45,24 +45,34 @@ func TestWatcherConfig_DebounceDuration(t *testing.T) {
 	}
 }
 
+func intPtr(i int) *int {
+	return &i
+}
+
 func TestDaemonConfig_Address(t *testing.T) {
 	tests := []struct {
 		name     string
 		host     string
-		port     int
+		port     *int
 		expected string
 	}{
 		{
-			name:     "localhost with default port",
+			name:     "localhost with explicit port",
 			host:     "127.0.0.1",
-			port:     7420,
+			port:     intPtr(7420),
 			expected: "127.0.0.1:7420",
 		},
 		{
 			name:     "custom host and port",
 			host:     "0.0.0.0",
-			port:     8080,
+			port:     intPtr(8080),
 			expected: "0.0.0.0:8080",
+		},
+		{
+			name:     "nil port returns host only",
+			host:     "127.0.0.1",
+			port:     nil,
+			expected: "127.0.0.1",
 		},
 	}
 
@@ -106,7 +116,7 @@ func TestDefault(t *testing.T) {
 
 	// Daemon
 	assert.Equal(t, "127.0.0.1", cfg.Daemon.Host)
-	assert.Equal(t, 7420, cfg.Daemon.Port)
+	assert.Nil(t, cfg.Daemon.Port, "default port should be nil (hash-based)")
 	assert.Equal(t, "info", cfg.Daemon.LogLevel)
 
 	// Embedding
@@ -216,7 +226,7 @@ func TestLoader_Load_ValidConfig(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 1, cfg.Version)
 	assert.Equal(t, "127.0.0.1", cfg.Daemon.Host)
-	assert.Equal(t, 7420, cfg.Daemon.Port)
+	assert.Nil(t, cfg.Daemon.Port, "default port should be nil")
 }
 
 func TestLoader_LoadOrDefault_NoConfig(t *testing.T) {
@@ -248,7 +258,8 @@ func TestLoader_Save_CreatesDirectory(t *testing.T) {
 	loader := NewLoader(tmpDir)
 
 	cfg := Default()
-	cfg.Daemon.Port = 9999
+	port := 9999
+	cfg.Daemon.Port = &port
 
 	err := loader.Save(cfg)
 	require.NoError(t, err)
@@ -260,7 +271,8 @@ func TestLoader_Save_CreatesDirectory(t *testing.T) {
 	// Load and verify
 	loaded, err := loader.Load()
 	require.NoError(t, err)
-	assert.Equal(t, 9999, loaded.Daemon.Port)
+	require.NotNil(t, loaded.Daemon.Port)
+	assert.Equal(t, 9999, *loaded.Daemon.Port)
 }
 
 func TestLoader_Save_OverwritesExisting(t *testing.T) {
@@ -269,18 +281,21 @@ func TestLoader_Save_OverwritesExisting(t *testing.T) {
 
 	// Save initial config
 	cfg1 := Default()
-	cfg1.Daemon.Port = 1111
+	port1 := 1111
+	cfg1.Daemon.Port = &port1
 	require.NoError(t, loader.Save(cfg1))
 
 	// Save updated config
 	cfg2 := Default()
-	cfg2.Daemon.Port = 2222
+	port2 := 2222
+	cfg2.Daemon.Port = &port2
 	require.NoError(t, loader.Save(cfg2))
 
 	// Load and verify latest
 	loaded, err := loader.Load()
 	require.NoError(t, err)
-	assert.Equal(t, 2222, loaded.Daemon.Port)
+	require.NotNil(t, loaded.Daemon.Port)
+	assert.Equal(t, 2222, *loaded.Daemon.Port)
 }
 
 func TestLoader_Load_CustomConfig(t *testing.T) {
@@ -327,7 +342,8 @@ search:
 	assert.Equal(t, 1000, cfg.Watcher.DebounceMs)
 	assert.Equal(t, int64(2097152), cfg.Watcher.MaxFileSize)
 	assert.Equal(t, "0.0.0.0", cfg.Daemon.Host)
-	assert.Equal(t, 8080, cfg.Daemon.Port)
+	require.NotNil(t, cfg.Daemon.Port)
+	assert.Equal(t, 8080, *cfg.Daemon.Port)
 	assert.Equal(t, "debug", cfg.Daemon.LogLevel)
 	assert.Equal(t, "custom-model", cfg.Embedding.Model)
 	assert.Equal(t, 64, cfg.Embedding.BatchSize)
@@ -490,9 +506,10 @@ func TestValidate_InvalidDaemon(t *testing.T) {
 		assert.True(t, found)
 	})
 
-	t.Run("port too low", func(t *testing.T) {
+	t.Run("port negative", func(t *testing.T) {
 		cfg := Default()
-		cfg.Daemon.Port = 0
+		negativePort := -1
+		cfg.Daemon.Port = &negativePort
 
 		errors := Validate(cfg)
 		assert.True(t, errors.HasErrors())
@@ -508,7 +525,8 @@ func TestValidate_InvalidDaemon(t *testing.T) {
 
 	t.Run("port too high", func(t *testing.T) {
 		cfg := Default()
-		cfg.Daemon.Port = 70000
+		highPort := 70000
+		cfg.Daemon.Port = &highPort
 
 		errors := Validate(cfg)
 		assert.True(t, errors.HasErrors())
@@ -628,7 +646,8 @@ func TestValidate_MultipleErrors(t *testing.T) {
 	cfg := Default()
 	cfg.Version = 0
 	cfg.ChunkLevels = []string{}
-	cfg.Daemon.Port = 0
+	negativePort := -1
+	cfg.Daemon.Port = &negativePort
 
 	errors := Validate(cfg)
 	assert.True(t, errors.HasErrors())

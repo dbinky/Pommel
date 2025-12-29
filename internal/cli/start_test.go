@@ -140,7 +140,8 @@ func TestStartCmd_LoadsConfig(t *testing.T) {
 	require.NoError(t, err)
 
 	// Modify config
-	cfg.Daemon.Port = 9999
+	port := 9999
+	cfg.Daemon.Port = &port
 	err = loader.Save(cfg)
 	require.NoError(t, err)
 

@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -241,11 +243,12 @@ func (d *Daemon) Run(ctx context.Context) error {
 	mux.HandleFunc("/reindex", d.handleReindex)
 	mux.HandleFunc("/config", d.handleConfig)
 
-	addr := d.config.Daemon.Address()
-	if d.config.Daemon.Port == 0 {
-		// Use a random port for testing
-		addr = fmt.Sprintf("%s:0", d.config.Daemon.Host)
+	// Determine the port to use (config override or hash-based)
+	port, err := DeterminePort(d.projectRoot, d.config)
+	if err != nil {
+		return err
 	}
+	addr := d.config.Daemon.AddressWithPort(port)
 
 	d.server = &http.Server{
 		Addr:    addr,
@@ -291,10 +294,24 @@ func (d *Daemon) Run(ctx context.Context) error {
 // HTTP Handlers
 
 func (d *Daemon) handleHealth(w http.ResponseWriter, r *http.Request) {
+	// Get the actual port the server is listening on
+	port := 0
+	if d.server != nil && d.server.Addr != "" {
+		// Parse port from address
+		parts := strings.Split(d.server.Addr, ":")
+		if len(parts) >= 2 {
+			if p, err := strconv.Atoi(parts[len(parts)-1]); err == nil {
+				port = p
+			}
+		}
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":    "healthy",
-		"timestamp": time.Now(),
+		"status":       "healthy",
+		"project_root": d.projectRoot,
+		"port":         port,
+		"timestamp":    time.Now(),
 	})
 }
 

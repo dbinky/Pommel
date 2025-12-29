@@ -31,7 +31,7 @@ func Default() *Config {
 		},
 		Daemon: DaemonConfig{
 			Host:     "127.0.0.1",
-			Port:     7420,
+			Port:     nil, // nil = use hash-based port calculation
 			LogLevel: "info",
 		},
 		Embedding: EmbeddingConfig{
