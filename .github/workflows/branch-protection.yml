@@ -1,0 +1,30 @@
+name: Branch Protection
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  check-source-branch:
+    name: Verify PR Source Branch
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check if PR is from dev branch
+        run: |
+          SOURCE_BRANCH="${{ github.head_ref }}"
+          echo "PR source branch: $SOURCE_BRANCH"
+
+          if [ "$SOURCE_BRANCH" != "dev" ]; then
+            echo "::error::PRs to main must come from the dev branch."
+            echo ""
+            echo "To merge to main:"
+            echo "  1. First merge your changes to dev"
+            echo "  2. Then create a PR from dev to main"
+            echo ""
+            echo "Current source branch: $SOURCE_BRANCH"
+            echo "Required source branch: dev"
+            exit 1
+          fi
+
+          echo "Source branch verified: $SOURCE_BRANCH"
