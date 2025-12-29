@@ -10,6 +10,7 @@ import (
 
 	"github.com/pommel-dev/pommel/internal/api"
 	"github.com/pommel-dev/pommel/internal/config"
+	"github.com/pommel-dev/pommel/internal/daemon"
 )
 
 // daemonSearchResult matches the daemon's actual response format
@@ -54,7 +55,19 @@ func NewClientFromProjectRoot(projectRoot string) (*Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
-	return NewClient(cfg), nil
+
+	// Determine the port (handles nil port by calculating hash-based port)
+	port, err := daemon.DeterminePort(projectRoot, cfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to determine daemon port: %w", err)
+	}
+
+	return &Client{
+		baseURL: fmt.Sprintf("http://%s", cfg.Daemon.AddressWithPort(port)),
+		httpClient: &http.Client{
+			Timeout: 30 * time.Second,
+		},
+	}, nil
 }
 
 // Health checks if the daemon is healthy

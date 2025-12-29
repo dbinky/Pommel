@@ -10,12 +10,15 @@ func Default() *Config {
 			"file",
 		},
 		IncludePatterns: []string{
+			"**/*.go",
 			"**/*.cs",
 			"**/*.py",
 			"**/*.js",
 			"**/*.ts",
 			"**/*.jsx",
 			"**/*.tsx",
+			"**/*.java",
+			"**/*.rs",
 		},
 		ExcludePatterns: []string{
 			"**/node_modules/**",
