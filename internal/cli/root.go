@@ -34,6 +34,11 @@ func Execute() error {
 	return rootCmd.Execute()
 }
 
+// RegisterConfigCommand adds the config command to root for CLI usage
+func RegisterConfigCommand() {
+	rootCmd.AddCommand(configCmd)
+}
+
 func init() {
 	rootCmd.PersistentFlags().BoolVar(&jsonOutput, "json", false, "Output in JSON format")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")

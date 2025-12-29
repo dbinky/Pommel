@@ -46,51 +46,13 @@ type HealthResponse struct {
 	Timestamp time.Time `json:"timestamp"`
 }
 
-// StatusResponse represents the status endpoint response
-type StatusResponse struct {
-	Daemon       *DaemonStatus       `json:"daemon"`
-	Index        *IndexStatus        `json:"index"`
-	Dependencies *DependenciesStatus `json:"dependencies"`
-}
-
-// DaemonStatus contains daemon runtime information
-type DaemonStatus struct {
-	Running       bool    `json:"running"`
-	PID           int     `json:"pid"`
-	UptimeSeconds float64 `json:"uptime_seconds"`
-}
-
-// IndexStatus contains index statistics
-type IndexStatus struct {
-	TotalFiles     int64     `json:"total_files"`
-	TotalChunks    int64     `json:"total_chunks"`
-	LastIndexedAt  time.Time `json:"last_indexed_at,omitempty"`
-	IndexingActive bool      `json:"indexing_active"`
-}
-
-// DependenciesStatus contains dependency availability information
-type DependenciesStatus struct {
-	Database  bool `json:"database"`
-	Embedder  bool `json:"embedder"`
-}
-
-// NOTE: SearchRequest, SearchResponse, SearchResult, and ParentInfo types
-// are defined in types.go
-
-// ReindexResponse represents the reindex endpoint response
-type ReindexResponse struct {
-	Status  string `json:"status"`
-	Message string `json:"message"`
-}
+// NOTE: StatusResponse, DaemonStatus, IndexStatus, DependenciesStatus,
+// SearchRequest, SearchResponse, SearchResult, ParentInfo, ReindexResponse,
+// and ErrorResponse types are defined in types.go
 
 // ConfigResponse represents the config endpoint response
 type ConfigResponse struct {
 	Config *config.Config `json:"config"`
-}
-
-// ErrorResponse represents an error response
-type ErrorResponse struct {
-	Error string `json:"error"`
 }
 
 // =============================================================================

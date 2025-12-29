@@ -20,6 +20,9 @@ func main() {
 	cli.BuildCommit = commit
 	cli.BuildDate = date
 
+	// Register subcommands that need special test handling
+	cli.RegisterConfigCommand()
+
 	if err := cli.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)

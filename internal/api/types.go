@@ -1,5 +1,7 @@
 package api
 
+import "time"
+
 // =============================================================================
 // Search API Types
 // =============================================================================
@@ -39,4 +41,60 @@ type ParentInfo struct {
 	ID    string `json:"id"`
 	Name  string `json:"name"`
 	Level string `json:"level"`
+}
+
+// =============================================================================
+// Status API Types
+// =============================================================================
+
+// StatusResponse represents the daemon and index status response
+type StatusResponse struct {
+	Daemon       *DaemonStatus       `json:"daemon"`
+	Index        *IndexStatus        `json:"index"`
+	Dependencies *DependenciesStatus `json:"dependencies"`
+}
+
+// DaemonStatus contains information about the daemon process
+type DaemonStatus struct {
+	Running       bool    `json:"running"`
+	PID           int     `json:"pid"`
+	UptimeSeconds float64 `json:"uptime_seconds"`
+}
+
+// IndexStatus contains information about the code index
+type IndexStatus struct {
+	TotalFiles     int64     `json:"total_files"`
+	TotalChunks    int64     `json:"total_chunks"`
+	LastIndexedAt  time.Time `json:"last_indexed_at,omitempty"`
+	IndexingActive bool      `json:"indexing_active"`
+}
+
+// DependenciesStatus contains information about external dependencies
+type DependenciesStatus struct {
+	Database bool `json:"database"`
+	Embedder bool `json:"embedder"`
+}
+
+// =============================================================================
+// Reindex API Types
+// =============================================================================
+
+// ReindexRequest represents a request to reindex the codebase
+type ReindexRequest struct {
+	Force bool `json:"force"`
+}
+
+// ReindexResponse represents the reindex operation response
+type ReindexResponse struct {
+	Status  string `json:"status"`
+	Message string `json:"message"`
+}
+
+// =============================================================================
+// Error Types
+// =============================================================================
+
+// ErrorResponse represents an error response from the API
+type ErrorResponse struct {
+	Error string `json:"error"`
 }
