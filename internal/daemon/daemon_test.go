@@ -27,8 +27,22 @@ func daemonTestLogger() *slog.Logger {
 func daemonTestConfig() *config.Config {
 	cfg := config.Default()
 	cfg.Watcher.DebounceMs = 10 // Short debounce for tests
-	cfg.Daemon.Port = 0        // Use random available port
+	cfg.Daemon.Port = 0         // Use random available port
 	return cfg
+}
+
+// skipIfNoOllama skips the test if Ollama is not available
+func skipIfNoOllama(t *testing.T) {
+	t.Helper()
+	client := &http.Client{Timeout: 2 * time.Second}
+	resp, err := client.Get("http://localhost:11434/api/tags")
+	if err != nil {
+		t.Skip("Skipping test: Ollama not available")
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Skip("Skipping test: Ollama not responding correctly")
+	}
 }
 
 // Note: SearchRequest, SearchResponse, and SearchResult are now defined in daemon.go
@@ -282,6 +296,7 @@ func TestRun_GracefulShutdownOnSIGTERM(t *testing.T) {
 // =============================================================================
 
 func TestFileCreate_TriggersIndexing(t *testing.T) {
+	skipIfNoOllama(t)
 	// Arrange
 	projectRoot := t.TempDir()
 	cfg := daemonTestConfig()
@@ -598,6 +613,7 @@ func TestAPIServer_HealthEndpointAccessible(t *testing.T) {
 // =============================================================================
 
 func TestDaemon_Search(t *testing.T) {
+	skipIfNoOllama(t)
 	// Arrange
 	projectRoot := t.TempDir()
 	cfg := daemonTestConfig()
@@ -808,6 +824,7 @@ func TestNew_UsesDefaultCacheSize_WhenNegativeProvided(t *testing.T) {
 // =============================================================================
 
 func TestDaemon_Search_WithLevelFilter(t *testing.T) {
+	skipIfNoOllama(t)
 	// Arrange
 	projectRoot := t.TempDir()
 	cfg := daemonTestConfig()
@@ -858,6 +875,7 @@ func main() {}
 }
 
 func TestDaemon_Search_WithPathPrefix(t *testing.T) {
+	skipIfNoOllama(t)
 	// Arrange
 	projectRoot := t.TempDir()
 	cfg := daemonTestConfig()
@@ -917,6 +935,7 @@ func Handler() {}
 }
 
 func TestDaemon_Search_ScoreCalculation(t *testing.T) {
+	skipIfNoOllama(t)
 	// Arrange
 	projectRoot := t.TempDir()
 	cfg := daemonTestConfig()
@@ -966,6 +985,7 @@ func main() {}
 }
 
 func TestDaemon_Search_DefaultLimit(t *testing.T) {
+	skipIfNoOllama(t)
 	// Arrange
 	projectRoot := t.TempDir()
 	cfg := daemonTestConfig()
@@ -1170,6 +1190,7 @@ func TestDaemon_HandleSearch_InvalidJSON(t *testing.T) {
 }
 
 func TestDaemon_HandleSearch_ValidRequest(t *testing.T) {
+	skipIfNoOllama(t)
 	projectRoot := t.TempDir()
 	cfg := daemonTestConfig()
 	cfg.IncludePatterns = []string{"**/*.go"}

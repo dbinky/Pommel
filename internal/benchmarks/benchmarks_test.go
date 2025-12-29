@@ -680,7 +680,7 @@ func BenchmarkEmbedder_BatchCache(b *testing.B) {
 	// Create batch with mix of cached and uncached
 	batchTexts := make([]string, 100)
 	for i := 0; i < 50; i++ {
-		batchTexts[i] = cachedTexts[i]                                              // cached
+		batchTexts[i] = cachedTexts[i]                                                // cached
 		batchTexts[50+i] = fmt.Sprintf("new_function_%d():\n    return %d", i+b.N, i) // uncached
 	}
 

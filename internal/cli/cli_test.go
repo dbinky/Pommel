@@ -399,9 +399,9 @@ func TestRegisterConfigCommand(t *testing.T) {
 
 func TestCLIError_ErrorMethod(t *testing.T) {
 	testCases := []struct {
-		name       string
-		err        *CLIError
-		wantMsg    string
+		name        string
+		err         *CLIError
+		wantMsg     string
 		wantSuggest bool
 	}{
 		{
@@ -410,7 +410,7 @@ func TestCLIError_ErrorMethod(t *testing.T) {
 				Message:    "Something went wrong",
 				Suggestion: "Try again later",
 			},
-			wantMsg:    "Something went wrong",
+			wantMsg:     "Something went wrong",
 			wantSuggest: true,
 		},
 		{
@@ -418,7 +418,7 @@ func TestCLIError_ErrorMethod(t *testing.T) {
 			err: &CLIError{
 				Message: "Error occurred",
 			},
-			wantMsg:    "Error occurred",
+			wantMsg:     "Error occurred",
 			wantSuggest: false,
 		},
 	}
