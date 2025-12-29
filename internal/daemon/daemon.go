@@ -136,8 +136,11 @@ func New(projectRoot string, cfg *config.Config, logger *slog.Logger) (*Daemon, 
 		}
 	}
 
-	// Create embedder (use MockEmbedder for now)
-	baseEmbedder := embedder.NewMockEmbedder()
+	// Create Ollama embedder
+	baseEmbedder := embedder.NewOllamaClient(embedder.OllamaConfig{
+		BaseURL: "http://localhost:11434",
+		Model:   cfg.Embedding.Model,
+	})
 
 	// Create cached embedder
 	cacheSize := cfg.Embedding.CacheSize

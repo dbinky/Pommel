@@ -1,0 +1,27 @@
+# Pommel ignore file
+# Patterns to exclude from indexing (gitignore-style syntax)
+
+# Dependencies
+node_modules/
+vendor/
+.venv/
+
+# Build outputs
+bin/
+obj/
+dist/
+build/
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test coverage
+coverage/
+*.cover

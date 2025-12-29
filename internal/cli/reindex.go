@@ -31,5 +31,20 @@ func init() {
 }
 
 func runReindex(cmd *cobra.Command, args []string) error {
-	return fmt.Errorf("not implemented")
+	client, err := NewClientFromProjectRoot(GetProjectRoot())
+	if err != nil {
+		return fmt.Errorf("failed to create client: %w", err)
+	}
+
+	resp, err := client.Reindex()
+	if err != nil {
+		return err
+	}
+
+	if IsJSONOutput() {
+		return JSON(resp)
+	}
+
+	Success("%s: %s", resp.Status, resp.Message)
+	return nil
 }
