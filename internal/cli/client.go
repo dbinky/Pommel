@@ -196,3 +196,22 @@ func (c *Client) Config() (*config.Config, error) {
 	}
 	return configResp.Config, nil
 }
+
+// get performs a GET request and decodes the JSON response
+func (c *Client) get(path string, result interface{}) error {
+	resp, err := c.httpClient.Get(c.baseURL + path)
+	if err != nil {
+		return fmt.Errorf("daemon not reachable: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("request failed: %s", string(body))
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(result); err != nil {
+		return fmt.Errorf("failed to decode response: %w", err)
+	}
+	return nil
+}

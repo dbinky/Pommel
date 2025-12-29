@@ -108,6 +108,25 @@ type ReindexResponse struct {
 }
 
 // =============================================================================
+// Subprojects API Types
+// =============================================================================
+
+// SubprojectsResponse represents the list of sub-projects
+type SubprojectsResponse struct {
+	Subprojects []SubprojectInfo `json:"subprojects"`
+	Total       int              `json:"total"`
+}
+
+// SubprojectInfo contains information about a sub-project
+type SubprojectInfo struct {
+	ID         string `json:"id"`
+	Path       string `json:"path"`
+	Name       string `json:"name,omitempty"`
+	MarkerFile string `json:"marker_file"`
+	Language   string `json:"language,omitempty"`
+}
+
+// =============================================================================
 // Error Types
 // =============================================================================
 
