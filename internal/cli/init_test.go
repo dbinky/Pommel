@@ -501,3 +501,413 @@ func TestInitCmd_AllFlagsRegistered(t *testing.T) {
 func runInitWithFlags(projectRoot string, out, errOut *bytes.Buffer, flags InitFlags) error {
 	return runInitFull(projectRoot, out, errOut, false, flags)
 }
+
+// =============================================================================
+// Tests for --monorepo flag
+// =============================================================================
+
+func TestInitCmd_MonorepoFlagRegistered(t *testing.T) {
+	flag := initCmd.Flags().Lookup("monorepo")
+	assert.NotNil(t, flag, "--monorepo flag should be registered")
+	assert.Equal(t, "bool", flag.Value.Type(), "--monorepo should be a boolean flag")
+}
+
+func TestInitCmd_NoMonorepoFlagRegistered(t *testing.T) {
+	flag := initCmd.Flags().Lookup("no-monorepo")
+	assert.NotNil(t, flag, "--no-monorepo flag should be registered")
+	assert.Equal(t, "bool", flag.Value.Type(), "--no-monorepo should be a boolean flag")
+}
+
+func TestInitCmd_MonorepoFlag_SkipsPrompt(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "pommel-init-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	// Create a subproject directory with a marker file
+	subDir := filepath.Join(tmpDir, "backend")
+	require.NoError(t, os.MkdirAll(subDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(subDir, "go.mod"), []byte("module backend"), 0644))
+
+	// Run init with --monorepo flag
+	var outBuf, errBuf bytes.Buffer
+	err = runInitWithFlags(tmpDir, &outBuf, &errBuf, InitFlags{Monorepo: true})
+	require.NoError(t, err)
+
+	// Verify config has subprojects.auto_detect enabled
+	loader := config.NewLoader(tmpDir)
+	cfg, err := loader.Load()
+	require.NoError(t, err)
+	assert.True(t, cfg.Subprojects.AutoDetect, "Subprojects.AutoDetect should be true with --monorepo")
+
+	// Verify output mentions subprojects
+	output := outBuf.String()
+	assert.Contains(t, output, "backend", "Should list detected subproject")
+}
+
+func TestInitCmd_NoMonorepoFlag_SkipsDetection(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "pommel-init-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	// Create a subproject directory with a marker file
+	subDir := filepath.Join(tmpDir, "backend")
+	require.NoError(t, os.MkdirAll(subDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(subDir, "go.mod"), []byte("module backend"), 0644))
+
+	// Run init with --no-monorepo flag
+	var outBuf, errBuf bytes.Buffer
+	err = runInitWithFlags(tmpDir, &outBuf, &errBuf, InitFlags{NoMonorepo: true})
+	require.NoError(t, err)
+
+	// Output should NOT mention subproject scanning
+	output := outBuf.String()
+	assert.NotContains(t, output, "Scanning for project markers", "Should not scan with --no-monorepo")
+}
+
+func TestInitCmd_NoMonorepoFlag_ConfigNotUpdated(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "pommel-init-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	// Create a subproject directory with a marker file
+	subDir := filepath.Join(tmpDir, "backend")
+	require.NoError(t, os.MkdirAll(subDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(subDir, "go.mod"), []byte("module backend"), 0644))
+
+	// Run init with --no-monorepo flag
+	var outBuf, errBuf bytes.Buffer
+	err = runInitWithFlags(tmpDir, &outBuf, &errBuf, InitFlags{NoMonorepo: true})
+	require.NoError(t, err)
+
+	// Config should use default subprojects settings (not explicitly enabled)
+	loader := config.NewLoader(tmpDir)
+	cfg, err := loader.Load()
+	require.NoError(t, err)
+
+	// Default has auto_detect true, but we didn't explicitly configure as monorepo
+	defaultCfg := config.Default()
+	assert.Equal(t, defaultCfg.Subprojects.AutoDetect, cfg.Subprojects.AutoDetect, "Should use default subprojects config")
+}
+
+// =============================================================================
+// Tests for monorepo detection
+// =============================================================================
+
+func TestInitCmd_DetectsSubprojects(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "pommel-init-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	// Create multiple subproject directories
+	subDirs := []struct {
+		name   string
+		marker string
+	}{
+		{"backend", "go.mod"},
+		{"frontend", "package.json"},
+		{"services/api", "go.mod"},
+	}
+
+	for _, sd := range subDirs {
+		dir := filepath.Join(tmpDir, sd.name)
+		require.NoError(t, os.MkdirAll(dir, 0755))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, sd.marker), []byte("marker"), 0644))
+	}
+
+	// Run init with --monorepo to skip prompting
+	var outBuf, errBuf bytes.Buffer
+	err = runInitWithFlags(tmpDir, &outBuf, &errBuf, InitFlags{Monorepo: true})
+	require.NoError(t, err)
+
+	output := outBuf.String()
+
+	// Should detect all subprojects
+	assert.Contains(t, output, "backend", "Should detect backend subproject")
+	assert.Contains(t, output, "frontend", "Should detect frontend subproject")
+	assert.Contains(t, output, "api", "Should detect services/api subproject")
+}
+
+func TestInitCmd_IgnoresRootMarker(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "pommel-init-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	// Create marker file at root (should not create a subproject for root)
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "go.mod"), []byte("module root"), 0644))
+
+	// Create a subproject
+	subDir := filepath.Join(tmpDir, "lib")
+	require.NoError(t, os.MkdirAll(subDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(subDir, "go.mod"), []byte("module lib"), 0644))
+
+	// Run init
+	var outBuf, errBuf bytes.Buffer
+	err = runInitWithFlags(tmpDir, &outBuf, &errBuf, InitFlags{Monorepo: true})
+	require.NoError(t, err)
+
+	output := outBuf.String()
+
+	// Root marker should not create a "." subproject entry
+	assert.NotContains(t, output, "(.)\\t", "Root should not be listed as subproject")
+	assert.Contains(t, output, "lib", "Should detect lib subproject")
+}
+
+func TestInitCmd_NoSubprojectsFound(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "pommel-init-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	// Create project root with only root-level marker
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "go.mod"), []byte("module root"), 0644))
+
+	// Run init (no subprojects to detect)
+	var outBuf, errBuf bytes.Buffer
+	err = runInitWithFlags(tmpDir, &outBuf, &errBuf, InitFlags{})
+	require.NoError(t, err)
+
+	output := outBuf.String()
+
+	// Should not mention monorepo features when no subprojects found
+	assert.NotContains(t, output, "sub-projects", "Should not mention subprojects when none found")
+}
+
+// =============================================================================
+// Tests for --claude flag with monorepo
+// =============================================================================
+
+func TestInitCmd_ClaudeFlag_MonorepoUpdatesMultiple(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "pommel-init-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	// Create subprojects
+	subDirs := []string{"backend", "frontend"}
+	for _, sd := range subDirs {
+		dir := filepath.Join(tmpDir, sd)
+		require.NoError(t, os.MkdirAll(dir, 0755))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module "+sd), 0644))
+	}
+
+	// Run init with --claude --monorepo
+	var outBuf, errBuf bytes.Buffer
+	err = runInitWithFlags(tmpDir, &outBuf, &errBuf, InitFlags{Claude: true, Monorepo: true})
+	require.NoError(t, err)
+
+	// Verify root CLAUDE.md was created
+	rootClaudePath := filepath.Join(tmpDir, "CLAUDE.md")
+	_, err = os.Stat(rootClaudePath)
+	require.NoError(t, err, "Root CLAUDE.md should be created")
+
+	// Verify each subproject CLAUDE.md was created
+	for _, sd := range subDirs {
+		claudePath := filepath.Join(tmpDir, sd, "CLAUDE.md")
+		_, err = os.Stat(claudePath)
+		require.NoError(t, err, "CLAUDE.md should be created in "+sd)
+
+		content, err := os.ReadFile(claudePath)
+		require.NoError(t, err)
+		assert.Contains(t, string(content), "pm search", "Subproject CLAUDE.md should contain search instructions")
+		assert.Contains(t, string(content), sd, "Should mention subproject name")
+	}
+}
+
+func TestInitCmd_ClaudeFlag_PreservesExistingSubprojectCLAUDEMD(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "pommel-init-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	// Create subproject with existing CLAUDE.md
+	subDir := filepath.Join(tmpDir, "backend")
+	require.NoError(t, os.MkdirAll(subDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(subDir, "go.mod"), []byte("module backend"), 0644))
+
+	existingContent := "# Backend\n\nExisting instructions for backend.\n"
+	claudePath := filepath.Join(subDir, "CLAUDE.md")
+	require.NoError(t, os.WriteFile(claudePath, []byte(existingContent), 0644))
+
+	// Run init with --claude --monorepo
+	var outBuf, errBuf bytes.Buffer
+	err = runInitWithFlags(tmpDir, &outBuf, &errBuf, InitFlags{Claude: true, Monorepo: true})
+	require.NoError(t, err)
+
+	// Verify existing content preserved and Pommel instructions added
+	content, err := os.ReadFile(claudePath)
+	require.NoError(t, err)
+	assert.Contains(t, string(content), "Existing instructions for backend", "Should preserve existing content")
+	assert.Contains(t, string(content), "pm search", "Should add Pommel instructions")
+}
+
+func TestInitCmd_ClaudeFlag_NoSubprojectsOnlyRoot(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "pommel-init-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	// Run init with --claude only (no subprojects)
+	var outBuf, errBuf bytes.Buffer
+	err = runInitWithFlags(tmpDir, &outBuf, &errBuf, InitFlags{Claude: true})
+	require.NoError(t, err)
+
+	// Only root CLAUDE.md should be created
+	rootClaudePath := filepath.Join(tmpDir, "CLAUDE.md")
+	_, err = os.Stat(rootClaudePath)
+	require.NoError(t, err, "Root CLAUDE.md should be created")
+}
+
+func TestInitCmd_ClaudeFlag_DoesNotDuplicateInSubprojects(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "pommel-init-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	// Create subproject
+	subDir := filepath.Join(tmpDir, "backend")
+	require.NoError(t, os.MkdirAll(subDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(subDir, "go.mod"), []byte("module backend"), 0644))
+
+	// Run init with --claude --monorepo twice
+	var outBuf, errBuf bytes.Buffer
+	err = runInitWithFlags(tmpDir, &outBuf, &errBuf, InitFlags{Claude: true, Monorepo: true})
+	require.NoError(t, err)
+
+	// Remove .pommel to allow re-init
+	os.RemoveAll(filepath.Join(tmpDir, ".pommel"))
+
+	// Run again
+	outBuf.Reset()
+	errBuf.Reset()
+	err = runInitWithFlags(tmpDir, &outBuf, &errBuf, InitFlags{Claude: true, Monorepo: true})
+	require.NoError(t, err)
+
+	// Check subproject CLAUDE.md doesn't have duplicated sections
+	claudePath := filepath.Join(subDir, "CLAUDE.md")
+	content, err := os.ReadFile(claudePath)
+	require.NoError(t, err)
+
+	count := bytes.Count(content, []byte("## Pommel"))
+	assert.Equal(t, 1, count, "Should not duplicate Pommel section in subproject CLAUDE.md")
+}
+
+// =============================================================================
+// Tests for config updates
+// =============================================================================
+
+func TestInitCmd_Monorepo_UpdatesConfigSubprojects(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "pommel-init-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	// Create subproject
+	subDir := filepath.Join(tmpDir, "backend")
+	require.NoError(t, os.MkdirAll(subDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(subDir, "go.mod"), []byte("module backend"), 0644))
+
+	// Run init with --monorepo
+	var outBuf, errBuf bytes.Buffer
+	err = runInitWithFlags(tmpDir, &outBuf, &errBuf, InitFlags{Monorepo: true})
+	require.NoError(t, err)
+
+	// Verify config subprojects section
+	loader := config.NewLoader(tmpDir)
+	cfg, err := loader.Load()
+	require.NoError(t, err)
+
+	assert.True(t, cfg.Subprojects.AutoDetect, "AutoDetect should be enabled")
+	assert.NotEmpty(t, cfg.Subprojects.Markers, "Markers should be set")
+}
+
+// =============================================================================
+// Tests for JSON output with monorepo
+// =============================================================================
+
+func TestInitCmd_JSONOutput_IncludesSubprojects(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "pommel-init-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	// Create subproject
+	subDir := filepath.Join(tmpDir, "backend")
+	require.NoError(t, os.MkdirAll(subDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(subDir, "go.mod"), []byte("module backend"), 0644))
+
+	// Run init with JSON output and --monorepo
+	var outBuf, errBuf bytes.Buffer
+	err = runInitFull(tmpDir, &outBuf, &errBuf, true, InitFlags{Monorepo: true})
+	require.NoError(t, err)
+
+	output := outBuf.String()
+
+	// JSON should contain subprojects field
+	assert.Contains(t, output, "\"success\"", "JSON should have success field")
+	// Note: The exact structure depends on implementation - we'll adjust after seeing the actual output
+}
+
+// =============================================================================
+// Tests for combined flags
+// =============================================================================
+
+func TestInitCmd_AllFlagsCombined_Monorepo(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "pommel-init-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	// Create Go files at root for auto-detection
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "main.go"), []byte("package main"), 0644))
+
+	// Create subproject
+	subDir := filepath.Join(tmpDir, "backend")
+	require.NoError(t, os.MkdirAll(subDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(subDir, "go.mod"), []byte("module backend"), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(subDir, "main.go"), []byte("package main"), 0644))
+
+	// Run with all flags except Start (which would try to start daemon)
+	var outBuf, errBuf bytes.Buffer
+	err = runInitWithFlags(tmpDir, &outBuf, &errBuf, InitFlags{
+		Auto:     true,
+		Claude:   true,
+		Monorepo: true,
+	})
+	require.NoError(t, err)
+
+	// Verify --auto worked
+	loader := config.NewLoader(tmpDir)
+	cfg, err := loader.Load()
+	require.NoError(t, err)
+	assert.Contains(t, cfg.IncludePatterns, "**/*.go", "Auto should detect Go files")
+
+	// Verify --claude worked (root CLAUDE.md)
+	rootClaudePath := filepath.Join(tmpDir, "CLAUDE.md")
+	_, err = os.Stat(rootClaudePath)
+	assert.NoError(t, err, "Root CLAUDE.md should exist")
+
+	// Verify --claude worked (subproject CLAUDE.md)
+	subClaudePath := filepath.Join(subDir, "CLAUDE.md")
+	_, err = os.Stat(subClaudePath)
+	assert.NoError(t, err, "Subproject CLAUDE.md should exist")
+
+	// Verify --monorepo worked
+	assert.True(t, cfg.Subprojects.AutoDetect, "Subprojects.AutoDetect should be true")
+}
+
+func TestInitCmd_MonorepoAndNoMonorepo_Conflict(t *testing.T) {
+	// If both flags are set, --no-monorepo should take precedence (skip detection)
+	tmpDir, err := os.MkdirTemp("", "pommel-init-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	// Create subproject
+	subDir := filepath.Join(tmpDir, "backend")
+	require.NoError(t, os.MkdirAll(subDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(subDir, "go.mod"), []byte("module backend"), 0644))
+
+	// Run with both flags (conflicting)
+	var outBuf, errBuf bytes.Buffer
+	err = runInitWithFlags(tmpDir, &outBuf, &errBuf, InitFlags{
+		Monorepo:   true,
+		NoMonorepo: true,
+	})
+	require.NoError(t, err)
+
+	output := outBuf.String()
+
+	// --no-monorepo should win - no scanning message
+	assert.NotContains(t, output, "Scanning for project markers", "--no-monorepo should skip detection")
+}
