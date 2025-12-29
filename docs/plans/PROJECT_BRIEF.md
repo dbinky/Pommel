@@ -2,8 +2,8 @@
 
 ## Project Brief — C4 Context Level Document
 
-**Version:** 0.1.0-draft  
-**Status:** Planning  
+**Version:** 0.1.0-refined
+**Status:** Planning (Design Complete)  
 **Target Platforms:** macOS, Linux (bash)  
 **Initial Target Agent:** Claude Code
 
@@ -51,8 +51,8 @@ Modern embedding models can capture the semantic meaning of code. A method named
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
-│                                   DEVELOPER WORKSTATION                          │
-│                                                                                  │
+│                                   DEVELOPER WORKSTATION                         │
+│                                                                                 │
 │  ┌──────────────────┐                                                           │
 │  │                  │                                                           │
 │  │   AI Coding      │──── Uses CLI to search ────┐                              │
@@ -89,25 +89,25 @@ Modern embedding models can capture the semantic meaning of code. A method named
 │                                                  ▼                              │
 │                                         ┌──────────────────┐                    │
 │                                         │                  │                    │
-│                                         │   Chroma         │                    │
+│                                         │   sqlite-vec     │                    │
 │                                         │   Vector DB      │                    │
-│                                         │   (local)        │                    │
+│                                         │   (index.db)     │                    │
 │                                         │                  │                    │
 │                                         │   • Embeddings   │                    │
 │                                         │   • Metadata     │                    │
-│                                         │   • Collections  │                    │
+│                                         │   • Single file  │                    │
 │                                         └──────────────────┘                    │
-│                                                                                  │
+│                                                                                 │
 │                                                  ▲                              │
 │                                                  │                              │
 │                                         ┌────────┴─────────┐                    │
 │                                         │                  │                    │
-│                                         │   Jina Code      │                    │
+│                                         │   Ollama         │                    │
+│                                         │   + Jina Code v2 │                    │
 │                                         │   Embeddings     │                    │
-│                                         │   (local model)  │                    │
 │                                         │                  │                    │
 │                                         └──────────────────┘                    │
-│                                                                                  │
+│                                                                                 │
 └─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -118,8 +118,8 @@ Modern embedding models can capture the semantic meaning of code. A method named
                                     ═════════════
 
      ┌─────────┐      ┌─────────┐      ┌─────────┐      ┌─────────┐      ┌─────────┐
-     │  File   │      │ Daemon  │      │ Chunker │      │Embedder │      │ Vector  │
-     │ System  │      │(watch)  │      │         │      │ (Jina)  │      │   DB    │
+     │  File   │      │ Daemon  │      │ Chunker │      │ Ollama  │      │sqlite-  │
+     │ System  │      │(watch)  │      │         │      │(embed)  │      │  vec    │
      └────┬────┘      └────┬────┘      └────┬────┘      └────┬────┘      └────┬────┘
           │                │                │                │                │
           │  file changed  │                │                │                │
@@ -138,16 +138,16 @@ Modern embedding models can capture the semantic meaning of code. A method named
           │                │◄───────────────│                │                │
           │                │                │                │                │
           │                │  embed(chunks) │                │                │
-          │                │───────────────────────────────►│                │
+          │                │────────────────────────────────►│                │
           │                │                │                │                │
           │                │   vectors[]    │                │                │
-          │                │◄───────────────────────────────│                │
+          │                │◄────────────────────────────────│                │
           │                │                │                │                │
-          │                │  store(vectors, metadata)      │                │
-          │                │───────────────────────────────────────────────►│
+          │                │  store(vectors, metadata)       │                │
+          │                │─────────────────────────────────────────────────►│
           │                │                │                │                │
-          │                │                │                │   indexed     │
-          │                │◄───────────────────────────────────────────────│
+          │                │                │                │   indexed      │
+          │                │◄─────────────────────────────────────────────────│
           │                │                │                │                │
 
 
@@ -155,31 +155,31 @@ Modern embedding models can capture the semantic meaning of code. A method named
                                     ═══════════
 
      ┌─────────┐      ┌─────────┐      ┌─────────┐      ┌─────────┐      ┌─────────┐
-     │  Agent  │      │   CLI   │      │Embedder │      │ Vector  │      │  File   │
-     │         │      │  (pm)   │      │ (Jina)  │      │   DB    │      │ System  │
+     │  Agent  │      │   CLI   │      │ Daemon  │      │ Ollama  │      │sqlite-  │
+     │         │      │  (pm)   │      │ (REST)  │      │(embed)  │      │  vec    │
      └────┬────┘      └────┬────┘      └────┬────┘      └────┬────┘      └────┬────┘
           │                │                │                │                │
           │ pm search      │                │                │                │
           │ "auth logic"   │                │                │                │
           │───────────────►│                │                │                │
           │                │                │                │                │
-          │                │ embed(query)   │                │                │
+          │                │  POST /search  │                │                │
           │                │───────────────►│                │                │
           │                │                │                │                │
-          │                │  query_vector  │                │                │
+          │                │                │ embed(query)   │                │
+          │                │                │───────────────►│                │
+          │                │                │                │                │
+          │                │                │  query_vector  │                │
+          │                │                │◄───────────────│                │
+          │                │                │                │                │
+          │                │                │ vec_search()   │                │
+          │                │                │───────────────────────────────►│
+          │                │                │                │                │
+          │                │                │   results[] (ids, scores, meta)│
+          │                │                │◄───────────────────────────────│
+          │                │                │                │                │
+          │                │  JSON results  │                │                │
           │                │◄───────────────│                │                │
-          │                │                │                │                │
-          │                │ similarity_search(vector, k)   │                │
-          │                │───────────────────────────────►│                │
-          │                │                │                │                │
-          │                │   results[] (ids, scores, metadata)             │
-          │                │◄───────────────────────────────│                │
-          │                │                │                │                │
-          │                │                │   (optional) read chunk content│
-          │                │───────────────────────────────────────────────►│
-          │                │                │                │                │
-          │                │                │                │     content   │
-          │                │◄───────────────────────────────────────────────│
           │                │                │                │                │
           │  JSON results  │                │                │                │
           │◄───────────────│                │                │                │
@@ -201,10 +201,10 @@ Modern embedding models can capture the semantic meaning of code. A method named
 
 | Component | Type | Responsibility |
 |-----------|------|----------------|
-| **Pommel Daemon (pommeld)** | Background Service | Watches file system for changes, chunks modified files, generates embeddings, and updates the vector database |
-| **Pommel CLI (pm)** | Command Line Interface | Provides search and management commands for both human users and AI agents |
-| **Chroma** | External System (Local) | Persistent vector database storing embeddings and metadata |
-| **Jina Code Embeddings** | External System (Local) | Local embedding model that converts code text into semantic vectors |
+| **Pommel Daemon (pommeld)** | Background Service | Watches file system for changes, chunks modified files, generates embeddings, updates vector database, and serves REST API for search queries |
+| **Pommel CLI (pm)** | Command Line Interface | Provides search and management commands for both human users and AI agents; communicates with daemon via REST API |
+| **sqlite-vec** | Embedded Database | SQLite extension for vector search; single-file database storing embeddings and metadata |
+| **Ollama** | External System (Local) | Local model runtime hosting Jina Code Embeddings v2 for generating semantic vectors |
 | **OS File System** | External System | Source of truth for project files; provides file watching events |
 
 ---
@@ -230,18 +230,24 @@ The daemon is the heart of the system, responsible for maintaining synchronizati
    - Preserve enough context in each chunk for semantic understanding
 
 3. **Embedding Generation**
-   - Interface with locally-running Jina Code Embeddings model
+   - Interface with Ollama running Jina Code Embeddings v2
    - Batch embedding requests for efficiency
    - Handle model availability and errors gracefully
+   - Cache query embeddings to avoid redundant Ollama calls
 
 4. **Database Management**
-   - Store embeddings with rich metadata in Chroma
+   - Store embeddings with rich metadata in sqlite-vec
    - Handle incremental updates (add, update, delete chunks)
    - Maintain referential integrity when files are renamed or moved
-   - Support collection-per-project isolation
+   - Use WAL mode for concurrent read/write access
 
-5. **Health and Status**
-   - Expose status information for CLI queries
+5. **REST API**
+   - Serve search queries from CLI via localhost HTTP
+   - Provide status and health endpoints
+   - Enable future caching and query optimization
+
+6. **Health and Status**
+   - Expose status information via REST API
    - Track indexing progress and lag
    - Log errors and warnings appropriately
 
@@ -269,14 +275,15 @@ The CLI is the interface for both human developers and AI agents.
 - Exit codes are meaningful and documented
 - No interactive prompts; all input via flags and arguments
 
-### Chroma Vector Database
+### sqlite-vec Vector Database
 
 **Role in System:**
 
-- Persistent storage for embeddings and metadata
-- Fast approximate nearest neighbor search
-- Collection-based isolation between projects
-- Runs locally with no network dependencies
+- Persistent storage for embeddings and metadata in a single `.db` file
+- Fast vector similarity search via SQLite extension
+- Project-local isolation (each project has its own database)
+- Pure Go integration via WASM bindings (no CGO required)
+- WAL mode enables concurrent reads during writes
 
 **Data Model:**
 
@@ -287,41 +294,42 @@ Each stored chunk includes:
   - `file_path`: Relative path from project root
   - `start_line`: Beginning line number (1-indexed)
   - `end_line`: Ending line number (inclusive)
-  - `chunk_level`: Granularity (line, block, method, class, file)
+  - `chunk_level`: Granularity (method, class, file)
   - `language`: Detected or configured language
   - `parent_chunk_id`: Reference to containing chunk (for hierarchy)
   - `last_modified`: Timestamp of source file at indexing time
   - `content_hash`: Hash of chunk content for change detection
 
-### Jina Code Embeddings Model
+### Ollama + Jina Code Embeddings
 
 **Role in System:**
 
-- Converts code text into 768-dimensional semantic vectors
-- Runs locally via sentence-transformers or compatible runtime
+- Ollama provides the local model runtime
+- Jina Code Embeddings v2 (`unclemusclez/jina-embeddings-v2-base-code`) generates 768-dimensional semantic vectors
 - Used for both indexing (chunked code) and querying (search terms)
+- Single `ollama pull` command for model installation
 
 **Model Characteristics:**
-- Trained specifically on code and documentation
+- Trained specifically on code and documentation (150M+ code Q&A pairs)
 - 8K token context window (sufficient for large methods/classes)
-- Understands code semantics across multiple languages
+- Supports 30+ programming languages
 - Same model used for indexing and querying (critical for consistency)
 
 ---
 
 ## Chunking Strategy
 
-Effective chunking is critical to search quality. Pommel employs a multi-level chunking strategy:
+Effective chunking is critical to search quality. Pommel employs a multi-level chunking strategy using Tree-sitter for accurate AST parsing.
 
-### Chunk Levels
+### Chunk Levels (v0.1)
 
 | Level | Description | Use Case |
 |-------|-------------|----------|
 | **File** | Entire file as single chunk | High-level "what is this file about" queries |
 | **Class/Module** | Class, struct, interface, or module definition | "Find classes that handle X" |
 | **Method/Function** | Individual method or function with signature and body | Most common search granularity |
-| **Block** | Logical blocks: loops, conditionals, try/catch | Fine-grained implementation details |
-| **Line Group** | Small groups of related lines (3-10 lines) | Very specific searches |
+
+**Deferred to future versions:** Block-level and line-group chunking for fine-grained searches.
 
 ### Chunking Principles
 
@@ -332,11 +340,13 @@ Effective chunking is critical to search quality. Pommel employs a multi-level c
 2. **Hierarchy Preservation**
    - Each chunk knows its parent chunk ID
    - Enables drill-down and roll-up queries
+   - Required for v0.1 - agents need to navigate from method to containing class
 
 3. **Language Awareness**
-   - Chunking respects language syntax (no splitting mid-expression)
-   - Initial support: Common languages (C#, Go, Python, JavaScript, TypeScript, Java, Rust)
+   - Tree-sitter provides accurate AST parsing per language
+   - v0.1 support: C#, Python, JavaScript, TypeScript
    - Fallback: Line-based chunking for unsupported languages
+   - Future versions: Go, Java, Rust
 
 4. **Metadata Richness**
    - Each chunk carries sufficient metadata to locate and contextualize
@@ -354,8 +364,9 @@ Pommel uses a project-local configuration approach.
 my-project/
 ├── .pommel/
 │   ├── config.yaml        # Project configuration
-│   ├── state.json         # Daemon state (cursor, last run, etc.)
-│   └── chroma/            # Chroma database files
+│   ├── state.json         # Daemon state (PID, last indexed, etc.)
+│   ├── index.db           # sqlite-vec database (single file)
+│   └── pommel.log         # Daemon log file
 ├── .pommelignore          # Patterns to exclude from indexing
 └── (project source files)
 ```
@@ -371,18 +382,21 @@ chunk_levels:
   - class
   - file
 
-# File patterns to include (default: common source extensions)
+# File patterns to include (default: supported language extensions)
 include_patterns:
   - "**/*.cs"
-  - "**/*.go"
   - "**/*.py"
   - "**/*.js"
   - "**/*.ts"
+  - "**/*.jsx"
+  - "**/*.tsx"
 
 # Additional ignore patterns (beyond .pommelignore)
 exclude_patterns:
-  - "**/vendor/**"
   - "**/node_modules/**"
+  - "**/bin/**"
+  - "**/obj/**"
+  - "**/__pycache__/**"
 
 # Debounce delay for file watcher (milliseconds)
 debounce_ms: 500
@@ -390,9 +404,14 @@ debounce_ms: 500
 # Maximum file size to index (bytes)
 max_file_size: 1048576  # 1MB
 
-# Embedding model configuration
+# Daemon configuration
+daemon:
+  port: 7420  # Default REST API port
+  host: "127.0.0.1"
+
+# Embedding model configuration (via Ollama)
 embedding:
-  model: "jinaai/jina-embeddings-v2-base-code"
+  model: "unclemusclez/jina-embeddings-v2-base-code"
   batch_size: 32
 
 # Search defaults
@@ -485,6 +504,9 @@ pm init --languages cs,go
 
 # Initialize and start daemon
 pm init --start
+
+# Initialize and add Claude configuration
+pm init --claude
 ```
 
 ---
@@ -493,7 +515,7 @@ pm init --start
 
 ### Claude Code Integration
 
-Pommel is designed to be added to a project's `AGENTS.md` or Claude Code configuration:
+Pommel is designed to be added to a project's `CLAUDE.md` configuration when `pm init` is called with the `--claude` option:
 
 ```markdown
 ### Code Search
@@ -543,54 +565,46 @@ Agent: I need to understand how authentication works in this project.
 
 ---
 
-## Relationship to Beads
-
-Pommel and Beads are complementary systems:
-
-| Aspect | Beads | Pommel |
-|--------|-------|--------|
-| **What it indexes** | Tasks, issues, work items | Source code |
-| **Problem solved** | Task context and dependencies | Code discovery and understanding |
-| **Query type** | "What should I work on next?" | "Where is this logic implemented?" |
-| **Data source** | Agent-created issues | Existing codebase |
-| **Update trigger** | Agent actions | File system changes |
-
-**Together**, they provide an AI agent with:
-- **Pommel**: Deep, semantic understanding of the existing codebase
-- **Beads**: Structured memory of work in progress and dependencies
-
-An agent can use Pommel to find relevant code for a Beads task, and use Beads to track discovered work that emerges from Pommel searches.
-
----
-
 ## Pre-1.0 Scope
 
-### In Scope
+### In Scope (v0.1)
 
 - macOS and Linux support (bash environments)
 - Go implementation for daemon and CLI
-- Jina Code Embeddings (local model)
-- Chroma vector database (local)
-- Multi-level chunking (line group, block, method/function, class/module, file)
-- Basic language support: C#, Go, Python, JavaScript, TypeScript, Java, Rust
+- Ollama + Jina Code Embeddings v2 (local model)
+- sqlite-vec vector database (single-file, embedded)
+- Multi-level chunking: method/function, class/module, file
+- Language support: C#, Python, JavaScript, TypeScript
+- Tree-sitter for AST parsing
 - File system watching with debounce
+- CLI ↔ Daemon communication via localhost REST API
 - `.pommelignore` support
 - JSON output for all commands
 - Project-local configuration and database
 - Single-project daemon instances
+- Chunk hierarchy with parent references
+- Auto-setup: detect dependencies, prompt to install, auto-start services
+- `pm init --claude` to inject usage instructions into CLAUDE.md
 
 ### Out of Scope (Future Consideration)
 
 - Windows support
-- Multi-project indexing
+- Multi-project / global daemon
 - Remote/cloud database options
 - IDE plugins
 - Web UI
-- Embedding model selection (locked to Jina Code for v1)
+- Embedding model selection (locked to Jina Code v2 for v0.1)
+- Additional languages: Go, Java, Rust
+- Block-level and line-group chunking
 - Cross-repository search
 - Real-time streaming results
 - Natural language to code generation
 - Diff-aware incremental re-chunking (full file re-chunk on change)
+
+### Implementation Guidelines
+- Write SOLID code built for high testability (via DI for mocking)
+- All systems must have a robust test suite that consists of happy path, failing, and error conditions
+- Everything must run locally without using the internet
 
 ---
 
@@ -650,6 +664,7 @@ Pommel will be considered successful when:
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 0.1.0-draft | 2025-01-XX | Ryan + Claude | Initial draft |
+| 0.1.0-refined | 2025-12-28 | Ryan + Claude | Design refinement: sqlite-vec replaces Chroma, Ollama for embeddings, REST API for CLI↔Daemon, Tree-sitter for parsing, scoped to 4 languages and 3 chunk levels |
 
 ---
 
