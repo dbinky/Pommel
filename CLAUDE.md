@@ -172,10 +172,13 @@ Pommel complements **Beads** (https://github.com/steveyegge/beads) for task/issu
 - **Pommel:** "Where is this logic implemented?" (semantic code search)
 - **Beads:** "What should I work on next?" (task memory and tracking)
 
-## Using Pommel While Coding
+## Pommel - Semantic Code Search
 
+This project uses Pommel for semantic code search. Use the following commands to search the codebase efficiently:
+
+### Quick Search Examples
 ```bash
-# Find code by semantic meaning
+# Find code by semantic meaning (not just keywords)
 pm search "authentication logic"
 pm search "error handling patterns"
 pm search "database connection setup"
@@ -191,8 +194,12 @@ pm search "class definitions" --level class
 pm search "function implementations" --level function
 ```
 
-**Tips:**
+### Available Commands
+- `pm search <query>` - Semantic search across the codebase
+- `pm status` - Check daemon status and index statistics
+- `pm reindex` - Force a full reindex of the codebase
+
+### Tips
 - Use natural language queries - Pommel understands semantic meaning
 - Keep the daemon running (`pm start`) for always-current search results
 - Use `--json` flag when you need structured output for processing
-- Run `pm reindex` after major refactoring or branch switches
