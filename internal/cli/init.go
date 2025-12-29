@@ -98,7 +98,10 @@ func runInitFull(projectRoot string, out, errOut *bytes.Buffer, jsonOutput bool,
 
 	// Check if already initialized
 	loader := config.NewLoader(projectRoot)
-	if loader.Exists() {
+	alreadyInitialized := loader.Exists()
+
+	// If already initialized and no flags specified, just inform and return
+	if alreadyInitialized && !flags.Auto && !flags.Claude && !flags.Start {
 		msg := fmt.Sprintf("Pommel already initialized at %s", pommelDir)
 		if jsonOutput {
 			result := InitResult{
@@ -115,19 +118,37 @@ func runInitFull(projectRoot string, out, errOut *bytes.Buffer, jsonOutput bool,
 		return nil
 	}
 
-	// Create .pommel directory
-	if err := os.MkdirAll(pommelDir, 0755); err != nil {
-		return WrapError(err,
-			fmt.Sprintf("Cannot create .pommel directory at %s", pommelDir),
-			"Check that you have write permissions in this directory")
+	// Load existing config if already initialized (needed for flag processing)
+	var cfg *config.Config
+	if alreadyInitialized {
+		var err error
+		cfg, err = loader.Load()
+		if err != nil {
+			return WrapError(err,
+				"Failed to load existing configuration",
+				"Check that the .pommel/config.yaml file is valid")
+		}
+		if !jsonOutput {
+			fmt.Fprintf(stdout, "Pommel already initialized, processing flags...\n")
+		}
 	}
 
-	// Create default config
-	cfg := config.Default()
-	if err := loader.Save(cfg); err != nil {
-		return WrapError(err,
-			"Failed to create configuration file",
-			"Check disk space and write permissions for the .pommel directory")
+	// Only do initial setup if not already initialized
+	if !alreadyInitialized {
+		// Create .pommel directory
+		if err := os.MkdirAll(pommelDir, 0755); err != nil {
+			return WrapError(err,
+				fmt.Sprintf("Cannot create .pommel directory at %s", pommelDir),
+				"Check that you have write permissions in this directory")
+		}
+
+		// Create default config
+		cfg = config.Default()
+		if err := loader.Save(cfg); err != nil {
+			return WrapError(err,
+				"Failed to create configuration file",
+				"Check disk space and write permissions for the .pommel directory")
+		}
 	}
 
 	// Initialize database
