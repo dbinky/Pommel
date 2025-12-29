@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-const SchemaVersion = 1
+const SchemaVersion = 2
 
 // Migrate runs database migrations to ensure schema is up to date.
 func (db *DB) Migrate(ctx context.Context) error {
@@ -22,6 +22,12 @@ func (db *DB) Migrate(ctx context.Context) error {
 	if currentVersion < 1 {
 		if err := db.migrateV1(ctx); err != nil {
 			return fmt.Errorf("failed to run v1 migration: %w", err)
+		}
+	}
+
+	if currentVersion < 2 {
+		if err := db.migrateV2(ctx); err != nil {
+			return fmt.Errorf("failed to run v2 migration: %w", err)
 		}
 	}
 
@@ -173,4 +179,85 @@ func (db *DB) VirtualTableExists(ctx context.Context, tableName string) (bool, e
 		return false, err
 	}
 	return count > 0, nil
+}
+
+// migrateV2 adds subprojects support (v0.2 multi-repo features).
+func (db *DB) migrateV2(ctx context.Context) error {
+	// Create subprojects table
+	if _, err := db.Exec(ctx, `
+		CREATE TABLE IF NOT EXISTS subprojects (
+			id              TEXT PRIMARY KEY,
+			path            TEXT UNIQUE NOT NULL,
+			name            TEXT,
+			marker_file     TEXT,
+			language_hint   TEXT,
+			auto_detected   INTEGER DEFAULT 1,
+			created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP
+		)
+	`); err != nil {
+		return fmt.Errorf("failed to create subprojects table: %w", err)
+	}
+
+	// Create index on subprojects path
+	if _, err := db.Exec(ctx, `
+		CREATE INDEX IF NOT EXISTS idx_subprojects_path ON subprojects(path)
+	`); err != nil {
+		return fmt.Errorf("failed to create subprojects path index: %w", err)
+	}
+
+	// Add subproject columns to chunks table
+	// SQLite doesn't support IF NOT EXISTS for ALTER TABLE, so we check first
+	if !db.columnExists(ctx, "chunks", "subproject_id") {
+		if _, err := db.Exec(ctx, `
+			ALTER TABLE chunks ADD COLUMN subproject_id TEXT
+		`); err != nil {
+			return fmt.Errorf("failed to add subproject_id column: %w", err)
+		}
+	}
+
+	if !db.columnExists(ctx, "chunks", "subproject_path") {
+		if _, err := db.Exec(ctx, `
+			ALTER TABLE chunks ADD COLUMN subproject_path TEXT
+		`); err != nil {
+			return fmt.Errorf("failed to add subproject_path column: %w", err)
+		}
+	}
+
+	// Create index on chunks.subproject_id
+	if _, err := db.Exec(ctx, `
+		CREATE INDEX IF NOT EXISTS idx_chunks_subproject_id ON chunks(subproject_id)
+	`); err != nil {
+		return fmt.Errorf("failed to create chunks subproject_id index: %w", err)
+	}
+
+	// Update schema version
+	if err := db.setSchemaVersion(ctx, 2); err != nil {
+		return fmt.Errorf("failed to set schema version: %w", err)
+	}
+
+	return nil
+}
+
+// columnExists checks if a column exists in a table.
+func (db *DB) columnExists(ctx context.Context, table, column string) bool {
+	rows, err := db.Query(ctx, fmt.Sprintf("PRAGMA table_info(%s)", table))
+	if err != nil {
+		return false
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var cid int
+		var name, ctype string
+		var notnull, pk int
+		var dfltValue any
+		if err := rows.Scan(&cid, &name, &ctype, &notnull, &dfltValue, &pk); err != nil {
+			return false
+		}
+		if name == column {
+			return true
+		}
+	}
+	return false
 }

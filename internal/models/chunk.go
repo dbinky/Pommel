@@ -31,6 +31,10 @@ type Chunk struct {
 	Signature    string
 	ContentHash  string
 	LastModified time.Time
+
+	// Subproject fields for v0.2 multi-repo support
+	SubprojectID   *string `json:"subproject_id,omitempty"`
+	SubprojectPath *string `json:"subproject_path,omitempty"`
 }
 
 // GenerateID creates a deterministic ID for the chunk
@@ -76,6 +80,22 @@ func (c *Chunk) IsValid() error {
 // LineCount returns the number of lines in the chunk
 func (c *Chunk) LineCount() int {
 	return c.EndLine - c.StartLine + 1
+}
+
+// SetSubproject associates this chunk with a subproject.
+func (c *Chunk) SetSubproject(sp *Subproject) {
+	if sp == nil {
+		c.SubprojectID = nil
+		c.SubprojectPath = nil
+		return
+	}
+	c.SubprojectID = &sp.ID
+	c.SubprojectPath = &sp.Path
+}
+
+// HasSubproject returns true if this chunk belongs to a subproject.
+func (c *Chunk) HasSubproject() bool {
+	return c.SubprojectID != nil && *c.SubprojectID != ""
 }
 
 // SourceFile represents a file to be chunked

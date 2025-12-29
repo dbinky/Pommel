@@ -80,7 +80,7 @@ func TestMigrate(t *testing.T) {
 	// Verify schema version
 	version, err := db.GetSchemaVersion(ctx)
 	require.NoError(t, err)
-	assert.Equal(t, 1, version)
+	assert.Equal(t, SchemaVersion, version)
 }
 
 func TestMigrate_CreatesFilesTable(t *testing.T) {
@@ -245,10 +245,10 @@ func TestMigrate_Idempotent(t *testing.T) {
 		require.NoError(t, err, "migration %d should succeed", i+1)
 	}
 
-	// Verify schema version is still 1
+	// Verify schema version is unchanged
 	version, err := db.GetSchemaVersion(ctx)
 	require.NoError(t, err)
-	assert.Equal(t, 1, version)
+	assert.Equal(t, SchemaVersion, version)
 }
 
 func TestClose(t *testing.T) {
