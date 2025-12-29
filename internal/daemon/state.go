@@ -26,6 +26,7 @@ type DaemonState struct {
 	} `json:"daemon"`
 	Index struct {
 		LastFullIndex time.Time `json:"last_full_index"`
+		LastScan      time.Time `json:"last_scan"` // For startup scanning
 		TotalFiles    int       `json:"total_files"`
 		TotalChunks   int       `json:"total_chunks"`
 	} `json:"index"`
