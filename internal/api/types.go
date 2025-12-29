@@ -8,18 +8,33 @@ import "time"
 
 // SearchRequest represents a search query request
 type SearchRequest struct {
-	Query      string   `json:"query"`
-	Limit      int      `json:"limit,omitempty"`
-	Levels     []string `json:"levels,omitempty"`
-	PathPrefix string   `json:"path_prefix,omitempty"`
+	Query      string             `json:"query"`
+	Limit      int                `json:"limit,omitempty"`
+	Levels     []string           `json:"levels,omitempty"`
+	PathPrefix string             `json:"path_prefix,omitempty"`
+	Scope      SearchScopeRequest `json:"scope,omitempty"`
+}
+
+// SearchScopeRequest specifies the search scope in the request
+type SearchScopeRequest struct {
+	Mode  string `json:"mode"`            // "all", "path", "subproject", "auto"
+	Value string `json:"value,omitempty"` // path prefix or subproject ID
 }
 
 // SearchResponse represents the search results response
 type SearchResponse struct {
-	Query        string         `json:"query"`
-	Results      []SearchResult `json:"results"`
-	TotalResults int            `json:"total_results"`
-	SearchTimeMs int64          `json:"search_time_ms"`
+	Query        string               `json:"query"`
+	Results      []SearchResult       `json:"results"`
+	TotalResults int                  `json:"total_results"`
+	SearchTimeMs int64                `json:"search_time_ms"`
+	Scope        *SearchScopeResponse `json:"scope,omitempty"`
+}
+
+// SearchScopeResponse provides scope information in the response
+type SearchScopeResponse struct {
+	Mode         string  `json:"mode"`
+	Subproject   *string `json:"subproject,omitempty"`
+	ResolvedPath *string `json:"resolved_path,omitempty"`
 }
 
 // SearchResult represents a single search result
@@ -90,6 +105,25 @@ type ReindexRequest struct {
 type ReindexResponse struct {
 	Status  string `json:"status"`
 	Message string `json:"message"`
+}
+
+// =============================================================================
+// Subprojects API Types
+// =============================================================================
+
+// SubprojectsResponse represents the list of sub-projects
+type SubprojectsResponse struct {
+	Subprojects []SubprojectInfo `json:"subprojects"`
+	Total       int              `json:"total"`
+}
+
+// SubprojectInfo contains information about a sub-project
+type SubprojectInfo struct {
+	ID         string `json:"id"`
+	Path       string `json:"path"`
+	Name       string `json:"name,omitempty"`
+	MarkerFile string `json:"marker_file"`
+	Language   string `json:"language,omitempty"`
 }
 
 // =============================================================================

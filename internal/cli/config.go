@@ -190,7 +190,10 @@ func getDaemonValue(cfg *config.Config, parts []string) (interface{}, error) {
 	case "host":
 		return cfg.Daemon.Host, nil
 	case "port":
-		return cfg.Daemon.Port, nil
+		if cfg.Daemon.Port == nil {
+			return nil, nil // nil means hash-based port
+		}
+		return *cfg.Daemon.Port, nil
 	case "log_level":
 		return cfg.Daemon.LogLevel, nil
 	default:
@@ -290,7 +293,7 @@ func setDaemonValue(cfg *config.Config, parts []string, value string) error {
 		if err != nil {
 			return invalidIntError("daemon.port", value)
 		}
-		cfg.Daemon.Port = port
+		cfg.Daemon.Port = &port
 	case "log_level":
 		cfg.Daemon.LogLevel = value
 	default:

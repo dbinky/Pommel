@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -9,24 +10,30 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/pommel-dev/pommel/internal/config"
 	"github.com/pommel-dev/pommel/internal/db"
+	"github.com/pommel-dev/pommel/internal/subproject"
 	"github.com/spf13/cobra"
 )
 
 // InitFlags holds the flags for the init command
 type InitFlags struct {
-	Auto   bool
-	Claude bool
-	Start  bool
+	Auto       bool
+	Claude     bool
+	Start      bool
+	Monorepo   bool
+	NoMonorepo bool
 }
 
 var (
-	initAutoFlag   bool
-	initClaudeFlag bool
-	initStartFlag  bool
+	initAutoFlag     bool
+	initClaudeFlag   bool
+	initStartFlag    bool
+	initMonorepoFlag bool
+	initNoMonorepo   bool
 )
 
 var initCmd = &cobra.Command{
@@ -42,9 +49,11 @@ The init command will:
   - Check for required dependencies (Ollama)`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		flags := InitFlags{
-			Auto:   initAutoFlag,
-			Claude: initClaudeFlag,
-			Start:  initStartFlag,
+			Auto:       initAutoFlag,
+			Claude:     initClaudeFlag,
+			Start:      initStartFlag,
+			Monorepo:   initMonorepoFlag,
+			NoMonorepo: initNoMonorepo,
 		}
 		return runInitFull(GetProjectRoot(), nil, nil, IsJSONOutput(), flags)
 	},
@@ -55,6 +64,8 @@ func init() {
 	initCmd.Flags().BoolVar(&initAutoFlag, "auto", false, "Auto-detect languages and configure include patterns")
 	initCmd.Flags().BoolVar(&initClaudeFlag, "claude", false, "Add Pommel usage instructions to CLAUDE.md")
 	initCmd.Flags().BoolVar(&initStartFlag, "start", false, "Start daemon immediately after initialization")
+	initCmd.Flags().BoolVar(&initMonorepoFlag, "monorepo", false, "Initialize as monorepo without prompting")
+	initCmd.Flags().BoolVar(&initNoMonorepo, "no-monorepo", false, "Skip monorepo/sub-project detection")
 }
 
 // runInit performs the initialization logic with default flags
@@ -205,6 +216,12 @@ coverage/
 		}
 	}
 
+	// Add .pommel/ to .gitignore if it exists and doesn't already contain it
+	if err := addToGitignore(projectRoot); err != nil {
+		// Non-fatal - just log warning
+		fmt.Fprintf(stderr, "Warning: Could not update .gitignore: %v\n", err)
+	}
+
 	// Handle --auto flag: detect languages and update config
 	if flags.Auto {
 		detectedPatterns := detectLanguagePatterns(projectRoot)
@@ -221,15 +238,31 @@ coverage/
 		}
 	}
 
+	// Handle monorepo detection (unless --no-monorepo)
+	var detectedSubprojects []*subproject.DetectedSubproject
+	if !flags.NoMonorepo {
+		detector := subproject.NewDetector(projectRoot, nil, nil)
+		detected, err := detector.Scan()
+		if err != nil {
+			fmt.Fprintf(stderr, "Warning: Failed to scan for sub-projects: %v\n", err)
+		} else {
+			detectedSubprojects = detected
+		}
+	}
+
+	// Handle detected subprojects
+	if len(detectedSubprojects) > 0 {
+		if err := handleMonorepoDetection(projectRoot, detectedSubprojects, flags, cfg, loader, stdout, stderr, jsonOutput); err != nil {
+			return err
+		}
+	}
+
 	// Handle --claude flag: create/update CLAUDE.md
 	if flags.Claude {
-		if err := updateClaudeMD(projectRoot); err != nil {
+		if err := updateClaudeMDFiles(projectRoot, detectedSubprojects, stdout, jsonOutput); err != nil {
 			return WrapError(err,
 				"Failed to update CLAUDE.md",
 				"Check write permissions in the project root directory")
-		}
-		if !jsonOutput {
-			fmt.Fprintf(stdout, "Updated CLAUDE.md with Pommel instructions\n")
 		}
 	}
 
@@ -246,16 +279,16 @@ coverage/
 			}
 		}
 	}
-	_ = daemonStarted // used for JSON output below
 
 	// Output success
 	if jsonOutput {
 		result := InitResult{
-			Success:      true,
-			ProjectRoot:  projectRoot,
-			ConfigPath:   configPath,
-			DatabasePath: dbPath,
-			Message:      "Initialized Pommel successfully",
+			Success:       true,
+			ProjectRoot:   projectRoot,
+			ConfigPath:    configPath,
+			DatabasePath:  dbPath,
+			DaemonStarted: daemonStarted,
+			Message:       "Initialized Pommel successfully",
 		}
 		enc := json.NewEncoder(stdout)
 		enc.SetIndent("", "  ")
@@ -268,12 +301,13 @@ coverage/
 
 // InitResult represents the result of an init operation for JSON output
 type InitResult struct {
-	Success      bool   `json:"success"`
-	ProjectRoot  string `json:"project_root"`
-	ConfigPath   string `json:"config_path"`
-	DatabasePath string `json:"database_path"`
-	Message      string `json:"message,omitempty"`
-	Error        string `json:"error,omitempty"`
+	Success       bool   `json:"success"`
+	ProjectRoot   string `json:"project_root"`
+	ConfigPath    string `json:"config_path"`
+	DatabasePath  string `json:"database_path"`
+	DaemonStarted bool   `json:"daemon_started,omitempty"`
+	Message       string `json:"message,omitempty"`
+	Error         string `json:"error,omitempty"`
 }
 
 // Language extension mappings - maps file extension to glob pattern
@@ -336,13 +370,7 @@ func detectLanguagePatterns(projectRoot string) []string {
 	}
 
 	// Sort for consistent output
-	for i := 0; i < len(patterns); i++ {
-		for j := i + 1; j < len(patterns); j++ {
-			if patterns[i] > patterns[j] {
-				patterns[i], patterns[j] = patterns[j], patterns[i]
-			}
-		}
-	}
+	sort.Strings(patterns)
 
 	return patterns
 }
@@ -415,6 +443,186 @@ func updateClaudeMD(projectRoot string) error {
 	}
 
 	return os.WriteFile(claudePath, []byte(newContent), 0644)
+}
+
+// handleMonorepoDetection handles detected subprojects during init
+func handleMonorepoDetection(projectRoot string, detected []*subproject.DetectedSubproject, flags InitFlags, cfg *config.Config, loader *config.Loader, stdout, stderr io.Writer, jsonOutput bool) error {
+	if !jsonOutput {
+		fmt.Fprintf(stdout, "\nScanning for project markers...\n\n")
+		fmt.Fprintf(stdout, "Found %d sub-projects:\n", len(detected))
+
+		for _, sp := range detected {
+			fmt.Fprintf(stdout, "  • %-15s (%s)\t%s\n", sp.ID, sp.Path, sp.MarkerFile)
+		}
+		fmt.Fprintln(stdout)
+	}
+
+	// Determine whether to configure as monorepo
+	initAsMonorepo := flags.Monorepo
+
+	if !flags.Monorepo && !flags.NoMonorepo && !jsonOutput {
+		// Prompt user (only in interactive mode)
+		initAsMonorepo = promptYesNo(stdout, nil, "Initialize as monorepo with these sub-projects?", true)
+	}
+
+	if initAsMonorepo {
+		// Update config to enable subproject auto-detection
+		cfg.Subprojects.AutoDetect = true
+		if err := loader.Save(cfg); err != nil {
+			return WrapError(err,
+				"Failed to update configuration for monorepo",
+				"Check disk space and write permissions for the .pommel directory")
+		}
+		if !jsonOutput {
+			fmt.Fprintf(stdout, "Configured as monorepo with %d sub-projects\n", len(detected))
+		}
+	}
+
+	return nil
+}
+
+// promptYesNo prompts for yes/no input with a default.
+// stdin can be nil to use os.Stdin.
+func promptYesNo(stdout io.Writer, stdin io.Reader, question string, defaultYes bool) bool {
+	if stdin == nil {
+		stdin = os.Stdin
+	}
+	reader := bufio.NewReader(stdin)
+	defaultStr := "Y/n"
+	if !defaultYes {
+		defaultStr = "y/N"
+	}
+
+	fmt.Fprintf(stdout, "%s [%s] ", question, defaultStr)
+
+	response, err := reader.ReadString('\n')
+	if err != nil {
+		return defaultYes
+	}
+
+	response = strings.TrimSpace(strings.ToLower(response))
+	if response == "" {
+		return defaultYes
+	}
+
+	return response == "y" || response == "yes"
+}
+
+// updateClaudeMDFiles updates CLAUDE.md in root and all subprojects
+func updateClaudeMDFiles(projectRoot string, subprojects []*subproject.DetectedSubproject, stdout io.Writer, jsonOutput bool) error {
+	// Update root CLAUDE.md
+	if err := updateClaudeMD(projectRoot); err != nil {
+		return err
+	}
+	if !jsonOutput {
+		fmt.Fprintf(stdout, "Updated CLAUDE.md with Pommel instructions\n")
+	}
+
+	// Update each sub-project CLAUDE.md if we have subprojects
+	for _, sp := range subprojects {
+		spPath := filepath.Join(projectRoot, sp.Path)
+		if err := updateClaudeMDForSubproject(spPath, sp); err != nil {
+			// Don't fail, just report
+			if !jsonOutput {
+				fmt.Fprintf(stdout, "Warning: Failed to update %s/CLAUDE.md: %v\n", sp.Path, err)
+			}
+		} else if !jsonOutput {
+			fmt.Fprintf(stdout, "Updated %s/CLAUDE.md\n", sp.Path)
+		}
+	}
+
+	return nil
+}
+
+// updateClaudeMDForSubproject creates or updates CLAUDE.md for a subproject
+func updateClaudeMDForSubproject(spPath string, sp *subproject.DetectedSubproject) error {
+	claudePath := filepath.Join(spPath, "CLAUDE.md")
+
+	var existingContent []byte
+	existingContent, _ = os.ReadFile(claudePath)
+
+	// Check if already has Pommel section
+	if strings.Contains(string(existingContent), pommelClaudeMarker) {
+		return nil // Already updated
+	}
+
+	var newContent string
+	if len(existingContent) > 0 {
+		newContent = string(existingContent)
+		if !strings.HasSuffix(newContent, "\n") {
+			newContent += "\n"
+		}
+		newContent += pommelSubprojectInstructions(sp)
+	} else {
+		newContent = "# CLAUDE.md\n" + pommelSubprojectInstructions(sp)
+	}
+
+	return os.WriteFile(claudePath, []byte(newContent), 0644)
+}
+
+// pommelSubprojectInstructions returns Pommel instructions for a subproject CLAUDE.md
+func pommelSubprojectInstructions(sp *subproject.DetectedSubproject) string {
+	return fmt.Sprintf(`
+## Pommel - Semantic Code Search
+
+This sub-project (%s) uses Pommel for semantic code search.
+
+### Quick Search Examples
+`+"```bash"+`
+# Search within this sub-project (default when running from here)
+pm search "authentication logic"
+
+# Search with JSON output
+pm search "error handling" --json
+
+# Search across entire monorepo
+pm search "shared utilities" --all
+`+"```"+`
+
+### Available Commands
+- `+"`pm search <query>`"+` - Search this sub-project (or use --all for everything)
+- `+"`pm status`"+` - Check daemon status
+- `+"`pm subprojects`"+` - List all sub-projects
+
+### Tips
+- Searches default to this sub-project when you're in this directory
+- Use `+"`--all`"+` to search across the entire monorepo
+- Use `+"`--path`"+` to search specific paths
+`, sp.ID)
+}
+
+// addToGitignore adds .pommel/ to .gitignore if it doesn't already contain it
+func addToGitignore(projectRoot string) error {
+	gitignorePath := filepath.Join(projectRoot, ".gitignore")
+
+	// Check if .gitignore exists
+	content, err := os.ReadFile(gitignorePath)
+	if os.IsNotExist(err) {
+		// No .gitignore file - create one with .pommel/
+		return os.WriteFile(gitignorePath, []byte(".pommel/\n"), 0644)
+	}
+	if err != nil {
+		return err
+	}
+
+	// Check if .pommel is already in the file
+	lines := strings.Split(string(content), "\n")
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		// Check various forms that would ignore .pommel
+		if trimmed == ".pommel" || trimmed == ".pommel/" || trimmed == "/.pommel" || trimmed == "/.pommel/" {
+			return nil // Already present
+		}
+	}
+
+	// Append .pommel/ to the file
+	newContent := string(content)
+	if !strings.HasSuffix(newContent, "\n") {
+		newContent += "\n"
+	}
+	newContent += ".pommel/\n"
+
+	return os.WriteFile(gitignorePath, []byte(newContent), 0644)
 }
 
 // startDaemonProcess starts the pommeld daemon in the background

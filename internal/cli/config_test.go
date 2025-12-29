@@ -91,8 +91,8 @@ func TestConfigCmd_ShowAll(t *testing.T) {
 	assert.Contains(t, stdout, "watcher", "output should contain watcher section")
 	assert.Contains(t, stdout, "search", "output should contain search section")
 
-	// Should show default port value
-	assert.Contains(t, stdout, "7420", "output should contain default daemon port")
+	// Should show port field (nil means hash-based, shown as "null")
+	assert.Contains(t, stdout, "port", "output should contain port field")
 }
 
 func TestConfigCmd_ShowAllJSON(t *testing.T) {
@@ -118,11 +118,11 @@ func TestConfigCmd_ShowAllJSON(t *testing.T) {
 	// Check nested values
 	daemon, ok := result["daemon"].(map[string]interface{})
 	require.True(t, ok, "daemon should be an object")
-	assert.Equal(t, float64(7420), daemon["port"], "daemon.port should be 7420")
+	assert.Nil(t, daemon["port"], "daemon.port should be nil (hash-based default)")
 }
 
 func TestConfigCmd_Get(t *testing.T) {
-	// Test that 'pm config get daemon.port' returns the port value
+	// Test that 'pm config get daemon.port' returns the port value (nil for default)
 	proj := newTestProject(t)
 
 	stdout, _, err := executeConfigCmd(t, proj.Dir, "get", "daemon.port")
@@ -130,8 +130,8 @@ func TestConfigCmd_Get(t *testing.T) {
 	// Should succeed
 	require.NoError(t, err, "config get daemon.port should succeed")
 
-	// Should output the port value
-	assert.Contains(t, stdout, "7420", "output should contain port value 7420")
+	// Should output nil for default (hash-based port)
+	assert.Contains(t, stdout, "<nil>", "output should indicate nil (hash-based port)")
 }
 
 func TestConfigCmd_GetNested(t *testing.T) {
@@ -148,7 +148,7 @@ func TestConfigCmd_GetNested(t *testing.T) {
 	assert.Contains(t, stdout, "port", "output should contain port")
 	assert.Contains(t, stdout, "log_level", "output should contain log_level")
 	assert.Contains(t, stdout, "127.0.0.1", "output should contain default host value")
-	assert.Contains(t, stdout, "7420", "output should contain default port value")
+	assert.Contains(t, stdout, "null", "output should contain null for default port (hash-based)")
 	assert.Contains(t, stdout, "info", "output should contain default log_level value")
 }
 
@@ -166,7 +166,7 @@ func TestConfigCmd_GetJSON(t *testing.T) {
 	err = json.Unmarshal([]byte(stdout), &result)
 	require.NoError(t, err, "output should be valid JSON")
 
-	assert.Equal(t, float64(7420), result["value"], "JSON value should be 7420")
+	assert.Nil(t, result["value"], "JSON value should be nil for default (hash-based port)")
 	assert.Equal(t, "daemon.port", result["key"], "JSON key should be daemon.port")
 }
 
@@ -183,7 +183,8 @@ func TestConfigCmd_Set(t *testing.T) {
 	// Verify the change by loading config
 	cfg, err := proj.Loader.Load()
 	require.NoError(t, err)
-	assert.Equal(t, 9000, cfg.Daemon.Port, "daemon.port should be updated to 9000")
+	require.NotNil(t, cfg.Daemon.Port, "daemon.port should not be nil")
+	assert.Equal(t, 9000, *cfg.Daemon.Port, "daemon.port should be updated to 9000")
 }
 
 func TestConfigCmd_SetString(t *testing.T) {
@@ -209,11 +210,7 @@ func TestConfigCmd_SetValidation(t *testing.T) {
 		key   string
 		value string
 	}{
-		{
-			name:  "invalid port zero",
-			key:   "daemon.port",
-			value: "0",
-		},
+		// Note: port 0 is now valid (system-assigned port)
 		{
 			name:  "invalid port negative",
 			key:   "daemon.port",
@@ -293,7 +290,8 @@ func TestConfigCmd_SavesPersistently(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify the value persisted
-	assert.Equal(t, 8888, cfg.Daemon.Port, "daemon.port should persist to 8888")
+	require.NotNil(t, cfg.Daemon.Port, "daemon.port should not be nil")
+	assert.Equal(t, 8888, *cfg.Daemon.Port, "daemon.port should persist to 8888")
 
 	// Verify config file exists on disk
 	configPath := filepath.Join(proj.Dir, config.PommelDir, config.ConfigFileName+"."+config.ConfigFileExt)
@@ -344,7 +342,8 @@ func TestConfigCmd_SetTypeConversion(t *testing.T) {
 			key:   "daemon.port",
 			value: "9999",
 			validate: func(t *testing.T, cfg *config.Config) {
-				assert.Equal(t, 9999, cfg.Daemon.Port)
+				require.NotNil(t, cfg.Daemon.Port)
+				assert.Equal(t, 9999, *cfg.Daemon.Port)
 			},
 		},
 		{

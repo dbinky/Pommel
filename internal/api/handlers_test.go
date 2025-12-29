@@ -19,6 +19,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// intPtr is a helper to create *int values
+func intPtr(i int) *int {
+	return &i
+}
+
 // =============================================================================
 // Test Helpers
 // =============================================================================
@@ -52,7 +57,7 @@ func testConfig() *config.Config {
 		},
 		Daemon: config.DaemonConfig{
 			Host:     "127.0.0.1",
-			Port:     7331,
+			Port:     intPtr(7331),
 			LogLevel: "info",
 		},
 		Embedding: config.EmbeddingConfig{
@@ -1110,7 +1115,8 @@ func TestConfigEndpointContainsDaemonConfig(t *testing.T) {
 	require.NoError(t, err, "failed to unmarshal response")
 
 	assert.Equal(t, "127.0.0.1", response.Config.Daemon.Host, "expected daemon host")
-	assert.Equal(t, 7331, response.Config.Daemon.Port, "expected daemon port")
+	require.NotNil(t, response.Config.Daemon.Port, "expected daemon port to be set")
+	assert.Equal(t, 7331, *response.Config.Daemon.Port, "expected daemon port")
 }
 
 // TestConfigEndpointContainsSearchConfig verifies that config response contains search config

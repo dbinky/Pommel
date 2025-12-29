@@ -204,6 +204,36 @@ func (db *DB) FileCount(ctx context.Context) (int64, error) {
 	return count, nil
 }
 
+// IndexedFile represents a file in the index with its metadata.
+type IndexedFile struct {
+	Path       string
+	ModifiedAt time.Time
+}
+
+// ListFiles returns all indexed files with their modification times.
+func (db *DB) ListFiles(ctx context.Context) ([]IndexedFile, error) {
+	rows, err := db.Query(ctx, `SELECT path, modified_at FROM files`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list files: %w", err)
+	}
+	defer rows.Close()
+
+	var files []IndexedFile
+	for rows.Next() {
+		var f IndexedFile
+		if err := rows.Scan(&f.Path, &f.ModifiedAt); err != nil {
+			return nil, fmt.Errorf("failed to scan file: %w", err)
+		}
+		files = append(files, f)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating files: %w", err)
+	}
+
+	return files, nil
+}
+
 // GetChunkByID retrieves a chunk by its ID.
 func (db *DB) GetChunkByID(ctx context.Context, id string) (*models.Chunk, error) {
 	var chunk models.Chunk
