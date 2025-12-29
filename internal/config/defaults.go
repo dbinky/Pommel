@@ -47,5 +47,21 @@ func Default() *Config {
 				"class",
 			},
 		},
+		Subprojects: SubprojectsConfig{
+			AutoDetect: true,
+			Markers: []string{
+				"*.sln",
+				"*.csproj",
+				"go.mod",
+				"Cargo.toml",
+				"pom.xml",
+				"build.gradle",
+				"package.json",
+				"pyproject.toml",
+				"setup.py",
+			},
+			Projects: nil,
+			Exclude:  nil,
+		},
 	}
 }

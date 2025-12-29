@@ -7,14 +7,15 @@ import (
 
 // Config represents the complete Pommel configuration
 type Config struct {
-	Version         int             `yaml:"version" json:"version" mapstructure:"version"`
-	ChunkLevels     []string        `yaml:"chunk_levels" json:"chunk_levels" mapstructure:"chunk_levels"`
-	IncludePatterns []string        `yaml:"include_patterns" json:"include_patterns" mapstructure:"include_patterns"`
-	ExcludePatterns []string        `yaml:"exclude_patterns" json:"exclude_patterns" mapstructure:"exclude_patterns"`
-	Watcher         WatcherConfig   `yaml:"watcher" json:"watcher" mapstructure:"watcher"`
-	Daemon          DaemonConfig    `yaml:"daemon" json:"daemon" mapstructure:"daemon"`
-	Embedding       EmbeddingConfig `yaml:"embedding" json:"embedding" mapstructure:"embedding"`
-	Search          SearchConfig    `yaml:"search" json:"search" mapstructure:"search"`
+	Version         int               `yaml:"version" json:"version" mapstructure:"version"`
+	ChunkLevels     []string          `yaml:"chunk_levels" json:"chunk_levels" mapstructure:"chunk_levels"`
+	IncludePatterns []string          `yaml:"include_patterns" json:"include_patterns" mapstructure:"include_patterns"`
+	ExcludePatterns []string          `yaml:"exclude_patterns" json:"exclude_patterns" mapstructure:"exclude_patterns"`
+	Watcher         WatcherConfig     `yaml:"watcher" json:"watcher" mapstructure:"watcher"`
+	Daemon          DaemonConfig      `yaml:"daemon" json:"daemon" mapstructure:"daemon"`
+	Embedding       EmbeddingConfig   `yaml:"embedding" json:"embedding" mapstructure:"embedding"`
+	Search          SearchConfig      `yaml:"search" json:"search" mapstructure:"search"`
+	Subprojects     SubprojectsConfig `yaml:"subprojects" json:"subprojects" mapstructure:"subprojects"`
 }
 
 // WatcherConfig contains file watcher settings
@@ -42,6 +43,21 @@ type EmbeddingConfig struct {
 type SearchConfig struct {
 	DefaultLimit  int      `yaml:"default_limit" json:"default_limit" mapstructure:"default_limit"`
 	DefaultLevels []string `yaml:"default_levels" json:"default_levels" mapstructure:"default_levels"`
+}
+
+// SubprojectsConfig contains sub-project detection settings
+type SubprojectsConfig struct {
+	AutoDetect bool              `yaml:"auto_detect" json:"auto_detect" mapstructure:"auto_detect"`
+	Markers    []string          `yaml:"markers" json:"markers" mapstructure:"markers"`
+	Projects   []ProjectOverride `yaml:"projects" json:"projects,omitempty" mapstructure:"projects"`
+	Exclude    []string          `yaml:"exclude" json:"exclude,omitempty" mapstructure:"exclude"`
+}
+
+// ProjectOverride defines a manual sub-project configuration
+type ProjectOverride struct {
+	ID   string `yaml:"id" json:"id,omitempty" mapstructure:"id"`
+	Path string `yaml:"path" json:"path" mapstructure:"path"`
+	Name string `yaml:"name" json:"name,omitempty" mapstructure:"name"`
 }
 
 // DebounceDuration returns the debounce duration as time.Duration
