@@ -111,9 +111,9 @@ func TestListSubprojects(t *testing.T) {
 	assert.Len(t, list, 3)
 
 	// Should be ordered by path
-	assert.Equal(t, "web", list[0].ID)    // apps/web comes first
-	assert.Equal(t, "api", list[1].ID)    // services/api
-	assert.Equal(t, "auth", list[2].ID)   // services/auth
+	assert.Equal(t, "web", list[0].ID)  // apps/web comes first
+	assert.Equal(t, "api", list[1].ID)  // services/api
+	assert.Equal(t, "auth", list[2].ID) // services/auth
 }
 
 func TestListSubprojects_Empty(t *testing.T) {
@@ -268,4 +268,3 @@ func TestSubprojectCount(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, int64(5), count)
 }
-

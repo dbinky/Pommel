@@ -31,7 +31,7 @@ func intPtr(i int) *int {
 // daemonTestConfig returns a config with short timeouts for testing
 func daemonTestConfig() *config.Config {
 	cfg := config.Default()
-	cfg.Watcher.DebounceMs = 10  // Short debounce for tests
+	cfg.Watcher.DebounceMs = 10 // Short debounce for tests
 	cfg.Daemon.Port = intPtr(0) // Use random available port (0 = system-assigned)
 	return cfg
 }

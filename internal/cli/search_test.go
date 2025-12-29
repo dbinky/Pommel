@@ -434,9 +434,9 @@ func TestSearchCmd_JSONOutputIncludesScope(t *testing.T) {
 
 // SearchScope represents the resolved search scope for tests
 type SearchScope struct {
-	Mode         string  `json:"mode"`            // "all", "path", "subproject", "auto"
-	Subproject   *string `json:"subproject"`      // Sub-project ID if applicable
-	ResolvedPath *string `json:"resolved_path"`   // Path prefix used for filtering
+	Mode         string  `json:"mode"`          // "all", "path", "subproject", "auto"
+	Subproject   *string `json:"subproject"`    // Sub-project ID if applicable
+	ResolvedPath *string `json:"resolved_path"` // Path prefix used for filtering
 }
 
 // resolveSearchScope determines the search scope based on flags
