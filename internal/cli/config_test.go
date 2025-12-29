@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/pommel-dev/pommel/internal/config"
@@ -86,10 +87,8 @@ func executeConfigCmd(t *testing.T, projectDir string, args ...string) (string, 
 	configCmd.SetOut(&outBuf)
 	configCmd.SetErr(&errBuf)
 
-	// Reset command for testing
-	configCmd.SetArgs(filteredArgs)
-
-	err := configCmd.Execute()
+	// Call runConfig directly instead of using Execute() to avoid help text issues
+	err := runConfig(configCmd, filteredArgs)
 
 	return outBuf.String(), errBuf.String(), err
 }
@@ -425,4 +424,259 @@ func TestConfigCmd_SetConfirmation(t *testing.T) {
 	require.NoError(t, err)
 	// Should output some confirmation message
 	assert.NotEmpty(t, stdout, "set command should output confirmation")
+}
+
+// =============================================================================
+// Tests for watcher config get/set
+// =============================================================================
+
+func TestConfigCmd_GetWatcher(t *testing.T) {
+	proj := newTestProject(t)
+
+	// Get entire watcher section
+	stdout, _, err := executeConfigCmd(t, proj.Dir, "get", "watcher")
+	require.NoError(t, err)
+
+	assert.Contains(t, stdout, "debounce_ms")
+	assert.Contains(t, stdout, "max_file_size")
+}
+
+func TestConfigCmd_GetWatcherDebounce(t *testing.T) {
+	proj := newTestProject(t)
+
+	stdout, _, err := executeConfigCmd(t, proj.Dir, "get", "watcher.debounce_ms")
+	require.NoError(t, err)
+	// Should contain some numeric value
+	assert.NotEmpty(t, stdout)
+}
+
+func TestConfigCmd_GetWatcherMaxFileSize(t *testing.T) {
+	proj := newTestProject(t)
+
+	stdout, _, err := executeConfigCmd(t, proj.Dir, "get", "watcher.max_file_size")
+	require.NoError(t, err)
+	// Should contain some value
+	assert.NotEmpty(t, stdout)
+}
+
+func TestConfigCmd_SetWatcherDebounce(t *testing.T) {
+	proj := newTestProject(t)
+
+	_, _, err := executeConfigCmd(t, proj.Dir, "set", "watcher.debounce_ms", "200")
+	require.NoError(t, err)
+
+	cfg, err := proj.Loader.Load()
+	require.NoError(t, err)
+	assert.Equal(t, 200, cfg.Watcher.DebounceMs)
+}
+
+func TestConfigCmd_SetWatcherMaxFileSize(t *testing.T) {
+	proj := newTestProject(t)
+
+	_, _, err := executeConfigCmd(t, proj.Dir, "set", "watcher.max_file_size", "2097152")
+	require.NoError(t, err)
+
+	cfg, err := proj.Loader.Load()
+	require.NoError(t, err)
+	assert.Equal(t, int64(2097152), cfg.Watcher.MaxFileSize)
+}
+
+func TestConfigCmd_SetWatcherUnknownKey(t *testing.T) {
+	proj := newTestProject(t)
+
+	_, _, err := executeConfigCmd(t, proj.Dir, "set", "watcher.unknown", "value")
+	require.Error(t, err, "setting unknown key should return error")
+	assert.Contains(t, err.Error(), "unknown")
+}
+
+// =============================================================================
+// Tests for embedding config get/set
+// =============================================================================
+
+func TestConfigCmd_GetEmbedding(t *testing.T) {
+	proj := newTestProject(t)
+
+	stdout, _, err := executeConfigCmd(t, proj.Dir, "get", "embedding")
+	require.NoError(t, err)
+
+	assert.Contains(t, stdout, "model")
+	assert.Contains(t, stdout, "batch_size")
+	assert.Contains(t, stdout, "cache_size")
+}
+
+func TestConfigCmd_GetEmbeddingModel(t *testing.T) {
+	proj := newTestProject(t)
+
+	stdout, _, err := executeConfigCmd(t, proj.Dir, "get", "embedding.model")
+	require.NoError(t, err)
+	// Should contain default model name
+	assert.NotEmpty(t, stdout)
+}
+
+func TestConfigCmd_GetEmbeddingBatchSize(t *testing.T) {
+	proj := newTestProject(t)
+
+	stdout, _, err := executeConfigCmd(t, proj.Dir, "get", "embedding.batch_size")
+	require.NoError(t, err)
+	assert.NotEmpty(t, stdout)
+}
+
+func TestConfigCmd_GetEmbeddingCacheSize(t *testing.T) {
+	proj := newTestProject(t)
+
+	stdout, _, err := executeConfigCmd(t, proj.Dir, "get", "embedding.cache_size")
+	require.NoError(t, err)
+	assert.NotEmpty(t, stdout)
+}
+
+func TestConfigCmd_SetEmbeddingModel(t *testing.T) {
+	proj := newTestProject(t)
+
+	_, _, err := executeConfigCmd(t, proj.Dir, "set", "embedding.model", "custom-model")
+	require.NoError(t, err)
+
+	cfg, err := proj.Loader.Load()
+	require.NoError(t, err)
+	assert.Equal(t, "custom-model", cfg.Embedding.Model)
+}
+
+func TestConfigCmd_SetEmbeddingCacheSize(t *testing.T) {
+	proj := newTestProject(t)
+
+	_, _, err := executeConfigCmd(t, proj.Dir, "set", "embedding.cache_size", "5000")
+	require.NoError(t, err)
+
+	cfg, err := proj.Loader.Load()
+	require.NoError(t, err)
+	assert.Equal(t, 5000, cfg.Embedding.CacheSize)
+}
+
+func TestConfigCmd_SetEmbeddingUnknownKey(t *testing.T) {
+	proj := newTestProject(t)
+
+	_, _, err := executeConfigCmd(t, proj.Dir, "set", "embedding.unknown", "value")
+	require.Error(t, err, "setting unknown key should return error")
+	assert.Contains(t, err.Error(), "unknown")
+}
+
+// =============================================================================
+// Tests for search config get/set
+// =============================================================================
+
+func TestConfigCmd_GetSearch(t *testing.T) {
+	proj := newTestProject(t)
+
+	stdout, _, err := executeConfigCmd(t, proj.Dir, "get", "search")
+	require.NoError(t, err)
+
+	assert.Contains(t, stdout, "default_limit")
+}
+
+func TestConfigCmd_GetSearchDefaultLimit(t *testing.T) {
+	proj := newTestProject(t)
+
+	stdout, _, err := executeConfigCmd(t, proj.Dir, "get", "search.default_limit")
+	require.NoError(t, err)
+	assert.NotEmpty(t, stdout)
+}
+
+func TestConfigCmd_GetSearchDefaultLevels(t *testing.T) {
+	proj := newTestProject(t)
+
+	stdout, _, err := executeConfigCmd(t, proj.Dir, "get", "search.default_levels")
+	require.NoError(t, err)
+	assert.NotEmpty(t, stdout)
+}
+
+func TestConfigCmd_SetSearchDefaultLimit(t *testing.T) {
+	proj := newTestProject(t)
+
+	_, _, err := executeConfigCmd(t, proj.Dir, "set", "search.default_limit", "20")
+	require.NoError(t, err)
+
+	cfg, err := proj.Loader.Load()
+	require.NoError(t, err)
+	assert.Equal(t, 20, cfg.Search.DefaultLimit)
+}
+
+func TestConfigCmd_SetSearchUnknownKey(t *testing.T) {
+	proj := newTestProject(t)
+
+	_, _, err := executeConfigCmd(t, proj.Dir, "set", "search.unknown", "value")
+	require.Error(t, err, "setting unknown key should return error")
+	assert.Contains(t, err.Error(), "unknown")
+}
+
+// =============================================================================
+// Tests for error cases in get/set
+// =============================================================================
+
+func TestConfigCmd_GetMissingKey(t *testing.T) {
+	proj := newTestProject(t)
+
+	_, _, err := executeConfigCmd(t, proj.Dir, "get")
+	require.Error(t, err, "get without key should return error")
+	// Error message says "Missing key argument"
+	errStr := strings.ToLower(err.Error())
+	assert.True(t, strings.Contains(errStr, "missing") || strings.Contains(errStr, "requires") || strings.Contains(errStr, "key"),
+		"Error should mention missing/requires/key, got: %s", err.Error())
+}
+
+func TestConfigCmd_SetInvalidIntValue(t *testing.T) {
+	proj := newTestProject(t)
+
+	_, _, err := executeConfigCmd(t, proj.Dir, "set", "daemon.port", "not-a-number")
+	require.Error(t, err, "setting invalid integer should return error")
+	assert.Contains(t, strings.ToLower(err.Error()), "invalid")
+}
+
+func TestConfigCmd_SetInvalidWatcherDebounce(t *testing.T) {
+	proj := newTestProject(t)
+
+	_, _, err := executeConfigCmd(t, proj.Dir, "set", "watcher.debounce_ms", "abc")
+	require.Error(t, err, "setting invalid integer should return error")
+	assert.Contains(t, strings.ToLower(err.Error()), "invalid")
+}
+
+func TestConfigCmd_SetInvalidWatcherMaxFileSize(t *testing.T) {
+	proj := newTestProject(t)
+
+	_, _, err := executeConfigCmd(t, proj.Dir, "set", "watcher.max_file_size", "xyz")
+	require.Error(t, err, "setting invalid integer should return error")
+	assert.Contains(t, strings.ToLower(err.Error()), "invalid")
+}
+
+func TestConfigCmd_SetInvalidEmbeddingBatchSize(t *testing.T) {
+	proj := newTestProject(t)
+
+	_, _, err := executeConfigCmd(t, proj.Dir, "set", "embedding.batch_size", "not-int")
+	require.Error(t, err, "setting invalid integer should return error")
+	assert.Contains(t, strings.ToLower(err.Error()), "invalid")
+}
+
+func TestConfigCmd_SetInvalidEmbeddingCacheSize(t *testing.T) {
+	proj := newTestProject(t)
+
+	_, _, err := executeConfigCmd(t, proj.Dir, "set", "embedding.cache_size", "bad")
+	require.Error(t, err, "setting invalid integer should return error")
+	assert.Contains(t, strings.ToLower(err.Error()), "invalid")
+}
+
+func TestConfigCmd_SetInvalidSearchLimit(t *testing.T) {
+	proj := newTestProject(t)
+
+	_, _, err := executeConfigCmd(t, proj.Dir, "set", "search.default_limit", "nope")
+	require.Error(t, err, "setting invalid integer should return error")
+	assert.Contains(t, strings.ToLower(err.Error()), "invalid")
+}
+
+func TestConfigCmd_GetVersionSubkey(t *testing.T) {
+	// Test that version.something returns unknown key error
+	proj := newTestProject(t)
+
+	_, _, err := executeConfigCmd(t, proj.Dir, "get", "version.something")
+	require.Error(t, err, "getting unknown subkey should return error")
+	// Error may contain "Unknown" (capital) or "unknown" (lowercase)
+	errStr := strings.ToLower(err.Error())
+	assert.Contains(t, errStr, "unknown")
 }

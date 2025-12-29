@@ -216,3 +216,301 @@ func TestTableSeparatorLength(t *testing.T) {
 	assert.Contains(t, lines[1], "-----")
 	assert.Contains(t, lines[1], "------------")
 }
+
+// =============================================================================
+// Tests for global output functions (package-level wrappers)
+// =============================================================================
+
+func TestGlobalSuccessFunction(t *testing.T) {
+	// Save the original default output formatter
+	origDefault := DefaultOutput
+
+	// Create a custom output with buffer to capture output
+	var buf bytes.Buffer
+	DefaultOutput = NewOutputFormatterWithWriters(&buf, &buf)
+
+	// Cleanup
+	defer func() {
+		DefaultOutput = origDefault
+	}()
+
+	Success("test %s %d", "message", 42)
+
+	assert.Contains(t, buf.String(), "[OK]")
+	assert.Contains(t, buf.String(), "test message 42")
+}
+
+func TestGlobalInfoFunction(t *testing.T) {
+	origDefault := DefaultOutput
+	var buf bytes.Buffer
+	DefaultOutput = NewOutputFormatterWithWriters(&buf, &buf)
+	defer func() { DefaultOutput = origDefault }()
+
+	Info("info %s", "text")
+
+	assert.Contains(t, buf.String(), "info text")
+}
+
+func TestGlobalWarnFunction(t *testing.T) {
+	origDefault := DefaultOutput
+	var outBuf, errBuf bytes.Buffer
+	DefaultOutput = NewOutputFormatterWithWriters(&outBuf, &errBuf)
+	defer func() { DefaultOutput = origDefault }()
+
+	Warn("warning %d", 123)
+
+	assert.Contains(t, errBuf.String(), "[WARN]")
+	assert.Contains(t, errBuf.String(), "warning 123")
+}
+
+func TestGlobalErrorFunction(t *testing.T) {
+	origDefault := DefaultOutput
+	var outBuf, errBuf bytes.Buffer
+	DefaultOutput = NewOutputFormatterWithWriters(&outBuf, &errBuf)
+	defer func() { DefaultOutput = origDefault }()
+
+	Error("error occurred: %v", "details")
+
+	assert.Contains(t, errBuf.String(), "[ERROR]")
+	assert.Contains(t, errBuf.String(), "error occurred: details")
+}
+
+func TestGlobalJSONFunction(t *testing.T) {
+	origDefault := DefaultOutput
+	var buf bytes.Buffer
+	DefaultOutput = NewOutputFormatterWithWriters(&buf, &buf)
+	defer func() { DefaultOutput = origDefault }()
+
+	data := map[string]int{"count": 5}
+	err := JSON(data)
+	require.NoError(t, err)
+
+	var decoded map[string]int
+	err = json.Unmarshal(buf.Bytes(), &decoded)
+	require.NoError(t, err)
+	assert.Equal(t, 5, decoded["count"])
+}
+
+func TestGlobalTableFunction(t *testing.T) {
+	origDefault := DefaultOutput
+	var buf bytes.Buffer
+	DefaultOutput = NewOutputFormatterWithWriters(&buf, &buf)
+	defer func() { DefaultOutput = origDefault }()
+
+	Table([]string{"Col1", "Col2"}, [][]string{{"a", "b"}, {"c", "d"}})
+
+	output := buf.String()
+	assert.Contains(t, output, "Col1")
+	assert.Contains(t, output, "Col2")
+	assert.Contains(t, output, "a")
+	assert.Contains(t, output, "d")
+}
+
+// =============================================================================
+// Tests for version command functions
+// =============================================================================
+
+func TestPrintVersionJSON(t *testing.T) {
+	// Capture stdout
+	oldStdout := DefaultOutput.out
+
+	var buf bytes.Buffer
+	DefaultOutput = NewOutputFormatterWithWriters(&buf, &buf)
+	defer func() { DefaultOutput.out = oldStdout }()
+
+	info := VersionInfo{
+		Version:   "1.2.3",
+		Commit:    "abc123",
+		Date:      "2024-01-15",
+		GoVersion: "go1.21",
+		OS:        "linux",
+		Arch:      "amd64",
+	}
+
+	err := printVersionJSON(info)
+	require.NoError(t, err)
+	// Note: printVersionJSON uses fmt.Println directly, so we test it indirectly
+}
+
+func TestPrintVersionText(t *testing.T) {
+	info := VersionInfo{
+		Version:   "2.0.0",
+		Commit:    "def456",
+		Date:      "2024-06-01",
+		GoVersion: "go1.22",
+		OS:        "darwin",
+		Arch:      "arm64",
+	}
+
+	err := printVersionText(info)
+	require.NoError(t, err)
+	// This prints to stdout, but we verify no error is returned
+}
+
+// =============================================================================
+// Tests for root command functions
+// =============================================================================
+
+func TestExecuteFunction(t *testing.T) {
+	// This tests the Execute function - we set up args for --help to avoid side effects
+	// Save original args
+	oldArgs := rootCmd.Args
+
+	// Set args for help to get a clean execution
+	rootCmd.SetArgs([]string{"--help"})
+
+	// Execute returns nil for help
+	// We just verify it doesn't panic
+	_ = Execute()
+
+	// Restore
+	rootCmd.Args = oldArgs
+}
+
+func TestRegisterConfigCommand(t *testing.T) {
+	// First check if config is already registered
+	var alreadyRegistered bool
+	for _, cmd := range rootCmd.Commands() {
+		if cmd.Use == "config [get|set] [key] [value]" {
+			alreadyRegistered = true
+			break
+		}
+	}
+
+	// Only register if not already registered
+	if !alreadyRegistered {
+		RegisterConfigCommand()
+	}
+
+	// Verify config command is now registered
+	var found bool
+	for _, cmd := range rootCmd.Commands() {
+		if cmd.Use == "config [get|set] [key] [value]" {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "config command should be registered after RegisterConfigCommand")
+}
+
+// =============================================================================
+// CLI Error Tests
+// =============================================================================
+
+func TestCLIError_ErrorMethod(t *testing.T) {
+	testCases := []struct {
+		name       string
+		err        *CLIError
+		wantMsg    string
+		wantSuggest bool
+	}{
+		{
+			name: "with suggestion",
+			err: &CLIError{
+				Message:    "Something went wrong",
+				Suggestion: "Try again later",
+			},
+			wantMsg:    "Something went wrong",
+			wantSuggest: true,
+		},
+		{
+			name: "without suggestion",
+			err: &CLIError{
+				Message: "Error occurred",
+			},
+			wantMsg:    "Error occurred",
+			wantSuggest: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			errStr := tc.err.Error()
+			assert.Contains(t, errStr, tc.wantMsg)
+			if tc.wantSuggest {
+				assert.Contains(t, errStr, "Suggestion:")
+			} else {
+				assert.NotContains(t, errStr, "Suggestion:")
+			}
+		})
+	}
+}
+
+func TestCLIError_Unwrap(t *testing.T) {
+	cause := assert.AnError
+	err := &CLIError{
+		Message: "Wrapper error",
+		Cause:   cause,
+	}
+
+	unwrapped := err.Unwrap()
+	assert.Equal(t, cause, unwrapped)
+}
+
+func TestCLIError_UnwrapNil(t *testing.T) {
+	err := &CLIError{
+		Message: "No cause",
+	}
+
+	unwrapped := err.Unwrap()
+	assert.Nil(t, unwrapped)
+}
+
+func TestErrDaemonNotRunning(t *testing.T) {
+	err := ErrDaemonNotRunning()
+	assert.Contains(t, err.Message, "not running")
+	assert.NotEmpty(t, err.Suggestion)
+}
+
+func TestErrDaemonHealthTimeout(t *testing.T) {
+	err := ErrDaemonHealthTimeout()
+	assert.Contains(t, err.Message, "health check")
+	assert.NotEmpty(t, err.Suggestion)
+}
+
+func TestErrDaemonConnectionFailed(t *testing.T) {
+	cause := assert.AnError
+	err := ErrDaemonConnectionFailed(cause)
+	assert.Contains(t, err.Message, "Cannot connect")
+	assert.NotEmpty(t, err.Suggestion)
+	assert.Equal(t, cause, err.Cause)
+}
+
+func TestErrConfigNotFound(t *testing.T) {
+	err := ErrConfigNotFound()
+	assert.Contains(t, err.Message, "not found")
+	assert.NotEmpty(t, err.Suggestion)
+}
+
+func TestErrInvalidProjectRoot(t *testing.T) {
+	err := ErrInvalidProjectRoot("/invalid/path")
+	assert.Contains(t, err.Message, "/invalid/path")
+	assert.NotEmpty(t, err.Suggestion)
+}
+
+func TestErrEmptyQuery(t *testing.T) {
+	err := ErrEmptyQuery()
+	assert.Contains(t, err.Message, "empty")
+	assert.NotEmpty(t, err.Suggestion)
+}
+
+func TestErrInvalidLevel(t *testing.T) {
+	validLevels := []string{"method", "class", "file"}
+	err := ErrInvalidLevel("block", validLevels)
+	assert.Contains(t, err.Message, "block")
+	assert.Contains(t, err.Suggestion, "method")
+}
+
+func TestErrReindexFailed(t *testing.T) {
+	cause := assert.AnError
+	err := ErrReindexFailed(cause)
+	assert.Contains(t, err.Message, "reindex")
+	assert.NotEmpty(t, err.Suggestion)
+	assert.Equal(t, cause, err.Cause)
+}
+
+func TestErrNoSearchResults(t *testing.T) {
+	err := ErrNoSearchResults("test query")
+	assert.Contains(t, err.Message, "test query")
+	assert.NotEmpty(t, err.Suggestion)
+}

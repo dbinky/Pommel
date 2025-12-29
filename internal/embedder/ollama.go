@@ -7,9 +7,34 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 )
+
+// OllamaError represents an error from Ollama operations with helpful context.
+type OllamaError struct {
+	Code       string
+	Message    string
+	Suggestion string
+	Cause      error
+}
+
+// Error implements the error interface.
+func (e *OllamaError) Error() string {
+	var sb strings.Builder
+	sb.WriteString(e.Message)
+	if e.Suggestion != "" {
+		sb.WriteString(". ")
+		sb.WriteString(e.Suggestion)
+	}
+	return sb.String()
+}
+
+// Unwrap returns the underlying cause for errors.Is/As compatibility.
+func (e *OllamaError) Unwrap() error {
+	return e.Cause
+}
 
 // OllamaClient provides embedding generation via Ollama's local API.
 type OllamaClient struct {
@@ -76,12 +101,21 @@ func (c *OllamaClient) Health(ctx context.Context) error {
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("health check failed: %w", err)
+		return &OllamaError{
+			Code:       "OLLAMA_UNAVAILABLE",
+			Message:    fmt.Sprintf("cannot connect to Ollama at %s", c.baseURL),
+			Suggestion: "Is Ollama running? Start it with 'ollama serve' or check if it's listening on the configured port",
+			Cause:      err,
+		}
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("health check failed with status %d", resp.StatusCode)
+		return &OllamaError{
+			Code:       "OLLAMA_HEALTH_FAILED",
+			Message:    fmt.Sprintf("Ollama health check failed with status %d", resp.StatusCode),
+			Suggestion: "Ollama may be starting up or experiencing issues. Check 'ollama logs' for details",
+		}
 	}
 
 	return nil
@@ -94,7 +128,11 @@ func (c *OllamaClient) EmbedSingle(ctx context.Context, text string) ([]float32,
 		return nil, err
 	}
 	if len(embeddings) == 0 {
-		return nil, fmt.Errorf("no embeddings returned")
+		return nil, &OllamaError{
+			Code:       "EMBEDDING_EMPTY",
+			Message:    "Ollama returned no embeddings for the input",
+			Suggestion: "This may indicate an issue with the model. Try restarting Ollama with 'ollama serve'",
+		}
 	}
 	return embeddings[0], nil
 }
@@ -131,7 +169,12 @@ func (c *OllamaClient) embed(ctx context.Context, input any) ([][]float32, error
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
-		return nil, fmt.Errorf("request failed: %w", err)
+		return nil, &OllamaError{
+			Code:       "OLLAMA_CONNECTION_FAILED",
+			Message:    fmt.Sprintf("cannot connect to Ollama at %s", c.baseURL),
+			Suggestion: "Is Ollama running? Start it with 'ollama serve' or check if it's listening on the configured port (default: 11434)",
+			Cause:      err,
+		}
 	}
 	defer resp.Body.Close()
 
@@ -141,12 +184,33 @@ func (c *OllamaClient) embed(ctx context.Context, input any) ([][]float32, error
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("embedding request failed with status %d: model not found: %s", resp.StatusCode, string(body))
+		// Try to parse error message from Ollama
+		errMsg := strings.TrimSpace(string(body))
+
+		// Check for common error cases
+		if resp.StatusCode == http.StatusNotFound || strings.Contains(errMsg, "not found") {
+			return nil, &OllamaError{
+				Code:       "OLLAMA_MODEL_NOT_FOUND",
+				Message:    fmt.Sprintf("embedding model '%s' not found in Ollama", c.model),
+				Suggestion: fmt.Sprintf("Pull the model with 'ollama pull %s' or check your embedding.model config setting", c.model),
+			}
+		}
+
+		return nil, &OllamaError{
+			Code:       "OLLAMA_REQUEST_FAILED",
+			Message:    fmt.Sprintf("Ollama embedding request failed with status %d", resp.StatusCode),
+			Suggestion: "Check Ollama logs for details. The model may be loading or Ollama may be experiencing issues",
+		}
 	}
 
 	var embedResp ollamaEmbedResponse
 	if err := json.Unmarshal(body, &embedResp); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
+		return nil, &OllamaError{
+			Code:       "OLLAMA_INVALID_RESPONSE",
+			Message:    "received invalid response from Ollama",
+			Suggestion: "This may indicate a version mismatch. Ensure Ollama is up to date",
+			Cause:      err,
+		}
 	}
 
 	return embedResp.Embeddings, nil

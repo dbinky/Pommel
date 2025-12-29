@@ -3,6 +3,7 @@ package embedder
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -282,8 +283,15 @@ func TestOllamaClient_Health_NotRunning(t *testing.T) {
 
 	err := client.Health(context.Background())
 	assert.Error(t, err, "Health should return error when Ollama is not reachable")
-	assert.Contains(t, err.Error(), "connection refused",
-		"Error should indicate connection was refused")
+	// Check that the error is an OllamaError with helpful message
+	var ollamaErr *OllamaError
+	if errors.As(err, &ollamaErr) {
+		assert.Equal(t, "OLLAMA_UNAVAILABLE", ollamaErr.Code, "Expected OLLAMA_UNAVAILABLE error code")
+		assert.Contains(t, ollamaErr.Message, "cannot connect", "Error should indicate connection failed")
+		assert.Contains(t, ollamaErr.Suggestion, "Is Ollama running?", "Error should suggest checking if Ollama is running")
+	} else {
+		t.Errorf("Expected OllamaError, got %T: %v", err, err)
+	}
 }
 
 func TestOllamaClient_Health_ServerError(t *testing.T) {

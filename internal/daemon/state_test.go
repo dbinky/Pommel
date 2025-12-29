@@ -491,3 +491,182 @@ func TestNewStateManager_SetsProjectRoot(t *testing.T) {
 	// The StateManager should be non-nil and store the project root
 	assert.NotNil(t, sm)
 }
+
+// =============================================================================
+// Additional Edge Case Tests
+// =============================================================================
+
+func TestReadPID_HandlesWhitespace(t *testing.T) {
+	// Setup
+	tmpDir := t.TempDir()
+	pommelDir := filepath.Join(tmpDir, ".pommel")
+	require.NoError(t, os.MkdirAll(pommelDir, 0755))
+
+	// Write PID with leading/trailing whitespace and newline
+	require.NoError(t, os.WriteFile(
+		filepath.Join(pommelDir, PIDFile),
+		[]byte("  12345\n"),
+		0644,
+	))
+
+	sm := NewStateManager(tmpDir)
+
+	// Execute
+	pid, err := sm.ReadPID()
+
+	// Verify
+	require.NoError(t, err)
+	assert.Equal(t, 12345, pid)
+}
+
+func TestIsRunning_ReturnsTrueForCurrentProcess(t *testing.T) {
+	// Setup
+	tmpDir := t.TempDir()
+	sm := NewStateManager(tmpDir)
+
+	// Write current process PID
+	currentPID := os.Getpid()
+	err := sm.WritePID(currentPID)
+	require.NoError(t, err)
+
+	// Execute
+	running, pid := sm.IsRunning()
+
+	// Verify
+	assert.True(t, running, "Current process should be detected as running")
+	assert.Equal(t, currentPID, pid)
+
+	// Cleanup
+	_ = sm.RemovePID()
+}
+
+func TestLoadState_ReturnsErrorForInvalidJSONTypes(t *testing.T) {
+	// Setup
+	tmpDir := t.TempDir()
+	pommelDir := filepath.Join(tmpDir, ".pommel")
+	require.NoError(t, os.MkdirAll(pommelDir, 0755))
+
+	// Write JSON with wrong types
+	require.NoError(t, os.WriteFile(
+		filepath.Join(pommelDir, StateFile),
+		[]byte(`{"version": "not-a-number"}`),
+		0644,
+	))
+
+	sm := NewStateManager(tmpDir)
+
+	// Execute
+	_, err := sm.LoadState()
+
+	// Verify - should error on type mismatch
+	assert.Error(t, err, "LoadState should error on type mismatch")
+}
+
+func TestSaveState_OverwritesExistingState(t *testing.T) {
+	// Setup
+	tmpDir := t.TempDir()
+	sm := NewStateManager(tmpDir)
+
+	// Save first state
+	state1 := &DaemonState{Version: 1}
+	state1.Daemon.PID = 111
+	err := sm.SaveState(state1)
+	require.NoError(t, err)
+
+	// Save second state with different values
+	state2 := &DaemonState{Version: 1}
+	state2.Daemon.PID = 222
+	err = sm.SaveState(state2)
+	require.NoError(t, err)
+
+	// Load and verify
+	loaded, err := sm.LoadState()
+	require.NoError(t, err)
+	assert.Equal(t, 222, loaded.Daemon.PID, "Should have the latest PID")
+}
+
+func TestWritePID_OverwritesExistingPID(t *testing.T) {
+	// Setup
+	tmpDir := t.TempDir()
+	sm := NewStateManager(tmpDir)
+
+	// Write first PID
+	err := sm.WritePID(111)
+	require.NoError(t, err)
+
+	// Write second PID
+	err = sm.WritePID(222)
+	require.NoError(t, err)
+
+	// Read and verify
+	pid, err := sm.ReadPID()
+	require.NoError(t, err)
+	assert.Equal(t, 222, pid, "Should have the latest PID")
+}
+
+func TestReadPID_HandlesEmptyFile(t *testing.T) {
+	// Setup
+	tmpDir := t.TempDir()
+	pommelDir := filepath.Join(tmpDir, ".pommel")
+	require.NoError(t, os.MkdirAll(pommelDir, 0755))
+
+	// Write empty PID file
+	require.NoError(t, os.WriteFile(
+		filepath.Join(pommelDir, PIDFile),
+		[]byte(""),
+		0644,
+	))
+
+	sm := NewStateManager(tmpDir)
+
+	// Execute
+	_, err := sm.ReadPID()
+
+	// Verify - should error on empty content
+	assert.Error(t, err, "ReadPID should error on empty file")
+}
+
+func TestSaveState_WithZeroValues(t *testing.T) {
+	// Setup
+	tmpDir := t.TempDir()
+	sm := NewStateManager(tmpDir)
+
+	// Save state with zero values (testing default behavior)
+	state := &DaemonState{} // All zero values
+
+	// Execute
+	err := sm.SaveState(state)
+	require.NoError(t, err)
+
+	// Load and verify
+	loaded, err := sm.LoadState()
+	require.NoError(t, err)
+
+	assert.Equal(t, 0, loaded.Version, "Version should be 0")
+	assert.Equal(t, 0, loaded.Daemon.PID, "PID should be 0")
+	assert.Equal(t, 0, loaded.Daemon.Port, "Port should be 0")
+}
+
+func TestLoadState_HandlesEmptyJSONObject(t *testing.T) {
+	// Setup
+	tmpDir := t.TempDir()
+	pommelDir := filepath.Join(tmpDir, ".pommel")
+	require.NoError(t, os.MkdirAll(pommelDir, 0755))
+
+	// Write empty JSON object
+	require.NoError(t, os.WriteFile(
+		filepath.Join(pommelDir, StateFile),
+		[]byte(`{}`),
+		0644,
+	))
+
+	sm := NewStateManager(tmpDir)
+
+	// Execute
+	state, err := sm.LoadState()
+
+	// Verify - should succeed with zero values
+	require.NoError(t, err)
+	assert.Equal(t, 0, state.Version)
+	assert.Equal(t, 0, state.Daemon.PID)
+}

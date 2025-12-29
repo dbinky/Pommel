@@ -3,6 +3,7 @@ package cli
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/pommel-dev/pommel/internal/config"
@@ -26,7 +27,9 @@ func TestStartCmd_NotInitialized(t *testing.T) {
 
 	// Should fail because project is not initialized
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "not initialized")
+	// The error message may say "not been initialized" or "pm init"
+	assert.True(t, strings.Contains(err.Error(), "init") || strings.Contains(err.Error(), "initialized"),
+		"Error should mention init or initialized, got: %s", err.Error())
 }
 
 // TestStartCmd_AlreadyRunning tests that start shows info when daemon is already running

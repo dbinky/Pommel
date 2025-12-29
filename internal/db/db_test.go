@@ -5,8 +5,10 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	sqlite_vec "github.com/asg017/sqlite-vec-go-bindings/cgo"
+	"github.com/pommel-dev/pommel/internal/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -289,4 +291,371 @@ func TestTableExists(t *testing.T) {
 	exists, err = db.TableExists(ctx, "nonexistent")
 	require.NoError(t, err)
 	assert.False(t, exists)
+}
+
+func TestVirtualTableExists(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	db, err := Open(tmpDir)
+	require.NoError(t, err)
+	defer db.Close()
+
+	ctx := context.Background()
+
+	// Before migration, virtual tables shouldn't exist
+	exists, err := db.VirtualTableExists(ctx, "chunk_embeddings")
+	require.NoError(t, err)
+	assert.False(t, exists)
+
+	// After migration, virtual tables should exist
+	err = db.Migrate(ctx)
+	require.NoError(t, err)
+
+	exists, err = db.VirtualTableExists(ctx, "chunk_embeddings")
+	require.NoError(t, err)
+	assert.True(t, exists)
+
+	// Non-existent virtual table
+	exists, err = db.VirtualTableExists(ctx, "nonexistent")
+	require.NoError(t, err)
+	assert.False(t, exists)
+
+	// Regular table should not be reported as virtual table
+	exists, err = db.VirtualTableExists(ctx, "files")
+	require.NoError(t, err)
+	assert.False(t, exists)
+}
+
+// =============================================================================
+// Additional Coverage Tests
+// =============================================================================
+
+func TestClearAll_ClearsAllTables(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	db, err := Open(tmpDir)
+	require.NoError(t, err)
+	defer db.Close()
+
+	ctx := context.Background()
+	err = db.Migrate(ctx)
+	require.NoError(t, err)
+
+	// Insert some data
+	fileID, err := db.InsertFile(ctx, "/test/file.go", "hash123", "go", 1000, time.Now())
+	require.NoError(t, err)
+
+	chunk := &models.Chunk{
+		ID:          "chunk-clear-1",
+		Level:       models.ChunkLevelMethod,
+		Name:        "TestFunc",
+		StartLine:   1,
+		EndLine:     10,
+		Content:     "func TestFunc() {}",
+		ContentHash: "contenthash",
+	}
+	err = db.InsertChunk(ctx, chunk, fileID)
+	require.NoError(t, err)
+
+	// Clear all
+	err = db.ClearAll(ctx)
+	require.NoError(t, err)
+
+	// Verify tables are empty
+	fileCount, err := db.FileCount(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), fileCount)
+
+	chunkCount, err := db.ChunkCount(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), chunkCount)
+}
+
+func TestInsertFile_ReturnsDifferentIDsForDifferentFiles(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	db, err := Open(tmpDir)
+	require.NoError(t, err)
+	defer db.Close()
+
+	ctx := context.Background()
+	err = db.Migrate(ctx)
+	require.NoError(t, err)
+
+	// Insert multiple files
+	id1, err := db.InsertFile(ctx, "/test/file1.go", "hash1", "go", 100, time.Now())
+	require.NoError(t, err)
+
+	id2, err := db.InsertFile(ctx, "/test/file2.go", "hash2", "go", 200, time.Now())
+	require.NoError(t, err)
+
+	id3, err := db.InsertFile(ctx, "/test/file3.go", "hash3", "go", 300, time.Now())
+	require.NoError(t, err)
+
+	// IDs should all be different
+	assert.NotEqual(t, id1, id2)
+	assert.NotEqual(t, id2, id3)
+	assert.NotEqual(t, id1, id3)
+}
+
+func TestGetFileIDByPath_ReturnsZeroForNonExistent(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	db, err := Open(tmpDir)
+	require.NoError(t, err)
+	defer db.Close()
+
+	ctx := context.Background()
+	err = db.Migrate(ctx)
+	require.NoError(t, err)
+
+	// Try to get ID for non-existent file - returns 0 and no error
+	id, err := db.GetFileIDByPath(ctx, "/nonexistent/path.go")
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), id)
+}
+
+func TestDeleteFileByPath_NoopForNonExistent(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	db, err := Open(tmpDir)
+	require.NoError(t, err)
+	defer db.Close()
+
+	ctx := context.Background()
+	err = db.Migrate(ctx)
+	require.NoError(t, err)
+
+	// Delete non-existent file should not error
+	err = db.DeleteFileByPath(ctx, "/nonexistent/path.go")
+	require.NoError(t, err)
+}
+
+func TestDeleteChunksByFile_NoopForNonExistent(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	db, err := Open(tmpDir)
+	require.NoError(t, err)
+	defer db.Close()
+
+	ctx := context.Background()
+	err = db.Migrate(ctx)
+	require.NoError(t, err)
+
+	// Delete chunks for non-existent file should not error
+	err = db.DeleteChunksByFile(ctx, "/nonexistent/path.go")
+	require.NoError(t, err)
+}
+
+func TestGetChunkIDsByFile_ReturnsEmptyForNonExistent(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	db, err := Open(tmpDir)
+	require.NoError(t, err)
+	defer db.Close()
+
+	ctx := context.Background()
+	err = db.Migrate(ctx)
+	require.NoError(t, err)
+
+	// Get chunk IDs for non-existent file
+	ids, err := db.GetChunkIDsByFile(ctx, "/nonexistent/path.go")
+	require.NoError(t, err)
+	assert.Empty(t, ids)
+}
+
+func TestGetChunkByID_ReturnsNilForNonExistent(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	db, err := Open(tmpDir)
+	require.NoError(t, err)
+	defer db.Close()
+
+	ctx := context.Background()
+	err = db.Migrate(ctx)
+	require.NoError(t, err)
+
+	// Get non-existent chunk - returns nil chunk but no error
+	chunk, err := db.GetChunkByID(ctx, "nonexistent-chunk-id")
+	require.NoError(t, err)
+	assert.Nil(t, chunk)
+}
+
+func TestEmbeddingCount_ReturnsZeroInitially(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	db, err := Open(tmpDir)
+	require.NoError(t, err)
+	defer db.Close()
+
+	ctx := context.Background()
+	err = db.Migrate(ctx)
+	require.NoError(t, err)
+
+	count, err := db.EmbeddingCount(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, 0, count)
+}
+
+func TestMigrate_IsIdempotent(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	db, err := Open(tmpDir)
+	require.NoError(t, err)
+	defer db.Close()
+
+	ctx := context.Background()
+
+	// Run migrate multiple times - should succeed each time
+	err = db.Migrate(ctx)
+	require.NoError(t, err)
+
+	err = db.Migrate(ctx)
+	require.NoError(t, err)
+
+	err = db.Migrate(ctx)
+	require.NoError(t, err)
+
+	// Verify schema version
+	version, err := db.GetSchemaVersion(ctx)
+	require.NoError(t, err)
+	assert.Greater(t, version, 0)
+}
+
+func TestInsertFile_WithAllFields(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	db, err := Open(tmpDir)
+	require.NoError(t, err)
+	defer db.Close()
+
+	ctx := context.Background()
+	err = db.Migrate(ctx)
+	require.NoError(t, err)
+
+	modTime := time.Now().Add(-time.Hour)
+	fileID, err := db.InsertFile(ctx, "/test/complete.go", "completehash", "go", 12345, modTime)
+	require.NoError(t, err)
+	assert.Greater(t, fileID, int64(0))
+
+	// Verify file was inserted correctly
+	retrievedID, err := db.GetFileIDByPath(ctx, "/test/complete.go")
+	require.NoError(t, err)
+	assert.Equal(t, fileID, retrievedID)
+}
+
+func TestDeleteChunksByFileID_DeletesChunks(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	db, err := Open(tmpDir)
+	require.NoError(t, err)
+	defer db.Close()
+
+	ctx := context.Background()
+	err = db.Migrate(ctx)
+	require.NoError(t, err)
+
+	// Insert file and chunk
+	fileID, err := db.InsertFile(ctx, "/test/deletable.go", "hash123", "go", 1000, time.Now())
+	require.NoError(t, err)
+
+	chunk := &models.Chunk{
+		ID:          "chunk-delete-test",
+		Level:       models.ChunkLevelMethod,
+		Name:        "TestFunc",
+		StartLine:   1,
+		EndLine:     10,
+		Content:     "func TestFunc() {}",
+		ContentHash: "contenthash",
+	}
+	err = db.InsertChunk(ctx, chunk, fileID)
+	require.NoError(t, err)
+
+	// Verify chunk exists
+	chunkCount, err := db.ChunkCount(ctx)
+	require.NoError(t, err)
+	assert.Greater(t, chunkCount, int64(0))
+
+	// Delete chunks by file ID
+	err = db.DeleteChunksByFileID(ctx, fileID)
+	require.NoError(t, err)
+
+	// Verify chunks are deleted
+	chunkCount, err = db.ChunkCount(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), chunkCount)
+}
+
+func TestGetChunksByIDs_ReturnsMultipleChunks(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	db, err := Open(tmpDir)
+	require.NoError(t, err)
+	defer db.Close()
+
+	ctx := context.Background()
+	err = db.Migrate(ctx)
+	require.NoError(t, err)
+
+	// Insert file
+	fileID, err := db.InsertFile(ctx, "/test/multi.go", "multihash", "go", 1000, time.Now())
+	require.NoError(t, err)
+
+	// Insert multiple chunks
+	chunkIDs := []string{"chunk-multi-1", "chunk-multi-2", "chunk-multi-3"}
+	for i, id := range chunkIDs {
+		chunk := &models.Chunk{
+			ID:          id,
+			Level:       models.ChunkLevelMethod,
+			Name:        "Func" + string(rune('A'+i)),
+			StartLine:   i * 10,
+			EndLine:     (i + 1) * 10,
+			Content:     "func content",
+			ContentHash: "hash" + id,
+		}
+		err = db.InsertChunk(ctx, chunk, fileID)
+		require.NoError(t, err)
+	}
+
+	// Get chunks by IDs
+	chunks, err := db.GetChunksByIDs(ctx, chunkIDs)
+	require.NoError(t, err)
+	assert.Len(t, chunks, 3)
+}
+
+func TestGetChunkIDsByFileID_ReturnsChunkIDs(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	db, err := Open(tmpDir)
+	require.NoError(t, err)
+	defer db.Close()
+
+	ctx := context.Background()
+	err = db.Migrate(ctx)
+	require.NoError(t, err)
+
+	// Insert file
+	fileID, err := db.InsertFile(ctx, "/test/withchunks.go", "chunkhash", "go", 1000, time.Now())
+	require.NoError(t, err)
+
+	// Insert chunks
+	expectedIDs := []string{"chunk-byfile-1", "chunk-byfile-2"}
+	for _, id := range expectedIDs {
+		chunk := &models.Chunk{
+			ID:          id,
+			Level:       models.ChunkLevelMethod,
+			Name:        "TestFunc",
+			StartLine:   1,
+			EndLine:     10,
+			Content:     "func content",
+			ContentHash: "hash" + id,
+		}
+		err = db.InsertChunk(ctx, chunk, fileID)
+		require.NoError(t, err)
+	}
+
+	// Get chunk IDs by file ID
+	ids, err := db.GetChunkIDsByFileID(ctx, fileID)
+	require.NoError(t, err)
+	assert.Len(t, ids, 2)
 }

@@ -1,7 +1,9 @@
 package daemon
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
@@ -655,6 +657,656 @@ func calculateDifference(a, b int) int {
 	assert.True(t, found, "Search results should include the test file")
 
 	// Cleanup
+	cancel()
+	<-errCh
+}
+
+// =============================================================================
+// DaemonError Tests
+// =============================================================================
+
+func TestDaemonError_ImplementsError(t *testing.T) {
+	// Verify DaemonError implements the error interface
+	var err error = &DaemonError{
+		Code:    "TEST_ERROR",
+		Message: "Test error message",
+	}
+	assert.NotNil(t, err)
+	assert.Contains(t, err.Error(), "Test error message")
+}
+
+func TestDaemonError_ErrorMethod_WithoutSuggestion(t *testing.T) {
+	err := &DaemonError{
+		Code:    "TEST_CODE",
+		Message: "Test message without suggestion",
+	}
+
+	expected := "Test message without suggestion"
+	assert.Equal(t, expected, err.Error())
+}
+
+func TestDaemonError_ErrorMethod_WithSuggestion(t *testing.T) {
+	err := &DaemonError{
+		Code:       "TEST_CODE",
+		Message:    "Test message",
+		Suggestion: "Try this to fix the issue",
+	}
+
+	expected := "Test message. Try this to fix the issue"
+	assert.Equal(t, expected, err.Error())
+}
+
+func TestDaemonError_Unwrap_ReturnsCause(t *testing.T) {
+	cause := assert.AnError
+	err := &DaemonError{
+		Code:    "WRAPPED_ERROR",
+		Message: "Wrapped error",
+		Cause:   cause,
+	}
+
+	unwrapped := err.Unwrap()
+	assert.Equal(t, cause, unwrapped)
+}
+
+func TestDaemonError_Unwrap_ReturnsNilWhenNoCause(t *testing.T) {
+	err := &DaemonError{
+		Code:    "NO_CAUSE_ERROR",
+		Message: "Error without cause",
+	}
+
+	unwrapped := err.Unwrap()
+	assert.Nil(t, unwrapped)
+}
+
+func TestDaemonError_AllFields(t *testing.T) {
+	cause := assert.AnError
+	err := &DaemonError{
+		Code:       "FULL_ERROR",
+		Message:    "Full error message",
+		Suggestion: "Full suggestion",
+		Cause:      cause,
+	}
+
+	assert.Equal(t, "FULL_ERROR", err.Code)
+	assert.Equal(t, "Full error message", err.Message)
+	assert.Equal(t, "Full suggestion", err.Suggestion)
+	assert.Equal(t, cause, err.Cause)
+}
+
+// =============================================================================
+// New Daemon Error Cases
+// =============================================================================
+
+func TestNew_FailsWithFileAsProjectRoot(t *testing.T) {
+	// Create a file instead of a directory
+	tmpDir := t.TempDir()
+	filePath := filepath.Join(tmpDir, "somefile.txt")
+	err := os.WriteFile(filePath, []byte("content"), 0644)
+	require.NoError(t, err)
+
+	cfg := daemonTestConfig()
+	logger := daemonTestLogger()
+
+	// Act - try to create daemon with a file path as project root
+	daemon, err := New(filePath, cfg, logger)
+
+	// Assert
+	require.Error(t, err)
+	require.Nil(t, daemon)
+
+	// Verify it's the right error type
+	var daemonErr *DaemonError
+	require.ErrorAs(t, err, &daemonErr)
+	assert.Equal(t, "PROJECT_ROOT_NOT_DIRECTORY", daemonErr.Code)
+}
+
+func TestNew_CreatesDefaultLogger_WhenNilProvided(t *testing.T) {
+	// Arrange
+	projectRoot := t.TempDir()
+	cfg := daemonTestConfig()
+
+	// Act - pass nil logger
+	daemon, err := New(projectRoot, cfg, nil)
+
+	// Assert - should succeed with a default logger
+	require.NoError(t, err)
+	require.NotNil(t, daemon)
+}
+
+func TestNew_UsesDefaultCacheSize_WhenZeroProvided(t *testing.T) {
+	// Arrange
+	projectRoot := t.TempDir()
+	cfg := daemonTestConfig()
+	cfg.Embedding.CacheSize = 0 // Zero cache size
+	logger := daemonTestLogger()
+
+	// Act
+	daemon, err := New(projectRoot, cfg, logger)
+
+	// Assert - should succeed with default cache size
+	require.NoError(t, err)
+	require.NotNil(t, daemon)
+}
+
+func TestNew_UsesDefaultCacheSize_WhenNegativeProvided(t *testing.T) {
+	// Arrange
+	projectRoot := t.TempDir()
+	cfg := daemonTestConfig()
+	cfg.Embedding.CacheSize = -100 // Negative cache size
+	logger := daemonTestLogger()
+
+	// Act
+	daemon, err := New(projectRoot, cfg, logger)
+
+	// Assert - should succeed with default cache size
+	require.NoError(t, err)
+	require.NotNil(t, daemon)
+}
+
+// =============================================================================
+// Search Error Cases
+// =============================================================================
+
+func TestDaemon_Search_WithLevelFilter(t *testing.T) {
+	// Arrange
+	projectRoot := t.TempDir()
+	cfg := daemonTestConfig()
+	cfg.IncludePatterns = []string{"**/*.go"}
+	logger := daemonTestLogger()
+
+	// Create a test file
+	testFile := filepath.Join(projectRoot, "main.go")
+	err := os.WriteFile(testFile, []byte(`package main
+
+func main() {}
+`), 0644)
+	require.NoError(t, err)
+
+	daemon, err := New(projectRoot, cfg, logger)
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- daemon.Run(ctx)
+	}()
+
+	// Wait for indexing
+	time.Sleep(500 * time.Millisecond)
+
+	// Act - search with level filter
+	req := SearchRequest{
+		Query:  "main function",
+		Limit:  5,
+		Levels: []string{"method"},
+	}
+	resp, err := daemon.Search(ctx, req)
+
+	// Assert
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	// Results should all be of the method level
+	for _, result := range resp.Results {
+		assert.Equal(t, "method", result.Level)
+	}
+
+	// Cleanup
+	cancel()
+	<-errCh
+}
+
+func TestDaemon_Search_WithPathPrefix(t *testing.T) {
+	// Arrange
+	projectRoot := t.TempDir()
+	cfg := daemonTestConfig()
+	cfg.IncludePatterns = []string{"**/*.go"}
+	logger := daemonTestLogger()
+
+	// Create subdirectory
+	subDir := filepath.Join(projectRoot, "pkg", "handler")
+	require.NoError(t, os.MkdirAll(subDir, 0755))
+
+	// Create files in different locations
+	err := os.WriteFile(filepath.Join(projectRoot, "main.go"), []byte(`package main
+
+func main() {}
+`), 0644)
+	require.NoError(t, err)
+
+	err = os.WriteFile(filepath.Join(subDir, "handler.go"), []byte(`package handler
+
+func Handler() {}
+`), 0644)
+	require.NoError(t, err)
+
+	daemon, err := New(projectRoot, cfg, logger)
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- daemon.Run(ctx)
+	}()
+
+	// Wait for indexing
+	time.Sleep(500 * time.Millisecond)
+
+	// Act - search with path prefix
+	req := SearchRequest{
+		Query:      "function",
+		Limit:      10,
+		PathPrefix: "pkg/",
+	}
+	resp, err := daemon.Search(ctx, req)
+
+	// Assert
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	// All results should be from pkg/
+	for _, result := range resp.Results {
+		assert.Contains(t, result.FilePath, "pkg/")
+	}
+
+	// Cleanup
+	cancel()
+	<-errCh
+}
+
+func TestDaemon_Search_ScoreCalculation(t *testing.T) {
+	// Arrange
+	projectRoot := t.TempDir()
+	cfg := daemonTestConfig()
+	cfg.IncludePatterns = []string{"**/*.go"}
+	logger := daemonTestLogger()
+
+	testFile := filepath.Join(projectRoot, "main.go")
+	err := os.WriteFile(testFile, []byte(`package main
+
+func main() {}
+`), 0644)
+	require.NoError(t, err)
+
+	daemon, err := New(projectRoot, cfg, logger)
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- daemon.Run(ctx)
+	}()
+
+	// Wait for indexing
+	time.Sleep(500 * time.Millisecond)
+
+	// Act
+	req := SearchRequest{
+		Query: "main function",
+		Limit: 5,
+	}
+	resp, err := daemon.Search(ctx, req)
+
+	// Assert
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	// Scores should be between 0 and 1
+	for _, result := range resp.Results {
+		assert.GreaterOrEqual(t, result.Score, 0.0)
+		assert.LessOrEqual(t, result.Score, 1.0)
+	}
+
+	// Cleanup
+	cancel()
+	<-errCh
+}
+
+func TestDaemon_Search_DefaultLimit(t *testing.T) {
+	// Arrange
+	projectRoot := t.TempDir()
+	cfg := daemonTestConfig()
+	cfg.IncludePatterns = []string{"**/*.go"}
+	cfg.Search.DefaultLimit = 5 // Set a specific default limit
+	logger := daemonTestLogger()
+
+	testFile := filepath.Join(projectRoot, "main.go")
+	err := os.WriteFile(testFile, []byte(`package main
+
+func main() {}
+`), 0644)
+	require.NoError(t, err)
+
+	daemon, err := New(projectRoot, cfg, logger)
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- daemon.Run(ctx)
+	}()
+
+	// Wait for indexing
+	time.Sleep(500 * time.Millisecond)
+
+	// Act - search without specifying limit
+	req := SearchRequest{
+		Query: "main",
+		Limit: 0, // Zero means use default
+	}
+	resp, err := daemon.Search(ctx, req)
+
+	// Assert
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.Equal(t, 5, resp.Limit, "Should use configured default limit")
+
+	// Cleanup
+	cancel()
+	<-errCh
+}
+
+// =============================================================================
+// SearchService Tests
+// =============================================================================
+
+func TestDaemon_SearchService(t *testing.T) {
+	// Arrange
+	projectRoot := t.TempDir()
+	cfg := daemonTestConfig()
+	logger := daemonTestLogger()
+
+	daemon, err := New(projectRoot, cfg, logger)
+	require.NoError(t, err)
+
+	// Act
+	svc := daemon.SearchService()
+
+	// Assert
+	assert.NotNil(t, svc, "SearchService should return a non-nil service")
+}
+
+// =============================================================================
+// HTTP Handler Tests (Internal)
+// =============================================================================
+
+func TestDaemon_HandleHealth_ReturnsOK(t *testing.T) {
+	projectRoot := t.TempDir()
+	cfg := daemonTestConfig()
+	cfg.Daemon.Port = 17423
+	logger := daemonTestLogger()
+
+	d, err := New(projectRoot, cfg, logger)
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- d.Run(ctx)
+	}()
+
+	time.Sleep(200 * time.Millisecond)
+
+	// Make HTTP request to health endpoint
+	client := &http.Client{Timeout: time.Second}
+	resp, err := client.Get("http://127.0.0.1:17423/health")
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	cancel()
+	<-errCh
+}
+
+func TestDaemon_HandleStatus_ReturnsStatus(t *testing.T) {
+	projectRoot := t.TempDir()
+	cfg := daemonTestConfig()
+	cfg.Daemon.Port = 17424
+	logger := daemonTestLogger()
+
+	d, err := New(projectRoot, cfg, logger)
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- d.Run(ctx)
+	}()
+
+	time.Sleep(200 * time.Millisecond)
+
+	// Make HTTP request to status endpoint
+	client := &http.Client{Timeout: time.Second}
+	resp, err := client.Get("http://127.0.0.1:17424/status")
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	// Verify JSON response structure
+	var result map[string]interface{}
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	require.NoError(t, err)
+
+	_, hasDaemon := result["daemon"]
+	_, hasIndex := result["index"]
+	assert.True(t, hasDaemon, "Response should have daemon key")
+	assert.True(t, hasIndex, "Response should have index key")
+
+	cancel()
+	<-errCh
+}
+
+func TestDaemon_HandleSearch_MethodNotAllowed(t *testing.T) {
+	projectRoot := t.TempDir()
+	cfg := daemonTestConfig()
+	cfg.Daemon.Port = 17425
+	logger := daemonTestLogger()
+
+	d, err := New(projectRoot, cfg, logger)
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- d.Run(ctx)
+	}()
+
+	time.Sleep(200 * time.Millisecond)
+
+	// GET should not be allowed for search
+	client := &http.Client{Timeout: time.Second}
+	resp, err := client.Get("http://127.0.0.1:17425/search")
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	assert.Equal(t, http.StatusMethodNotAllowed, resp.StatusCode)
+
+	cancel()
+	<-errCh
+}
+
+func TestDaemon_HandleSearch_InvalidJSON(t *testing.T) {
+	projectRoot := t.TempDir()
+	cfg := daemonTestConfig()
+	cfg.Daemon.Port = 17426
+	logger := daemonTestLogger()
+
+	d, err := New(projectRoot, cfg, logger)
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- d.Run(ctx)
+	}()
+
+	time.Sleep(200 * time.Millisecond)
+
+	// Send invalid JSON
+	client := &http.Client{Timeout: time.Second}
+	resp, err := client.Post("http://127.0.0.1:17426/search", "application/json", bytes.NewBufferString("{invalid}"))
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+
+	cancel()
+	<-errCh
+}
+
+func TestDaemon_HandleSearch_ValidRequest(t *testing.T) {
+	projectRoot := t.TempDir()
+	cfg := daemonTestConfig()
+	cfg.IncludePatterns = []string{"**/*.go"}
+	cfg.Daemon.Port = 17427
+	logger := daemonTestLogger()
+
+	// Create a test file
+	testFile := filepath.Join(projectRoot, "main.go")
+	err := os.WriteFile(testFile, []byte(`package main
+
+func main() {}
+`), 0644)
+	require.NoError(t, err)
+
+	d, err := New(projectRoot, cfg, logger)
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- d.Run(ctx)
+	}()
+
+	time.Sleep(500 * time.Millisecond) // Wait for indexing
+
+	// Send valid search request
+	reqBody := `{"query": "main function", "limit": 5}`
+	client := &http.Client{Timeout: time.Second}
+	resp, err := client.Post("http://127.0.0.1:17427/search", "application/json", bytes.NewBufferString(reqBody))
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	cancel()
+	<-errCh
+}
+
+func TestDaemon_HandleReindex_MethodNotAllowed(t *testing.T) {
+	projectRoot := t.TempDir()
+	cfg := daemonTestConfig()
+	cfg.Daemon.Port = 17428
+	logger := daemonTestLogger()
+
+	d, err := New(projectRoot, cfg, logger)
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- d.Run(ctx)
+	}()
+
+	time.Sleep(200 * time.Millisecond)
+
+	// GET should not be allowed for reindex
+	client := &http.Client{Timeout: time.Second}
+	resp, err := client.Get("http://127.0.0.1:17428/reindex")
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	assert.Equal(t, http.StatusMethodNotAllowed, resp.StatusCode)
+
+	cancel()
+	<-errCh
+}
+
+func TestDaemon_HandleReindex_ValidRequest(t *testing.T) {
+	projectRoot := t.TempDir()
+	cfg := daemonTestConfig()
+	cfg.Daemon.Port = 17429
+	logger := daemonTestLogger()
+
+	d, err := New(projectRoot, cfg, logger)
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- d.Run(ctx)
+	}()
+
+	time.Sleep(200 * time.Millisecond)
+
+	// Send valid reindex request
+	client := &http.Client{Timeout: time.Second}
+	resp, err := client.Post("http://127.0.0.1:17429/reindex", "application/json", nil)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	assert.Equal(t, http.StatusAccepted, resp.StatusCode)
+
+	cancel()
+	<-errCh
+}
+
+func TestDaemon_HandleConfig_ReturnsConfig(t *testing.T) {
+	projectRoot := t.TempDir()
+	cfg := daemonTestConfig()
+	cfg.Daemon.Port = 17430
+	logger := daemonTestLogger()
+
+	d, err := New(projectRoot, cfg, logger)
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- d.Run(ctx)
+	}()
+
+	time.Sleep(200 * time.Millisecond)
+
+	// Get config
+	client := &http.Client{Timeout: time.Second}
+	resp, err := client.Get("http://127.0.0.1:17430/config")
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	// Verify JSON response structure
+	var result map[string]interface{}
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	require.NoError(t, err)
+
+	_, hasConfig := result["config"]
+	assert.True(t, hasConfig, "Response should have config key")
+
 	cancel()
 	<-errCh
 }

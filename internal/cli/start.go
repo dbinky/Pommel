@@ -26,25 +26,25 @@ func runStart(cmd *cobra.Command, args []string) error {
 	// Check if initialized
 	loader := config.NewLoader(projectRoot)
 	if !loader.Exists() {
-		return fmt.Errorf("project not initialized: run 'pm init' first")
+		return ErrNotInitialized()
 	}
 
 	// Check if already running
 	stateManager := daemon.NewStateManager(projectRoot)
 	if running, pid := stateManager.IsRunning(); running {
-		return fmt.Errorf("daemon already running with PID %d", pid)
+		return ErrDaemonAlreadyRunning(pid)
 	}
 
 	// Load config
 	cfg, err := loader.Load()
 	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
+		return ErrConfigInvalid(err)
 	}
 
 	// Fork daemon process
 	daemonCmd := exec.Command("pommeld", "--project", projectRoot)
 	if err := daemonCmd.Start(); err != nil {
-		return fmt.Errorf("failed to start daemon: %w", err)
+		return ErrDaemonStartFailed(err)
 	}
 
 	// Wait for health check
@@ -62,7 +62,7 @@ func runStart(cmd *cobra.Command, args []string) error {
 			if daemonCmd.Process != nil {
 				_ = daemonCmd.Process.Kill()
 			}
-			return fmt.Errorf("daemon failed to start: health check timeout")
+			return ErrDaemonHealthTimeout()
 		case <-ticker.C:
 			resp, err := http.Get(healthURL)
 			if err == nil {

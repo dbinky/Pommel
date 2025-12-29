@@ -40,26 +40,34 @@ func runConfig(cmd *cobra.Command, args []string) error {
 	switch subcommand {
 	case "get":
 		if len(args) < 2 {
-			return fmt.Errorf("get requires a key argument")
+			return NewCLIError(
+				"Missing key argument for 'config get'",
+				"Usage: pm config get <key>. Example: pm config get daemon.port")
 		}
 		return getConfigValue(cmd, loader, args[1])
 	case "set":
 		if len(args) < 2 {
-			return fmt.Errorf("set requires a key argument")
+			return NewCLIError(
+				"Missing key argument for 'config set'",
+				"Usage: pm config set <key> <value>. Example: pm config set daemon.port 7420")
 		}
 		if len(args) < 3 {
-			return fmt.Errorf("set requires a value argument")
+			return NewCLIError(
+				"Missing value argument for 'config set'",
+				"Usage: pm config set <key> <value>. Example: pm config set daemon.port 7420")
 		}
 		return setConfigValue(cmd, loader, args[1], args[2])
 	default:
-		return fmt.Errorf("unknown subcommand: %s", subcommand)
+		return NewCLIError(
+			fmt.Sprintf("Unknown subcommand: %s", subcommand),
+			"Valid subcommands are: get, set. Run 'pm config --help' for usage")
 	}
 }
 
 func showFullConfig(cmd *cobra.Command, loader *config.Loader) error {
 	cfg, err := loader.Load()
 	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
+		return ErrConfigInvalid(err)
 	}
 
 	if jsonOutput {
@@ -82,7 +90,7 @@ func showFullConfig(cmd *cobra.Command, loader *config.Loader) error {
 func getConfigValue(cmd *cobra.Command, loader *config.Loader, key string) error {
 	cfg, err := loader.Load()
 	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
+		return ErrConfigInvalid(err)
 	}
 
 	value, err := getValueByKey(cfg, key)
@@ -120,7 +128,7 @@ func getConfigValue(cmd *cobra.Command, loader *config.Loader, key string) error
 func setConfigValue(cmd *cobra.Command, loader *config.Loader, key, value string) error {
 	cfg, err := loader.Load()
 	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
+		return ErrConfigInvalid(err)
 	}
 
 	if err := setValueByKey(cfg, key, value); err != nil {
@@ -129,12 +137,16 @@ func setConfigValue(cmd *cobra.Command, loader *config.Loader, key, value string
 
 	// Validate the updated config
 	if validationErrs := config.Validate(cfg); validationErrs.HasErrors() {
-		return validationErrs
+		return WrapError(validationErrs,
+			"Configuration validation failed",
+			"Check the value you're trying to set is valid for this key")
 	}
 
 	// Save the config
 	if err := loader.Save(cfg); err != nil {
-		return fmt.Errorf("failed to save config: %w", err)
+		return WrapError(err,
+			"Failed to save configuration",
+			"Check write permissions for the .pommel directory")
 	}
 
 	fmt.Fprintf(cmd.OutOrStdout(), "Set %s = %s\n", key, value)
@@ -147,7 +159,7 @@ func getValueByKey(cfg *config.Config, key string) (interface{}, error) {
 	switch parts[0] {
 	case "version":
 		if len(parts) > 1 {
-			return nil, fmt.Errorf("unknown key: %s", key)
+			return nil, unknownKeyError(key)
 		}
 		return cfg.Version, nil
 	case "daemon":
@@ -159,8 +171,15 @@ func getValueByKey(cfg *config.Config, key string) (interface{}, error) {
 	case "search":
 		return getSearchValue(cfg, parts)
 	default:
-		return nil, fmt.Errorf("unknown key: %s", key)
+		return nil, unknownKeyError(key)
 	}
+}
+
+// unknownKeyError creates a helpful error for unknown config keys.
+func unknownKeyError(key string) *CLIError {
+	return NewCLIError(
+		fmt.Sprintf("Unknown configuration key: %s", key),
+		"Valid top-level keys are: version, daemon, watcher, embedding, search. Use 'pm config' to see all available settings")
 }
 
 func getDaemonValue(cfg *config.Config, parts []string) (interface{}, error) {
@@ -175,7 +194,9 @@ func getDaemonValue(cfg *config.Config, parts []string) (interface{}, error) {
 	case "log_level":
 		return cfg.Daemon.LogLevel, nil
 	default:
-		return nil, fmt.Errorf("unknown key: %s", strings.Join(parts, "."))
+		return nil, NewCLIError(
+			fmt.Sprintf("Unknown daemon config key: %s", parts[1]),
+			"Valid daemon keys are: host, port, log_level")
 	}
 }
 
@@ -189,7 +210,9 @@ func getWatcherValue(cfg *config.Config, parts []string) (interface{}, error) {
 	case "max_file_size":
 		return cfg.Watcher.MaxFileSize, nil
 	default:
-		return nil, fmt.Errorf("unknown key: %s", strings.Join(parts, "."))
+		return nil, NewCLIError(
+			fmt.Sprintf("Unknown watcher config key: %s", parts[1]),
+			"Valid watcher keys are: debounce_ms, max_file_size")
 	}
 }
 
@@ -205,7 +228,9 @@ func getEmbeddingValue(cfg *config.Config, parts []string) (interface{}, error) 
 	case "cache_size":
 		return cfg.Embedding.CacheSize, nil
 	default:
-		return nil, fmt.Errorf("unknown key: %s", strings.Join(parts, "."))
+		return nil, NewCLIError(
+			fmt.Sprintf("Unknown embedding config key: %s", parts[1]),
+			"Valid embedding keys are: model, batch_size, cache_size")
 	}
 }
 
@@ -219,7 +244,9 @@ func getSearchValue(cfg *config.Config, parts []string) (interface{}, error) {
 	case "default_levels":
 		return cfg.Search.DefaultLevels, nil
 	default:
-		return nil, fmt.Errorf("unknown key: %s", strings.Join(parts, "."))
+		return nil, NewCLIError(
+			fmt.Sprintf("Unknown search config key: %s", parts[1]),
+			"Valid search keys are: default_limit, default_levels")
 	}
 }
 
@@ -236,13 +263,22 @@ func setValueByKey(cfg *config.Config, key, value string) error {
 	case "search":
 		return setSearchValue(cfg, parts, value)
 	default:
-		return fmt.Errorf("unknown key: %s", key)
+		return unknownKeyError(key)
 	}
+}
+
+// invalidIntError creates a helpful error for invalid integer values.
+func invalidIntError(key, value string) *CLIError {
+	return NewCLIError(
+		fmt.Sprintf("Invalid value '%s' for %s: expected an integer", value, key),
+		"Provide a valid integer, e.g., 'pm config set "+key+" 100'")
 }
 
 func setDaemonValue(cfg *config.Config, parts []string, value string) error {
 	if len(parts) < 2 {
-		return fmt.Errorf("unknown key: %s", strings.Join(parts, "."))
+		return NewCLIError(
+			"Cannot set daemon section directly",
+			"Specify a key within daemon, e.g., 'pm config set daemon.port 7420'")
 	}
 	switch parts[1] {
 	case "host":
@@ -250,43 +286,51 @@ func setDaemonValue(cfg *config.Config, parts []string, value string) error {
 	case "port":
 		port, err := strconv.Atoi(value)
 		if err != nil {
-			return fmt.Errorf("invalid integer value for daemon.port: %s", value)
+			return invalidIntError("daemon.port", value)
 		}
 		cfg.Daemon.Port = port
 	case "log_level":
 		cfg.Daemon.LogLevel = value
 	default:
-		return fmt.Errorf("unknown key: %s", strings.Join(parts, "."))
+		return NewCLIError(
+			fmt.Sprintf("Unknown daemon config key: %s", parts[1]),
+			"Valid daemon keys are: host, port, log_level")
 	}
 	return nil
 }
 
 func setWatcherValue(cfg *config.Config, parts []string, value string) error {
 	if len(parts) < 2 {
-		return fmt.Errorf("unknown key: %s", strings.Join(parts, "."))
+		return NewCLIError(
+			"Cannot set watcher section directly",
+			"Specify a key within watcher, e.g., 'pm config set watcher.debounce_ms 100'")
 	}
 	switch parts[1] {
 	case "debounce_ms":
 		debounce, err := strconv.Atoi(value)
 		if err != nil {
-			return fmt.Errorf("invalid integer value for watcher.debounce_ms: %s", value)
+			return invalidIntError("watcher.debounce_ms", value)
 		}
 		cfg.Watcher.DebounceMs = debounce
 	case "max_file_size":
 		maxFileSize, err := strconv.ParseInt(value, 10, 64)
 		if err != nil {
-			return fmt.Errorf("invalid integer value for watcher.max_file_size: %s", value)
+			return invalidIntError("watcher.max_file_size", value)
 		}
 		cfg.Watcher.MaxFileSize = maxFileSize
 	default:
-		return fmt.Errorf("unknown key: %s", strings.Join(parts, "."))
+		return NewCLIError(
+			fmt.Sprintf("Unknown watcher config key: %s", parts[1]),
+			"Valid watcher keys are: debounce_ms, max_file_size")
 	}
 	return nil
 }
 
 func setEmbeddingValue(cfg *config.Config, parts []string, value string) error {
 	if len(parts) < 2 {
-		return fmt.Errorf("unknown key: %s", strings.Join(parts, "."))
+		return NewCLIError(
+			"Cannot set embedding section directly",
+			"Specify a key within embedding, e.g., 'pm config set embedding.model mymodel'")
 	}
 	switch parts[1] {
 	case "model":
@@ -294,34 +338,40 @@ func setEmbeddingValue(cfg *config.Config, parts []string, value string) error {
 	case "batch_size":
 		batchSize, err := strconv.Atoi(value)
 		if err != nil {
-			return fmt.Errorf("invalid integer value for embedding.batch_size: %s", value)
+			return invalidIntError("embedding.batch_size", value)
 		}
 		cfg.Embedding.BatchSize = batchSize
 	case "cache_size":
 		cacheSize, err := strconv.Atoi(value)
 		if err != nil {
-			return fmt.Errorf("invalid integer value for embedding.cache_size: %s", value)
+			return invalidIntError("embedding.cache_size", value)
 		}
 		cfg.Embedding.CacheSize = cacheSize
 	default:
-		return fmt.Errorf("unknown key: %s", strings.Join(parts, "."))
+		return NewCLIError(
+			fmt.Sprintf("Unknown embedding config key: %s", parts[1]),
+			"Valid embedding keys are: model, batch_size, cache_size")
 	}
 	return nil
 }
 
 func setSearchValue(cfg *config.Config, parts []string, value string) error {
 	if len(parts) < 2 {
-		return fmt.Errorf("unknown key: %s", strings.Join(parts, "."))
+		return NewCLIError(
+			"Cannot set search section directly",
+			"Specify a key within search, e.g., 'pm config set search.default_limit 10'")
 	}
 	switch parts[1] {
 	case "default_limit":
 		limit, err := strconv.Atoi(value)
 		if err != nil {
-			return fmt.Errorf("invalid integer value for search.default_limit: %s", value)
+			return invalidIntError("search.default_limit", value)
 		}
 		cfg.Search.DefaultLimit = limit
 	default:
-		return fmt.Errorf("unknown key: %s", strings.Join(parts, "."))
+		return NewCLIError(
+			fmt.Sprintf("Unknown search config key: %s", parts[1]),
+			"Valid search keys are: default_limit")
 	}
 	return nil
 }

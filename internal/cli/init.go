@@ -52,10 +52,12 @@ func runInit(projectRoot string, out, errOut *bytes.Buffer, jsonOutput bool) err
 	// Check if directory exists
 	info, err := os.Stat(projectRoot)
 	if err != nil {
-		return fmt.Errorf("failed to access directory: %w", err)
+		return WrapError(err,
+			fmt.Sprintf("Cannot access directory: %s", projectRoot),
+			"Check that the directory exists and you have read permissions")
 	}
 	if !info.IsDir() {
-		return fmt.Errorf("path is not a directory: %s", projectRoot)
+		return ErrInvalidProjectRoot(projectRoot)
 	}
 
 	pommelDir := filepath.Join(projectRoot, config.PommelDir)
@@ -83,25 +85,33 @@ func runInit(projectRoot string, out, errOut *bytes.Buffer, jsonOutput bool) err
 
 	// Create .pommel directory
 	if err := os.MkdirAll(pommelDir, 0755); err != nil {
-		return fmt.Errorf("failed to create .pommel directory: %w", err)
+		return WrapError(err,
+			fmt.Sprintf("Cannot create .pommel directory at %s", pommelDir),
+			"Check that you have write permissions in this directory")
 	}
 
 	// Create default config
 	cfg := config.Default()
 	if err := loader.Save(cfg); err != nil {
-		return fmt.Errorf("failed to create config: %w", err)
+		return WrapError(err,
+			"Failed to create configuration file",
+			"Check disk space and write permissions for the .pommel directory")
 	}
 
 	// Initialize database
 	ctx := context.Background()
 	database, err := db.Open(projectRoot)
 	if err != nil {
-		return fmt.Errorf("failed to initialize database: %w", err)
+		return WrapError(err,
+			"Failed to initialize database",
+			"Check disk space and ensure SQLite is available on your system")
 	}
 	defer database.Close()
 
 	if err := database.Migrate(ctx); err != nil {
-		return fmt.Errorf("failed to migrate database: %w", err)
+		return WrapError(err,
+			"Failed to set up database schema",
+			"This may indicate a corrupted database. Try deleting .pommel/pommel.db and running init again")
 	}
 
 	// Create .pommelignore with default patterns
@@ -136,7 +146,9 @@ coverage/
 *.cover
 `
 		if err := os.WriteFile(pommelignorePath, []byte(defaultIgnore), 0644); err != nil {
-			return fmt.Errorf("failed to create .pommelignore: %w", err)
+			return WrapError(err,
+				"Failed to create .pommelignore file",
+				"Check write permissions in the project root directory")
 		}
 	}
 

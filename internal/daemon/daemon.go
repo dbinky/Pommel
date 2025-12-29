@@ -58,20 +58,54 @@ type Daemon struct {
 	searchService *search.Service
 }
 
+// DaemonError represents a daemon-specific error with helpful context.
+type DaemonError struct {
+	Code       string
+	Message    string
+	Suggestion string
+	Cause      error
+}
+
+// Error implements the error interface.
+func (e *DaemonError) Error() string {
+	if e.Suggestion != "" {
+		return fmt.Sprintf("%s. %s", e.Message, e.Suggestion)
+	}
+	return e.Message
+}
+
+// Unwrap returns the underlying cause for errors.Is/As compatibility.
+func (e *DaemonError) Unwrap() error {
+	return e.Cause
+}
+
 // New creates a new Daemon instance with all components initialized.
 func New(projectRoot string, cfg *config.Config, logger *slog.Logger) (*Daemon, error) {
 	// Validate projectRoot exists
 	info, err := os.Stat(projectRoot)
 	if err != nil {
-		return nil, fmt.Errorf("project root does not exist: %w", err)
+		return nil, &DaemonError{
+			Code:       "PROJECT_ROOT_NOT_FOUND",
+			Message:    fmt.Sprintf("Project root does not exist: %s", projectRoot),
+			Suggestion: "Ensure the project path is correct and the directory exists",
+			Cause:      err,
+		}
 	}
 	if !info.IsDir() {
-		return nil, fmt.Errorf("project root is not a directory: %s", projectRoot)
+		return nil, &DaemonError{
+			Code:       "PROJECT_ROOT_NOT_DIRECTORY",
+			Message:    fmt.Sprintf("Project root is not a directory: %s", projectRoot),
+			Suggestion: "Provide a valid directory path, not a file",
+		}
 	}
 
 	// Validate config is not nil
 	if cfg == nil {
-		return nil, fmt.Errorf("config cannot be nil")
+		return nil, &DaemonError{
+			Code:       "CONFIG_MISSING",
+			Message:    "Configuration is required but was not provided",
+			Suggestion: "Run 'pm init' to create a configuration file",
+		}
 	}
 
 	// Use a no-op logger if none provided
@@ -82,14 +116,24 @@ func New(projectRoot string, cfg *config.Config, logger *slog.Logger) (*Daemon, 
 	// Open database
 	database, err := db.Open(projectRoot)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open database: %w", err)
+		return nil, &DaemonError{
+			Code:       "DATABASE_OPEN_FAILED",
+			Message:    "Failed to open Pommel database",
+			Suggestion: "Check disk space and permissions for the .pommel directory. If the database is corrupted, try deleting .pommel/pommel.db and running 'pm init'",
+			Cause:      err,
+		}
 	}
 
 	// Run migrations
 	ctx := context.Background()
 	if err := database.Migrate(ctx); err != nil {
 		database.Close()
-		return nil, fmt.Errorf("failed to run migrations: %w", err)
+		return nil, &DaemonError{
+			Code:       "DATABASE_MIGRATION_FAILED",
+			Message:    "Failed to run database migrations",
+			Suggestion: "This may indicate a corrupted database. Try deleting .pommel/pommel.db and running 'pm init'",
+			Cause:      err,
+		}
 	}
 
 	// Create embedder (use MockEmbedder for now)
@@ -106,14 +150,24 @@ func New(projectRoot string, cfg *config.Config, logger *slog.Logger) (*Daemon, 
 	indexer, err := NewIndexer(projectRoot, cfg, database, cachedEmb, logger)
 	if err != nil {
 		database.Close()
-		return nil, fmt.Errorf("failed to create indexer: %w", err)
+		return nil, &DaemonError{
+			Code:       "INDEXER_CREATE_FAILED",
+			Message:    "Failed to create indexer",
+			Suggestion: "Check project permissions and ensure the project directory is accessible",
+			Cause:      err,
+		}
 	}
 
 	// Create watcher
 	watcher, err := NewWatcher(projectRoot, cfg)
 	if err != nil {
 		database.Close()
-		return nil, fmt.Errorf("failed to create watcher: %w", err)
+		return nil, &DaemonError{
+			Code:       "WATCHER_CREATE_FAILED",
+			Message:    "Failed to create file watcher",
+			Suggestion: "Check if the system has available file watchers (ulimit -n). You may need to increase the limit on macOS/Linux",
+			Cause:      err,
+		}
 	}
 
 	// Create state manager
@@ -139,12 +193,21 @@ func New(projectRoot string, cfg *config.Config, logger *slog.Logger) (*Daemon, 
 func (d *Daemon) Run(ctx context.Context) error {
 	// Check if already running
 	if running, pid := d.state.IsRunning(); running {
-		return fmt.Errorf("daemon already running with PID %d", pid)
+		return &DaemonError{
+			Code:       "DAEMON_ALREADY_RUNNING",
+			Message:    fmt.Sprintf("Daemon already running with PID %d", pid),
+			Suggestion: "Use 'pm stop' to stop the existing daemon first, or 'pm status' to check its state",
+		}
 	}
 
 	// Write PID file
 	if err := d.state.WritePID(os.Getpid()); err != nil {
-		return fmt.Errorf("failed to write PID file: %w", err)
+		return &DaemonError{
+			Code:       "PID_WRITE_FAILED",
+			Message:    "Failed to write PID file",
+			Suggestion: "Check write permissions for the .pommel directory",
+			Cause:      err,
+		}
 	}
 
 	// Create a cancellable context for shutdown coordination
@@ -158,7 +221,12 @@ func (d *Daemon) Run(ctx context.Context) error {
 	// Start watcher
 	if err := d.watcher.Start(runCtx); err != nil {
 		d.cleanup()
-		return fmt.Errorf("failed to start watcher: %w", err)
+		return &DaemonError{
+			Code:       "WATCHER_START_FAILED",
+			Message:    "Failed to start file watcher",
+			Suggestion: "Check system file watcher limits. On macOS/Linux, you may need to increase ulimit -n",
+			Cause:      err,
+		}
 	}
 
 	// Start API server

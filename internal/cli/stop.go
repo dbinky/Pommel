@@ -26,7 +26,7 @@ func runStop(cmd *cobra.Command, args []string) error {
 	// Check if initialized
 	loader := config.NewLoader(projectRoot)
 	if !loader.Exists() {
-		return fmt.Errorf("project not initialized: run 'pm init' first")
+		return ErrNotInitialized()
 	}
 
 	// Check if running

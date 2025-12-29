@@ -492,11 +492,12 @@ func TestSearchHandler_EmptyQuery(t *testing.T) {
 
 	assert.Equal(t, http.StatusBadRequest, rr.Code, "expected 400 Bad Request for empty query")
 
-	var response ErrorResponse
+	var response APIError
 	err = json.Unmarshal(rr.Body.Bytes(), &response)
 	require.NoError(t, err, "failed to unmarshal error response")
 
-	assert.Contains(t, response.Error, "query", "expected error to mention 'query'")
+	assert.Equal(t, "QUERY_EMPTY", response.Code, "expected QUERY_EMPTY error code")
+	assert.Contains(t, response.Message, "query", "expected error message to mention 'query'")
 }
 
 // TestSearchHandler_EmptyQueryWhitespaceOnly verifies whitespace-only query returns 400
@@ -522,11 +523,12 @@ func TestSearchHandler_EmptyQueryWhitespaceOnly(t *testing.T) {
 	// Whitespace-only query should be treated as empty
 	assert.Equal(t, http.StatusBadRequest, rr.Code, "expected 400 Bad Request for whitespace-only query")
 
-	var response ErrorResponse
+	var response APIError
 	err = json.Unmarshal(rr.Body.Bytes(), &response)
 	require.NoError(t, err, "failed to unmarshal error response")
 
-	assert.Contains(t, response.Error, "query", "expected error to mention 'query'")
+	assert.Equal(t, "QUERY_EMPTY", response.Code, "expected QUERY_EMPTY error code")
+	assert.Contains(t, response.Message, "query", "expected error message to mention 'query'")
 }
 
 // TestSearchHandler_WithFilters verifies that level and path filters work correctly
@@ -719,11 +721,18 @@ func TestSearchHandler_InvalidJSON(t *testing.T) {
 
 			assert.Equal(t, tc.wantCode, rr.Code, "expected 400 Bad Request for %s", tc.name)
 
-			var response ErrorResponse
+			var response APIError
 			err := json.Unmarshal(rr.Body.Bytes(), &response)
 			require.NoError(t, err, "failed to unmarshal error response for %s", tc.name)
 
-			assert.NotEmpty(t, response.Error, "expected error message for %s", tc.name)
+			// null body is valid JSON that decodes to empty struct, resulting in QUERY_EMPTY
+			// All other cases should return INVALID_JSON
+			if tc.name == "null body" {
+				assert.Equal(t, "QUERY_EMPTY", response.Code, "expected QUERY_EMPTY error code for %s", tc.name)
+			} else {
+				assert.Equal(t, "INVALID_JSON", response.Code, "expected INVALID_JSON error code for %s", tc.name)
+			}
+			assert.NotEmpty(t, response.Message, "expected error message for %s", tc.name)
 		})
 	}
 }
@@ -761,11 +770,12 @@ func TestSearchHandler_InvalidJSON_WrongTypes(t *testing.T) {
 
 			assert.Equal(t, http.StatusBadRequest, rr.Code, "expected 400 Bad Request for %s", tc.name)
 
-			var response ErrorResponse
+			var response APIError
 			err := json.Unmarshal(rr.Body.Bytes(), &response)
 			require.NoError(t, err, "failed to unmarshal error response for %s", tc.name)
 
-			assert.NotEmpty(t, response.Error, "expected error message for %s", tc.name)
+			assert.Equal(t, "INVALID_JSON", response.Code, "expected INVALID_JSON error code for %s", tc.name)
+			assert.NotEmpty(t, response.Message, "expected error message for %s", tc.name)
 		})
 	}
 }
@@ -1145,9 +1155,272 @@ func TestErrorResponseFormat(t *testing.T) {
 
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 
-	var response ErrorResponse
+	var response APIError
 	err = json.Unmarshal(rr.Body.Bytes(), &response)
 	require.NoError(t, err, "failed to unmarshal error response")
 
-	assert.NotEmpty(t, response.Error, "expected error message in response")
+	// Verify the new APIError structure
+	assert.NotEmpty(t, response.Code, "expected error code in response")
+	assert.NotEmpty(t, response.Message, "expected error message in response")
+	assert.NotEmpty(t, response.Suggestion, "expected suggestion in response")
+}
+
+// =============================================================================
+// SearchServiceAdapter Tests
+// =============================================================================
+
+// TestNewSearchServiceAdapterCreatesAdapter verifies adapter creation
+func TestNewSearchServiceAdapterCreatesAdapter(t *testing.T) {
+	// Passing nil as service since we're just testing the constructor
+	adapter := NewSearchServiceAdapter(nil)
+	assert.NotNil(t, adapter)
+}
+
+// TestSearchHandler_SearcherReturnsError verifies error handling when searcher fails
+func TestSearchHandler_SearcherReturnsError(t *testing.T) {
+	// Create a searcher that returns an error
+	searcher := &mockSearcher{
+		searchFunc: func(ctx context.Context, req SearchRequest) (*SearchResponse, error) {
+			return nil, assert.AnError
+		},
+	}
+
+	tmpDir := t.TempDir()
+	cfg := testConfig()
+	database := setupTestDB(t, tmpDir)
+	defer database.Close()
+	indexer := setupTestIndexer(t, tmpDir, cfg, database)
+	handler := NewHandler(indexer, cfg, searcher)
+
+	searchReq := SearchRequest{
+		Query: "test query",
+		Limit: 10,
+	}
+	body, err := json.Marshal(searchReq)
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodPost, "/search", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+
+	handler.Search(rr, req)
+
+	// Should return internal server error
+	assert.Equal(t, http.StatusInternalServerError, rr.Code)
+
+	var response APIError
+	err = json.Unmarshal(rr.Body.Bytes(), &response)
+	require.NoError(t, err)
+
+	assert.Equal(t, "SEARCH_FAILED", response.Code)
+	assert.NotEmpty(t, response.Details)
+}
+
+// TestSearchHandler_WithQueryLeadingTrailingSpaces verifies query trimming
+func TestSearchHandler_WithQueryLeadingTrailingSpaces(t *testing.T) {
+	var receivedQuery string
+	searcher := &mockSearcher{
+		searchFunc: func(ctx context.Context, req SearchRequest) (*SearchResponse, error) {
+			receivedQuery = req.Query
+			return &SearchResponse{
+				Query:        req.Query,
+				Results:      []SearchResult{},
+				TotalResults: 0,
+				SearchTimeMs: 1,
+			}, nil
+		},
+	}
+
+	tmpDir := t.TempDir()
+	cfg := testConfig()
+	database := setupTestDB(t, tmpDir)
+	defer database.Close()
+	indexer := setupTestIndexer(t, tmpDir, cfg, database)
+	handler := NewHandler(indexer, cfg, searcher)
+
+	// Query with leading/trailing spaces
+	searchReq := SearchRequest{
+		Query: "  test query with spaces  ",
+		Limit: 10,
+	}
+	body, err := json.Marshal(searchReq)
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodPost, "/search", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+
+	handler.Search(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+	// The query should be trimmed
+	assert.Equal(t, "test query with spaces", receivedQuery)
+}
+
+// TestSearchHandler_ZeroLimit verifies default limit when zero is provided
+func TestSearchHandler_ZeroLimit(t *testing.T) {
+	var receivedLimit int
+	searcher := &mockSearcher{
+		searchFunc: func(ctx context.Context, req SearchRequest) (*SearchResponse, error) {
+			receivedLimit = req.Limit
+			return &SearchResponse{
+				Query:        req.Query,
+				Results:      []SearchResult{},
+				TotalResults: 0,
+				SearchTimeMs: 1,
+			}, nil
+		},
+	}
+
+	tmpDir := t.TempDir()
+	cfg := testConfig()
+	database := setupTestDB(t, tmpDir)
+	defer database.Close()
+	indexer := setupTestIndexer(t, tmpDir, cfg, database)
+	handler := NewHandler(indexer, cfg, searcher)
+
+	// Zero limit should be passed through to searcher (searcher handles defaults)
+	searchReq := SearchRequest{
+		Query: "test query",
+		Limit: 0,
+	}
+	body, err := json.Marshal(searchReq)
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodPost, "/search", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+
+	handler.Search(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Equal(t, 0, receivedLimit)
+}
+
+// TestSearchHandler_EmptyResults verifies handling of empty results
+func TestSearchHandler_EmptyResults(t *testing.T) {
+	searcher := &mockSearcher{
+		searchFunc: func(ctx context.Context, req SearchRequest) (*SearchResponse, error) {
+			return &SearchResponse{
+				Query:        req.Query,
+				Results:      []SearchResult{},
+				TotalResults: 0,
+				SearchTimeMs: 5,
+			}, nil
+		},
+	}
+
+	tmpDir := t.TempDir()
+	cfg := testConfig()
+	database := setupTestDB(t, tmpDir)
+	defer database.Close()
+	indexer := setupTestIndexer(t, tmpDir, cfg, database)
+	handler := NewHandler(indexer, cfg, searcher)
+
+	searchReq := SearchRequest{
+		Query: "nonexistent function",
+		Limit: 10,
+	}
+	body, err := json.Marshal(searchReq)
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodPost, "/search", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+
+	handler.Search(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+
+	var response SearchResponse
+	err = json.Unmarshal(rr.Body.Bytes(), &response)
+	require.NoError(t, err)
+
+	assert.Equal(t, 0, response.TotalResults)
+	assert.Len(t, response.Results, 0)
+}
+
+// TestNewHandlerSetsStartTime verifies that NewHandler sets the start time for uptime calculation
+func TestNewHandlerSetsStartTime(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfg := testConfig()
+	database := setupTestDB(t, tmpDir)
+	defer database.Close()
+	indexer := setupTestIndexer(t, tmpDir, cfg, database)
+
+	beforeCreate := time.Now()
+	handler := NewHandler(indexer, cfg, &mockSearcher{})
+	afterCreate := time.Now()
+
+	// Handler should have a start time between beforeCreate and afterCreate
+	assert.True(t, handler.startTime.After(beforeCreate) || handler.startTime.Equal(beforeCreate))
+	assert.True(t, handler.startTime.Before(afterCreate) || handler.startTime.Equal(afterCreate))
+}
+
+// TestStatusHandler_UptimeCalculation verifies uptime is calculated correctly
+func TestStatusHandler_UptimeCalculation(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfg := testConfig()
+	database := setupTestDB(t, tmpDir)
+	defer database.Close()
+	indexer := setupTestIndexer(t, tmpDir, cfg, database)
+	handler := NewHandler(indexer, cfg, &mockSearcher{})
+
+	// Wait a bit to accumulate some uptime
+	time.Sleep(50 * time.Millisecond)
+
+	req := httptest.NewRequest(http.MethodGet, "/status", nil)
+	rr := httptest.NewRecorder()
+
+	handler.Status(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+
+	var response StatusResponse
+	err := json.Unmarshal(rr.Body.Bytes(), &response)
+	require.NoError(t, err)
+
+	// Uptime should be at least 50ms (0.05 seconds)
+	assert.Greater(t, response.Daemon.UptimeSeconds, 0.04)
+}
+
+// TestSearchHandler_AllLevels verifies that all supported levels work
+func TestSearchHandler_AllLevels(t *testing.T) {
+	var receivedLevels []string
+	searcher := &mockSearcher{
+		searchFunc: func(ctx context.Context, req SearchRequest) (*SearchResponse, error) {
+			receivedLevels = req.Levels
+			return &SearchResponse{
+				Query:        req.Query,
+				Results:      []SearchResult{},
+				TotalResults: 0,
+				SearchTimeMs: 1,
+			}, nil
+		},
+	}
+
+	tmpDir := t.TempDir()
+	cfg := testConfig()
+	database := setupTestDB(t, tmpDir)
+	defer database.Close()
+	indexer := setupTestIndexer(t, tmpDir, cfg, database)
+	handler := NewHandler(indexer, cfg, searcher)
+
+	allLevels := []string{"method", "class", "file", "block", "module"}
+	searchReq := SearchRequest{
+		Query:  "test query",
+		Limit:  10,
+		Levels: allLevels,
+	}
+	body, err := json.Marshal(searchReq)
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodPost, "/search", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+
+	handler.Search(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Equal(t, allLevels, receivedLevels)
 }

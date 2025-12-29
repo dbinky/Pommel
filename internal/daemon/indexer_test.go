@@ -1020,3 +1020,187 @@ func additionalFunction() {}
 	// The modified file has more functions, so may have more chunks
 	assert.GreaterOrEqual(t, finalCount, initialCount)
 }
+
+// =============================================================================
+// Additional matchGlob Tests
+// =============================================================================
+
+func TestMatchGlob_DoubleStarInMiddle(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfg := testConfig()
+	cfg.IncludePatterns = []string{"internal/**/*.go"}
+
+	database := setupTestDB(t, tmpDir)
+	defer database.Close()
+	emb := embedder.NewMockEmbedder()
+	logger := testLogger()
+
+	indexer, err := NewIndexer(tmpDir, cfg, database, emb, logger)
+	require.NoError(t, err)
+
+	testCases := []struct {
+		path     string
+		expected bool
+	}{
+		{"internal/api/handler.go", true},
+		{"internal/pkg/util.go", true},
+		{"internal/deep/nested/path/file.go", true},
+		{"internal/file.go", true},
+		{"external/api/handler.go", false},
+		{"main.go", false},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.path, func(t *testing.T) {
+			matches := indexer.MatchesPatterns(tc.path)
+			assert.Equal(t, tc.expected, matches)
+		})
+	}
+}
+
+func TestMatchGlob_SingleStarWildcard(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfg := testConfig()
+	cfg.IncludePatterns = []string{"*.go", "src/*.js"}
+
+	database := setupTestDB(t, tmpDir)
+	defer database.Close()
+	emb := embedder.NewMockEmbedder()
+	logger := testLogger()
+
+	indexer, err := NewIndexer(tmpDir, cfg, database, emb, logger)
+	require.NoError(t, err)
+
+	testCases := []struct {
+		path     string
+		expected bool
+	}{
+		{"main.go", true},
+		{"test.go", true},
+		{"src/app.js", true},
+		{"nested/main.go", false},
+		{"src/nested/app.js", false},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.path, func(t *testing.T) {
+			matches := indexer.MatchesPatterns(tc.path)
+			assert.Equal(t, tc.expected, matches)
+		})
+	}
+}
+
+func TestMatchGlob_TrailingDoubleStarPattern(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfg := testConfig()
+	cfg.IncludePatterns = []string{"**/*.go"}
+	cfg.ExcludePatterns = []string{"vendor/**"}
+
+	database := setupTestDB(t, tmpDir)
+	defer database.Close()
+	emb := embedder.NewMockEmbedder()
+	logger := testLogger()
+
+	indexer, err := NewIndexer(tmpDir, cfg, database, emb, logger)
+	require.NoError(t, err)
+
+	testCases := []struct {
+		path     string
+		expected bool
+	}{
+		{"main.go", true},
+		{"pkg/util.go", true},
+		{"vendor/lib.go", false},
+		{"vendor/pkg/deep.go", false},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.path, func(t *testing.T) {
+			matches := indexer.MatchesPatterns(tc.path)
+			assert.Equal(t, tc.expected, matches)
+		})
+	}
+}
+
+func TestMatchGlob_PrefixWildcard(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfg := testConfig()
+	cfg.IncludePatterns = []string{"**/*_test.go"}
+
+	database := setupTestDB(t, tmpDir)
+	defer database.Close()
+	emb := embedder.NewMockEmbedder()
+	logger := testLogger()
+
+	indexer, err := NewIndexer(tmpDir, cfg, database, emb, logger)
+	require.NoError(t, err)
+
+	testCases := []struct {
+		path     string
+		expected bool
+	}{
+		{"main_test.go", true},
+		{"pkg/handler_test.go", true},
+		{"main.go", false},
+		{"test.go", false},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.path, func(t *testing.T) {
+			matches := indexer.MatchesPatterns(tc.path)
+			assert.Equal(t, tc.expected, matches)
+		})
+	}
+}
+
+func TestMatchGlob_ExactMatch(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfg := testConfig()
+	cfg.IncludePatterns = []string{"Makefile", "go.mod"}
+
+	database := setupTestDB(t, tmpDir)
+	defer database.Close()
+	emb := embedder.NewMockEmbedder()
+	logger := testLogger()
+
+	indexer, err := NewIndexer(tmpDir, cfg, database, emb, logger)
+	require.NoError(t, err)
+
+	testCases := []struct {
+		path     string
+		expected bool
+	}{
+		{"Makefile", true},
+		{"go.mod", true},
+		{"main.go", false},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.path, func(t *testing.T) {
+			matches := indexer.MatchesPatterns(tc.path)
+			assert.Equal(t, tc.expected, matches)
+		})
+	}
+}
+
+// =============================================================================
+// DeleteFileData Edge Cases
+// =============================================================================
+
+func TestDeleteFile_WithNoChunks(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfg := testConfig()
+	database := setupTestDB(t, tmpDir)
+	defer database.Close()
+	emb := embedder.NewMockEmbedder()
+	logger := testLogger()
+
+	indexer, err := NewIndexer(tmpDir, cfg, database, emb, logger)
+	require.NoError(t, err)
+
+	// Try to delete a file that was never indexed
+	ctx := context.Background()
+	err = indexer.DeleteFile(ctx, "/nonexistent/path/file.go")
+	// Should not error when deleting non-existent data
+	require.NoError(t, err)
+}

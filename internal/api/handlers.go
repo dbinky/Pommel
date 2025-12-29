@@ -96,9 +96,7 @@ func (h *Handler) Status(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) Search(w http.ResponseWriter, r *http.Request) {
 	var req SearchRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, ErrorResponse{
-			Error: "invalid JSON: " + err.Error(),
-		})
+		WriteBadRequest(w, ErrInvalidJSON.WithDetails(err.Error()))
 		return
 	}
 
@@ -106,17 +104,13 @@ func (h *Handler) Search(w http.ResponseWriter, r *http.Request) {
 	req.Query = strings.TrimSpace(req.Query)
 
 	if req.Query == "" {
-		writeJSON(w, http.StatusBadRequest, ErrorResponse{
-			Error: "query is required",
-		})
+		WriteBadRequest(w, ErrQueryEmpty)
 		return
 	}
 
 	response, err := h.searcher.Search(r.Context(), req)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, ErrorResponse{
-			Error: err.Error(),
-		})
+		WriteInternalError(w, ErrSearchFailed.WithDetails(err.Error()))
 		return
 	}
 
