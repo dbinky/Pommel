@@ -1355,7 +1355,7 @@ func TestCSharpChunker_CancelledContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // Cancel immediately
 
-	_, err = chunker.Chunk(ctx, file)
+	_, _ = chunker.Chunk(ctx, file)
 	// Either returns error or completes - just ensure no hang
 	// The exact behavior depends on implementation
 }

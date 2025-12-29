@@ -29,15 +29,6 @@ func makeEmbedding(base float32) []float32 {
 	return embedding
 }
 
-// makeSimilarEmbedding creates an embedding similar to the base embedding.
-func makeSimilarEmbedding(base []float32, offset float32) []float32 {
-	embedding := make([]float32, len(base))
-	for i := range embedding {
-		embedding[i] = base[i] + offset
-	}
-	return embedding
-}
-
 // =============================================================================
 // Happy Path / Success Cases
 // =============================================================================
