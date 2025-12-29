@@ -27,9 +27,10 @@ type SearchRequest struct {
 
 // SearchResponse represents the search results response
 type SearchResponse struct {
-	Results []SearchResult `json:"results"`
-	Query   string         `json:"query"`
-	Limit   int            `json:"limit"`
+	Results      []SearchResult `json:"results"`
+	Query        string         `json:"query"`
+	Limit        int            `json:"limit"`
+	SearchTimeMs int64          `json:"search_time_ms"`
 }
 
 // SearchResult represents a single search result
@@ -162,7 +163,7 @@ func New(projectRoot string, cfg *config.Config, logger *slog.Logger) (*Daemon, 
 	}
 
 	// Create watcher
-	watcher, err := NewWatcher(projectRoot, cfg)
+	watcher, err := NewWatcher(projectRoot, cfg, logger)
 	if err != nil {
 		database.Close()
 		return nil, &DaemonError{
@@ -309,6 +310,7 @@ func (d *Daemon) handleStatus(w http.ResponseWriter, r *http.Request) {
 			"total_files":     stats.TotalFiles,
 			"total_chunks":    stats.TotalChunks,
 			"indexing_active": stats.IndexingActive,
+			"pending_changes": stats.PendingFiles,
 		},
 	})
 }
@@ -347,7 +349,9 @@ func (d *Daemon) handleReindex(w http.ResponseWriter, r *http.Request) {
 
 	go func() {
 		ctx := context.Background()
-		_ = d.indexer.ReindexAll(ctx)
+		if err := d.indexer.ReindexAll(ctx); err != nil {
+			d.logger.Error("background reindex failed", "error", err)
+		}
 	}()
 
 	w.Header().Set("Content-Type", "application/json")
@@ -453,16 +457,24 @@ func (d *Daemon) shutdown() error {
 // cleanup is called on error before Run returns
 func (d *Daemon) cleanup() {
 	if d.watcher != nil {
-		d.watcher.Stop()
+		if err := d.watcher.Stop(); err != nil {
+			d.logger.Warn("watcher cleanup error", "error", err)
+		}
 	}
 	if d.db != nil {
-		d.db.Close()
+		if err := d.db.Close(); err != nil {
+			d.logger.Warn("database cleanup error", "error", err)
+		}
 	}
-	d.state.RemovePID()
+	if err := d.state.RemovePID(); err != nil {
+		d.logger.Warn("PID cleanup error", "error", err)
+	}
 }
 
 // Search performs a semantic search and returns matching chunks
 func (d *Daemon) Search(ctx context.Context, req SearchRequest) (*SearchResponse, error) {
+	startTime := time.Now()
+
 	// Set defaults
 	limit := req.Limit
 	if limit <= 0 {
@@ -538,9 +550,10 @@ func (d *Daemon) Search(ctx context.Context, req SearchRequest) (*SearchResponse
 	}
 
 	return &SearchResponse{
-		Results: results,
-		Query:   req.Query,
-		Limit:   limit,
+		Results:      results,
+		Query:        req.Query,
+		Limit:        limit,
+		SearchTimeMs: time.Since(startTime).Milliseconds(),
 	}, nil
 }
 

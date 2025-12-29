@@ -147,17 +147,24 @@ pm search "user validation" --json --limit 5
   "query": "user authentication",
   "results": [
     {
-      "path": "src/auth/middleware.py",
-      "name": "AuthMiddleware",
-      "level": "class",
-      "content": "class AuthMiddleware:\n    ...",
+      "id": "chunk-abc123",
+      "file": "src/auth/middleware.py",
       "start_line": 15,
       "end_line": 45,
-      "parent": "auth.middleware",
-      "score": 0.89
+      "level": "class",
+      "language": "python",
+      "name": "AuthMiddleware",
+      "score": 0.89,
+      "content": "class AuthMiddleware:\n    ...",
+      "parent": {
+        "id": "chunk-parent123",
+        "name": "auth.middleware",
+        "level": "file"
+      }
     }
   ],
-  "took_ms": 42
+  "total_results": 1,
+  "search_time_ms": 42
 }
 ```
 
@@ -207,9 +214,11 @@ pm reindex --path src/     # Reindex specific path only
 View or modify project configuration.
 
 ```bash
-pm config                  # Show current configuration
-pm config get ollama_url   # Get specific setting
-pm config set debounce_ms 1000  # Update setting
+pm config                              # Show current configuration
+pm config get embedding.ollama_url     # Get specific setting
+pm config set watcher.debounce_ms 1000 # Update setting
+pm config set daemon.port 7421         # Change daemon port
+pm config set search.default_levels method,class,file  # Set search levels
 ```
 
 ## Configuration
@@ -217,26 +226,49 @@ pm config set debounce_ms 1000  # Update setting
 Configuration is stored in `.pommel/config.yaml`:
 
 ```yaml
-# Ollama settings
-ollama_url: http://localhost:11434
-model: unclemusclez/jina-embeddings-v2-base-code
-
-# Indexing settings
-debounce_ms: 500           # Debounce delay for file watcher
-max_file_size_kb: 1024     # Skip files larger than this
+version: 1
 
 # Chunk levels to generate
 chunk_levels:
-  - file
-  - class
   - method
+  - class
+  - file
 
-# Languages to index (empty = auto-detect from files)
-languages:
-  - csharp
-  - python
-  - javascript
-  - typescript
+# File patterns to include
+include_patterns:
+  - "**/*.cs"
+  - "**/*.py"
+  - "**/*.js"
+  - "**/*.ts"
+  - "**/*.jsx"
+  - "**/*.tsx"
+
+# File patterns to exclude
+exclude_patterns:
+  - "**/node_modules/**"
+  - "**/bin/**"
+  - "**/obj/**"
+  - "**/__pycache__/**"
+  - "**/.git/**"
+  - "**/.pommel/**"
+
+# File watcher settings
+watcher:
+  debounce_ms: 500           # Debounce delay for file changes
+  max_file_size: 1048576     # Skip files larger than this (bytes)
+
+# Daemon settings
+daemon:
+  host: "127.0.0.1"
+  port: 7420
+  log_level: "info"
+
+# Embedding settings
+embedding:
+  model: "unclemusclez/jina-embeddings-v2-base-code"
+  ollama_url: "http://localhost:11434"
+  batch_size: 32
+  cache_size: 1000
 
 # Search defaults
 search:
@@ -244,11 +276,6 @@ search:
   default_levels:
     - method
     - class
-
-# Daemon settings
-daemon:
-  port: 7420
-  host: "127.0.0.1"
 ```
 
 ## Ignoring Files
@@ -423,8 +450,8 @@ pm reindex
 # Stop the daemon
 pm stop
 
-# Remove the index (will be rebuilt)
-rm .pommel/index.db
+# Remove the database (will be rebuilt)
+rm .pommel/pommel.db
 
 # Restart and reindex
 pm start

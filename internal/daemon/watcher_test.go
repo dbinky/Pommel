@@ -22,7 +22,7 @@ func TestNewWatcher(t *testing.T) {
 		},
 	}
 
-	w, err := NewWatcher(tmpDir, cfg)
+	w, err := NewWatcher(tmpDir, cfg, nil)
 	require.NoError(t, err)
 	require.NotNil(t, w)
 
@@ -39,7 +39,7 @@ func TestNewWatcherInvalidPath(t *testing.T) {
 		},
 	}
 
-	w, err := NewWatcher("/nonexistent/path/that/does/not/exist", cfg)
+	w, err := NewWatcher("/nonexistent/path/that/does/not/exist", cfg, nil)
 	assert.Error(t, err)
 	assert.Nil(t, w)
 }
@@ -54,7 +54,7 @@ func TestWatcherStart(t *testing.T) {
 		},
 	}
 
-	w, err := NewWatcher(tmpDir, cfg)
+	w, err := NewWatcher(tmpDir, cfg, nil)
 	require.NoError(t, err)
 	defer w.Stop()
 
@@ -75,7 +75,7 @@ func TestWatcherCreateEvent(t *testing.T) {
 		},
 	}
 
-	w, err := NewWatcher(tmpDir, cfg)
+	w, err := NewWatcher(tmpDir, cfg, nil)
 	require.NoError(t, err)
 	defer w.Stop()
 
@@ -116,7 +116,7 @@ func TestWatcherModifyEvent(t *testing.T) {
 		},
 	}
 
-	w, err := NewWatcher(tmpDir, cfg)
+	w, err := NewWatcher(tmpDir, cfg, nil)
 	require.NoError(t, err)
 	defer w.Stop()
 
@@ -158,7 +158,7 @@ func TestWatcherDeleteEvent(t *testing.T) {
 		},
 	}
 
-	w, err := NewWatcher(tmpDir, cfg)
+	w, err := NewWatcher(tmpDir, cfg, nil)
 	require.NoError(t, err)
 	defer w.Stop()
 
@@ -195,7 +195,7 @@ func TestWatcherDebouncing(t *testing.T) {
 		},
 	}
 
-	w, err := NewWatcher(tmpDir, cfg)
+	w, err := NewWatcher(tmpDir, cfg, nil)
 	require.NoError(t, err)
 	defer w.Stop()
 
@@ -253,7 +253,7 @@ func TestWatcherDebounceConfigurable(t *testing.T) {
 		},
 	}
 
-	wShort, err := NewWatcher(tmpDir, cfgShort)
+	wShort, err := NewWatcher(tmpDir, cfgShort, nil)
 	require.NoError(t, err)
 	defer wShort.Stop()
 
@@ -265,7 +265,7 @@ func TestWatcherDebounceConfigurable(t *testing.T) {
 		},
 	}
 
-	wLong, err := NewWatcher(tmpDir2, cfgLong)
+	wLong, err := NewWatcher(tmpDir2, cfgLong, nil)
 	require.NoError(t, err)
 	defer wLong.Stop()
 
@@ -285,7 +285,7 @@ func TestWatcherNewDirectoryWatched(t *testing.T) {
 		},
 	}
 
-	w, err := NewWatcher(tmpDir, cfg)
+	w, err := NewWatcher(tmpDir, cfg, nil)
 	require.NoError(t, err)
 	defer w.Stop()
 
@@ -342,7 +342,7 @@ func TestWatcherNestedDirectories(t *testing.T) {
 		},
 	}
 
-	w, err := NewWatcher(tmpDir, cfg)
+	w, err := NewWatcher(tmpDir, cfg, nil)
 	require.NoError(t, err)
 	defer w.Stop()
 
@@ -380,7 +380,7 @@ func TestWatcherEventsChannel(t *testing.T) {
 		},
 	}
 
-	w, err := NewWatcher(tmpDir, cfg)
+	w, err := NewWatcher(tmpDir, cfg, nil)
 	require.NoError(t, err)
 	defer w.Stop()
 
@@ -401,7 +401,7 @@ func TestWatcherEventContainsCorrectPathAndOp(t *testing.T) {
 		},
 	}
 
-	w, err := NewWatcher(tmpDir, cfg)
+	w, err := NewWatcher(tmpDir, cfg, nil)
 	require.NoError(t, err)
 	defer w.Stop()
 
@@ -444,7 +444,7 @@ func TestWatcherStopClosesCleanly(t *testing.T) {
 		},
 	}
 
-	w, err := NewWatcher(tmpDir, cfg)
+	w, err := NewWatcher(tmpDir, cfg, nil)
 	require.NoError(t, err)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -472,7 +472,7 @@ func TestWatcherDoneChannelClosesOnStop(t *testing.T) {
 		},
 	}
 
-	w, err := NewWatcher(tmpDir, cfg)
+	w, err := NewWatcher(tmpDir, cfg, nil)
 	require.NoError(t, err)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -515,7 +515,7 @@ func TestWatcherErrorsChannel(t *testing.T) {
 		},
 	}
 
-	w, err := NewWatcher(tmpDir, cfg)
+	w, err := NewWatcher(tmpDir, cfg, nil)
 	require.NoError(t, err)
 	defer w.Stop()
 
@@ -536,7 +536,7 @@ func TestWatcherContextCancellation(t *testing.T) {
 		},
 	}
 
-	w, err := NewWatcher(tmpDir, cfg)
+	w, err := NewWatcher(tmpDir, cfg, nil)
 	require.NoError(t, err)
 	defer w.Stop()
 
@@ -574,7 +574,7 @@ func TestWatcherRenameEvent(t *testing.T) {
 		},
 	}
 
-	w, err := NewWatcher(tmpDir, cfg)
+	w, err := NewWatcher(tmpDir, cfg, nil)
 	require.NoError(t, err)
 	defer w.Stop()
 

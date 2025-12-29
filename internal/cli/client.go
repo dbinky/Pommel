@@ -25,9 +25,10 @@ type daemonSearchResult struct {
 
 // daemonSearchResponse matches the daemon's actual response format
 type daemonSearchResponse struct {
-	Results []daemonSearchResult `json:"results"`
-	Query   string               `json:"query"`
-	Limit   int                  `json:"limit"`
+	Results      []daemonSearchResult `json:"results"`
+	Query        string               `json:"query"`
+	Limit        int                  `json:"limit"`
+	SearchTimeMs int64                `json:"search_time_ms"`
 }
 
 // Client provides methods to communicate with the pommeld daemon
@@ -137,13 +138,26 @@ func (c *Client) Search(req api.SearchRequest) (*api.SearchResponse, error) {
 		Query:        daemonResp.Query,
 		Results:      results,
 		TotalResults: len(results),
-		SearchTimeMs: 0, // Daemon doesn't provide this currently
+		SearchTimeMs: daemonResp.SearchTimeMs,
 	}, nil
 }
 
 // Reindex triggers a full reindex
 func (c *Client) Reindex() (*api.ReindexResponse, error) {
-	resp, err := c.httpClient.Post(c.baseURL+"/reindex", "application/json", nil)
+	return c.ReindexPath("")
+}
+
+// ReindexPath triggers a reindex for a specific path (or full reindex if empty)
+func (c *Client) ReindexPath(path string) (*api.ReindexResponse, error) {
+	req := api.ReindexRequest{
+		Path: path,
+	}
+	reqBody, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	resp, err := c.httpClient.Post(c.baseURL+"/reindex", "application/json", bytes.NewReader(reqBody))
 	if err != nil {
 		return nil, fmt.Errorf("daemon not reachable: %w", err)
 	}

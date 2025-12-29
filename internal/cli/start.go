@@ -1,9 +1,14 @@
 package cli
 
 import (
+	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
+	"os"
 	"os/exec"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/pommel-dev/pommel/internal/config"
@@ -11,15 +16,22 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var (
+	startForeground bool
+)
+
 var startCmd = &cobra.Command{
 	Use:   "start",
 	Short: "Start the Pommel daemon",
-	Long:  `Start the Pommel daemon process to enable file watching and semantic indexing.`,
-	RunE:  runStart,
+	Long: `Start the Pommel daemon process to enable file watching and semantic indexing.
+
+Use --foreground to run in foreground mode for debugging.`,
+	RunE: runStart,
 }
 
 func init() {
 	rootCmd.AddCommand(startCmd)
+	startCmd.Flags().BoolVarP(&startForeground, "foreground", "f", false, "Run daemon in foreground (for debugging)")
 }
 
 func runStart(cmd *cobra.Command, args []string) error {
@@ -41,7 +53,12 @@ func runStart(cmd *cobra.Command, args []string) error {
 		return ErrConfigInvalid(err)
 	}
 
-	// Fork daemon process
+	// Handle foreground mode
+	if startForeground {
+		return runDaemonForeground(cfg, stateManager)
+	}
+
+	// Fork daemon process (background mode)
 	daemonCmd := exec.Command("pommeld", "--project", projectRoot)
 	if err := daemonCmd.Start(); err != nil {
 		return ErrDaemonStartFailed(err)
@@ -74,4 +91,42 @@ func runStart(cmd *cobra.Command, args []string) error {
 			}
 		}
 	}
+}
+
+// runDaemonForeground runs the daemon in the foreground for debugging
+func runDaemonForeground(cfg *config.Config, stateManager *daemon.StateManager) error {
+	fmt.Println("Starting Pommel daemon in foreground mode...")
+	fmt.Printf("Press Ctrl+C to stop\n\n")
+
+	// Create logger for foreground mode (outputs to stderr)
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	}))
+
+	// Create and start daemon
+	d, err := daemon.New(projectRoot, cfg, logger)
+	if err != nil {
+		return ErrDaemonStartFailed(err)
+	}
+
+	// Handle graceful shutdown
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		<-sigChan
+		fmt.Println("\nShutting down...")
+		cancel()
+	}()
+
+	// Run the daemon (blocks until context is cancelled)
+	if err := d.Run(ctx); err != nil && err != context.Canceled {
+		return err
+	}
+
+	fmt.Println("Daemon stopped")
+	return nil
 }

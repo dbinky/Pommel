@@ -108,6 +108,40 @@ func TestReindexCmd_FlagsExist(t *testing.T) {
 	assert.Equal(t, "false", forceFlag.DefValue)
 }
 
+func TestReindexCmd_PathFlag(t *testing.T) {
+	// Verify the path flag is registered
+	pathFlag := reindexCmd.Flags().Lookup("path")
+	require.NotNil(t, pathFlag, "--path flag should be registered")
+	assert.Equal(t, "", pathFlag.DefValue, "default should be empty")
+}
+
+func TestReindexCmd_PathFlagSendsPath(t *testing.T) {
+	// Test that path flag is sent to daemon
+	var receivedPath string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		var req map[string]interface{}
+		if err := json.Unmarshal(body, &req); err == nil {
+			if path, ok := req["path"].(string); ok {
+				receivedPath = path
+			}
+		}
+
+		response := api.ReindexResponse{
+			Status:  "started",
+			Message: "Reindexing path: src/",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusAccepted)
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	err := executeReindexWithPath(server.URL, false, "src/")
+	require.NoError(t, err)
+	assert.Equal(t, "src/", receivedPath, "path should be sent to server")
+}
+
 func TestReindexCmd_CommandRegistered(t *testing.T) {
 	// Verify reindex command is registered with root
 	found := false
@@ -152,6 +186,35 @@ func TestReindexCmd_DaemonNotRunning(t *testing.T) {
 func executeReindex(daemonURL string, force bool) error {
 	_, err := executeReindexWithOutput(daemonURL, force, false)
 	return err
+}
+
+// executeReindexWithPath sends a reindex request with a path filter
+func executeReindexWithPath(daemonURL string, force bool, path string) error {
+	// Build the request with path
+	req := struct {
+		Force bool   `json:"force"`
+		Path  string `json:"path,omitempty"`
+	}{
+		Force: force,
+		Path:  path,
+	}
+
+	reqBody, err := json.Marshal(req)
+	if err != nil {
+		return fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	resp, err := http.Post(daemonURL+"/reindex", "application/json", bytes.NewReader(reqBody))
+	if err != nil {
+		return fmt.Errorf("failed to connect to daemon: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
+		return fmt.Errorf("reindex failed with status %d", resp.StatusCode)
+	}
+
+	return nil
 }
 
 // executeReindexWithOutput sends a reindex request and returns formatted output

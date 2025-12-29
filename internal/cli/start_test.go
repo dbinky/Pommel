@@ -111,6 +111,22 @@ func TestStartCommand_Registered(t *testing.T) {
 	assert.True(t, found, "start command should be registered")
 }
 
+// TestStartCmd_ForegroundFlag tests that --foreground flag is registered
+func TestStartCmd_ForegroundFlag(t *testing.T) {
+	// Check flag is registered
+	flag := startCmd.Flags().Lookup("foreground")
+	assert.NotNil(t, flag, "--foreground flag should be registered")
+	assert.Equal(t, "false", flag.DefValue, "default should be false")
+}
+
+// TestStartCmd_ForegroundShortFlag tests that -f short flag works
+func TestStartCmd_ForegroundShortFlag(t *testing.T) {
+	// Check short flag is registered
+	flag := startCmd.Flags().ShorthandLookup("f")
+	assert.NotNil(t, flag, "-f short flag should be registered")
+	assert.Equal(t, "foreground", flag.Name, "short flag should map to foreground")
+}
+
 // TestStartCmd_LoadsConfig tests that start command loads configuration
 func TestStartCmd_LoadsConfig(t *testing.T) {
 	// Create a temporary directory with custom config

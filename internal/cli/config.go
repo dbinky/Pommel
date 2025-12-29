@@ -223,6 +223,8 @@ func getEmbeddingValue(cfg *config.Config, parts []string) (interface{}, error) 
 	switch parts[1] {
 	case "model":
 		return cfg.Embedding.Model, nil
+	case "ollama_url":
+		return cfg.Embedding.OllamaURL, nil
 	case "batch_size":
 		return cfg.Embedding.BatchSize, nil
 	case "cache_size":
@@ -230,7 +232,7 @@ func getEmbeddingValue(cfg *config.Config, parts []string) (interface{}, error) 
 	default:
 		return nil, NewCLIError(
 			fmt.Sprintf("Unknown embedding config key: %s", parts[1]),
-			"Valid embedding keys are: model, batch_size, cache_size")
+			"Valid embedding keys are: model, ollama_url, batch_size, cache_size")
 	}
 }
 
@@ -335,6 +337,8 @@ func setEmbeddingValue(cfg *config.Config, parts []string, value string) error {
 	switch parts[1] {
 	case "model":
 		cfg.Embedding.Model = value
+	case "ollama_url":
+		cfg.Embedding.OllamaURL = value
 	case "batch_size":
 		batchSize, err := strconv.Atoi(value)
 		if err != nil {
@@ -350,7 +354,7 @@ func setEmbeddingValue(cfg *config.Config, parts []string, value string) error {
 	default:
 		return NewCLIError(
 			fmt.Sprintf("Unknown embedding config key: %s", parts[1]),
-			"Valid embedding keys are: model, batch_size, cache_size")
+			"Valid embedding keys are: model, ollama_url, batch_size, cache_size")
 	}
 	return nil
 }
@@ -368,10 +372,18 @@ func setSearchValue(cfg *config.Config, parts []string, value string) error {
 			return invalidIntError("search.default_limit", value)
 		}
 		cfg.Search.DefaultLimit = limit
+	case "default_levels":
+		// Parse comma-separated list of levels
+		levels := strings.Split(value, ",")
+		// Trim whitespace from each level
+		for i, level := range levels {
+			levels[i] = strings.TrimSpace(level)
+		}
+		cfg.Search.DefaultLevels = levels
 	default:
 		return NewCLIError(
 			fmt.Sprintf("Unknown search config key: %s", parts[1]),
-			"Valid search keys are: default_limit")
+			"Valid search keys are: default_limit, default_levels")
 	}
 	return nil
 }

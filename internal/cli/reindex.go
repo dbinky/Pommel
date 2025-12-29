@@ -3,11 +3,13 @@ package cli
 import (
 	"fmt"
 
+	"github.com/pommel-dev/pommel/internal/api"
 	"github.com/spf13/cobra"
 )
 
 var (
 	reindexForce bool
+	reindexPath  string
 )
 
 var reindexCmd = &cobra.Command{
@@ -19,15 +21,19 @@ This command tells the daemon to re-scan and re-index all files
 in the project. Use --force to skip confirmation and force reindexing
 even if an index operation is already in progress.
 
+Use --path to reindex only files under a specific path.
+
 Examples:
   pm reindex
-  pm reindex --force`,
+  pm reindex --force
+  pm reindex --path src/`,
 	RunE: runReindex,
 }
 
 func init() {
 	rootCmd.AddCommand(reindexCmd)
 	reindexCmd.Flags().BoolVarP(&reindexForce, "force", "f", false, "Force reindex without confirmation")
+	reindexCmd.Flags().StringVar(&reindexPath, "path", "", "Reindex only files under this path")
 }
 
 func runReindex(cmd *cobra.Command, args []string) error {
@@ -36,7 +42,12 @@ func runReindex(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to create client: %w", err)
 	}
 
-	resp, err := client.Reindex()
+	var resp *api.ReindexResponse
+	if reindexPath != "" {
+		resp, err = client.ReindexPath(reindexPath)
+	} else {
+		resp, err = client.Reindex()
+	}
 	if err != nil {
 		return err
 	}

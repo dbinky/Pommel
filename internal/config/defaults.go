@@ -36,6 +36,7 @@ func Default() *Config {
 		},
 		Embedding: EmbeddingConfig{
 			Model:     "unclemusclez/jina-embeddings-v2-base-code",
+			OllamaURL: "http://localhost:11434",
 			BatchSize: 32,
 			CacheSize: 1000,
 		},

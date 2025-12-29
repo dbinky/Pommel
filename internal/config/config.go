@@ -33,6 +33,7 @@ type DaemonConfig struct {
 // EmbeddingConfig contains embedding model settings
 type EmbeddingConfig struct {
 	Model     string `yaml:"model" json:"model" mapstructure:"model"`
+	OllamaURL string `yaml:"ollama_url" json:"ollama_url" mapstructure:"ollama_url"`
 	BatchSize int    `yaml:"batch_size" json:"batch_size" mapstructure:"batch_size"`
 	CacheSize int    `yaml:"cache_size" json:"cache_size" mapstructure:"cache_size"`
 }

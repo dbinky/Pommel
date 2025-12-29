@@ -67,6 +67,7 @@ type IndexStatus struct {
 	TotalChunks    int64     `json:"total_chunks"`
 	LastIndexedAt  time.Time `json:"last_indexed_at,omitempty"`
 	IndexingActive bool      `json:"indexing_active"`
+	PendingChanges int       `json:"pending_changes"`
 }
 
 // DependenciesStatus contains information about external dependencies
@@ -81,7 +82,8 @@ type DependenciesStatus struct {
 
 // ReindexRequest represents a request to reindex the codebase
 type ReindexRequest struct {
-	Force bool `json:"force"`
+	Force bool   `json:"force"`
+	Path  string `json:"path,omitempty"`
 }
 
 // ReindexResponse represents the reindex operation response

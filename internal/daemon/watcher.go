@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"context"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sync"
@@ -32,6 +33,7 @@ type FileEvent struct {
 type Watcher struct {
 	projectRoot string
 	config      *config.Config
+	logger      *slog.Logger
 	fsWatcher   *fsnotify.Watcher
 	events      chan FileEvent
 	errors      chan error
@@ -47,7 +49,7 @@ type Watcher struct {
 }
 
 // NewWatcher creates a new file watcher for the given project root
-func NewWatcher(projectRoot string, cfg *config.Config) (*Watcher, error) {
+func NewWatcher(projectRoot string, cfg *config.Config, logger *slog.Logger) (*Watcher, error) {
 	// Verify project root exists
 	info, err := os.Stat(projectRoot)
 	if err != nil {
@@ -55,6 +57,11 @@ func NewWatcher(projectRoot string, cfg *config.Config) (*Watcher, error) {
 	}
 	if !info.IsDir() {
 		return nil, os.ErrNotExist
+	}
+
+	// Use a no-op logger if none provided
+	if logger == nil {
+		logger = slog.New(slog.NewTextHandler(os.Stderr, nil))
 	}
 
 	// Create fsnotify watcher
@@ -73,6 +80,7 @@ func NewWatcher(projectRoot string, cfg *config.Config) (*Watcher, error) {
 	w := &Watcher{
 		projectRoot: projectRoot,
 		config:      cfg,
+		logger:      logger,
 		fsWatcher:   fsWatcher,
 		events:      make(chan FileEvent, 100),
 		errors:      make(chan error, 10),
@@ -104,18 +112,20 @@ func (w *Watcher) Start(ctx context.Context) error {
 func (w *Watcher) addWatchRecursively(root string) error {
 	return filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
+			w.logger.Debug("skipping inaccessible path", "path", path, "error", err)
 			return nil // Skip paths we can't access
 		}
 
 		if info.IsDir() {
 			// Skip ignored directories
 			if w.ignorer.ShouldIgnore(path) {
+				w.logger.Debug("skipping ignored directory", "path", path)
 				return filepath.SkipDir
 			}
 
 			// Add directory to watcher
 			if err := w.fsWatcher.Add(path); err != nil {
-				// Non-fatal error, log but continue
+				w.logger.Warn("failed to watch directory", "path", path, "error", err)
 				return nil
 			}
 		}
@@ -159,6 +169,7 @@ func (w *Watcher) handleFsEvent(event fsnotify.Event) {
 
 	// Skip ignored paths
 	if w.ignorer.ShouldIgnore(path) {
+		w.logger.Debug("ignoring event for excluded path", "path", path, "event", event.Op.String())
 		return
 	}
 
