@@ -165,6 +165,7 @@ get_shell_config() {
             ;;
         *)
             # Default to .profile for other shells
+            warn "Unknown shell '$shell_name', falling back to .profile"
             echo "$HOME/.profile"
             ;;
     esac

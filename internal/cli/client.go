@@ -197,6 +197,15 @@ func (c *Client) Config() (*config.Config, error) {
 	return configResp.Config, nil
 }
 
+// ListSubprojects retrieves the list of sub-projects from the daemon
+func (c *Client) ListSubprojects() (*api.SubprojectsResponse, error) {
+	var resp api.SubprojectsResponse
+	if err := c.get("/subprojects", &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
 // get performs a GET request and decodes the JSON response
 func (c *Client) get(path string, result interface{}) error {
 	resp, err := c.httpClient.Get(c.baseURL + path)

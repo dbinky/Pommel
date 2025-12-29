@@ -57,6 +57,18 @@ func runSearch(cmd *cobra.Command, args []string) error {
 		PathPrefix: searchPath,
 	}
 
+	// Wire up scope flags
+	if searchAll {
+		req.Scope = api.SearchScopeRequest{
+			Mode: "all",
+		}
+	} else if searchSubproject != "" {
+		req.Scope = api.SearchScopeRequest{
+			Mode:  "subproject",
+			Value: searchSubproject,
+		}
+	}
+
 	resp, err := client.Search(req)
 	if err != nil {
 		return err

@@ -5,12 +5,12 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/pommel-dev/pommel/internal/config"
+	"github.com/pommel-dev/pommel/internal/subproject"
 )
 
 // Operation represents the type of file operation
@@ -321,68 +321,19 @@ func (w *Watcher) Stop() error {
 	return nil
 }
 
-// DefaultMarkerPatterns are the default marker file patterns for sub-project detection.
-var DefaultMarkerPatterns = []string{
-	"*.sln",
-	"*.csproj",
-	"go.mod",
-	"Cargo.toml",
-	"pom.xml",
-	"build.gradle",
-	"package.json",
-	"pyproject.toml",
-	"setup.py",
-}
-
 // IsMarkerFile checks if a filename is a sub-project marker.
 func (w *Watcher) IsMarkerFile(filename string) bool {
-	markers := w.config.Subprojects.Markers
-	if len(markers) == 0 {
-		markers = DefaultMarkerPatterns
-	}
-
-	for _, pattern := range markers {
-		if strings.HasPrefix(pattern, "*") {
-			if strings.HasSuffix(filename, pattern[1:]) {
-				return true
-			}
-		} else if filename == pattern {
-			return true
-		}
-	}
-	return false
+	return subproject.IsMarkerFile(filename, w.config.Subprojects.Markers)
 }
 
 // GetLanguageHint returns the language hint for a marker file.
+// Delegates to subproject.GetLanguageHint.
 func GetLanguageHint(markerFile string) string {
-	switch markerFile {
-	case "go.mod":
-		return "go"
-	case "package.json":
-		return "javascript"
-	case "Cargo.toml":
-		return "rust"
-	case "pom.xml", "build.gradle":
-		return "java"
-	case "pyproject.toml", "setup.py":
-		return "python"
-	default:
-		if strings.HasSuffix(markerFile, ".sln") || strings.HasSuffix(markerFile, ".csproj") {
-			return "csharp"
-		}
-		return ""
-	}
+	return subproject.GetLanguageHint(markerFile)
 }
 
 // GenerateSubprojectID creates a slug-style ID from a path.
+// Delegates to subproject.GenerateSubprojectID.
 func GenerateSubprojectID(path string) string {
-	base := filepath.Base(path)
-	id := strings.ToLower(base)
-	id = strings.Map(func(r rune) rune {
-		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
-			return r
-		}
-		return '-'
-	}, id)
-	return id
+	return subproject.GenerateSubprojectID(path)
 }

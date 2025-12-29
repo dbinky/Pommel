@@ -3,7 +3,6 @@ package cli
 import (
 	"fmt"
 
-	"github.com/pommel-dev/pommel/internal/api"
 	"github.com/spf13/cobra"
 )
 
@@ -58,13 +57,4 @@ func runSubprojects(cmd *cobra.Command, args []string) error {
 	}
 
 	return nil
-}
-
-// ListSubprojects retrieves the list of sub-projects from the daemon
-func (c *Client) ListSubprojects() (*api.SubprojectsResponse, error) {
-	var resp api.SubprojectsResponse
-	if err := c.get("/subprojects", &resp); err != nil {
-		return nil, err
-	}
-	return &resp, nil
 }

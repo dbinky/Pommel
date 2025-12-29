@@ -139,10 +139,7 @@ func (d *Detector) generateID(path string) string {
 
 // matchesMarker checks if a filename matches a marker pattern.
 func (d *Detector) matchesMarker(filename, pattern string) bool {
-	if strings.HasPrefix(pattern, "*") {
-		return strings.HasSuffix(filename, pattern[1:])
-	}
-	return filename == pattern
+	return MatchesMarkerPattern(filename, pattern)
 }
 
 // getMarkerPriority returns the priority for a marker file.
@@ -152,7 +149,7 @@ func (d *Detector) getMarkerPriority(filename string) int {
 			return m.Priority
 		}
 	}
-	return 999
+	return DefaultPriority
 }
 
 // isExcluded checks if a path is in the exclude list.

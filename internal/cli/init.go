@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/pommel-dev/pommel/internal/config"
@@ -278,16 +279,16 @@ coverage/
 			}
 		}
 	}
-	_ = daemonStarted // used for JSON output below
 
 	// Output success
 	if jsonOutput {
 		result := InitResult{
-			Success:      true,
-			ProjectRoot:  projectRoot,
-			ConfigPath:   configPath,
-			DatabasePath: dbPath,
-			Message:      "Initialized Pommel successfully",
+			Success:       true,
+			ProjectRoot:   projectRoot,
+			ConfigPath:    configPath,
+			DatabasePath:  dbPath,
+			DaemonStarted: daemonStarted,
+			Message:       "Initialized Pommel successfully",
 		}
 		enc := json.NewEncoder(stdout)
 		enc.SetIndent("", "  ")
@@ -300,12 +301,13 @@ coverage/
 
 // InitResult represents the result of an init operation for JSON output
 type InitResult struct {
-	Success      bool   `json:"success"`
-	ProjectRoot  string `json:"project_root"`
-	ConfigPath   string `json:"config_path"`
-	DatabasePath string `json:"database_path"`
-	Message      string `json:"message,omitempty"`
-	Error        string `json:"error,omitempty"`
+	Success       bool   `json:"success"`
+	ProjectRoot   string `json:"project_root"`
+	ConfigPath    string `json:"config_path"`
+	DatabasePath  string `json:"database_path"`
+	DaemonStarted bool   `json:"daemon_started,omitempty"`
+	Message       string `json:"message,omitempty"`
+	Error         string `json:"error,omitempty"`
 }
 
 // Language extension mappings - maps file extension to glob pattern
@@ -368,13 +370,7 @@ func detectLanguagePatterns(projectRoot string) []string {
 	}
 
 	// Sort for consistent output
-	for i := 0; i < len(patterns); i++ {
-		for j := i + 1; j < len(patterns); j++ {
-			if patterns[i] > patterns[j] {
-				patterns[i], patterns[j] = patterns[j], patterns[i]
-			}
-		}
-	}
+	sort.Strings(patterns)
 
 	return patterns
 }
@@ -466,7 +462,7 @@ func handleMonorepoDetection(projectRoot string, detected []*subproject.Detected
 
 	if !flags.Monorepo && !flags.NoMonorepo && !jsonOutput {
 		// Prompt user (only in interactive mode)
-		initAsMonorepo = promptYesNo(stdout, "Initialize as monorepo with these sub-projects?", true)
+		initAsMonorepo = promptYesNo(stdout, nil, "Initialize as monorepo with these sub-projects?", true)
 	}
 
 	if initAsMonorepo {
@@ -485,9 +481,13 @@ func handleMonorepoDetection(projectRoot string, detected []*subproject.Detected
 	return nil
 }
 
-// promptYesNo prompts for yes/no input with a default
-func promptYesNo(stdout io.Writer, question string, defaultYes bool) bool {
-	reader := bufio.NewReader(os.Stdin)
+// promptYesNo prompts for yes/no input with a default.
+// stdin can be nil to use os.Stdin.
+func promptYesNo(stdout io.Writer, stdin io.Reader, question string, defaultYes bool) bool {
+	if stdin == nil {
+		stdin = os.Stdin
+	}
+	reader := bufio.NewReader(stdin)
 	defaultStr := "Y/n"
 	if !defaultYes {
 		defaultStr = "y/N"
