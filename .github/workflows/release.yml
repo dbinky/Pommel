@@ -23,10 +23,8 @@ jobs:
             goos: darwin
             goarch: arm64
             suffix: darwin-arm64
-          - os: macos-14-large
-            goos: darwin
-            goarch: amd64
-            suffix: darwin-amd64
+          # Note: macOS Intel (amd64) builds require paid runners (macos-*-large)
+          # Most modern Macs use Apple Silicon - Intel builds can be added if needed
 
     steps:
       - name: Checkout code
