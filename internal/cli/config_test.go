@@ -37,23 +37,6 @@ func newTestProject(t *testing.T) *testProject {
 	}
 }
 
-// newTestProjectWithConfig creates a new temporary project with custom config
-func newTestProjectWithConfig(t *testing.T, cfg *config.Config) *testProject {
-	t.Helper()
-
-	dir := t.TempDir()
-	loader := config.NewLoader(dir)
-
-	err := loader.Save(cfg)
-	require.NoError(t, err)
-
-	return &testProject{
-		Dir:    dir,
-		Config: cfg,
-		Loader: loader,
-	}
-}
-
 // executeConfigCmd executes the config command with given args and returns output
 func executeConfigCmd(t *testing.T, projectDir string, args ...string) (string, string, error) {
 	t.Helper()

@@ -558,7 +558,7 @@ func TestChunkerRegistry_RespectsContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // Cancel immediately
 
-	_, err = reg.Chunk(ctx, file)
+	_, _ = reg.Chunk(ctx, file)
 	// Should either return error due to cancelled context or complete
 	// This test ensures no hang occurs with cancelled context
 }

@@ -439,7 +439,7 @@ func TestInitCmd_StartFlag_InitializesBeforeStart(t *testing.T) {
 
 	// Run init with --start flag (daemon start will likely fail in test env, but init should complete)
 	var outBuf, errBuf bytes.Buffer
-	err = runInitWithFlags(tmpDir, &outBuf, &errBuf, InitFlags{Start: true})
+	_ = runInitWithFlags(tmpDir, &outBuf, &errBuf, InitFlags{Start: true})
 
 	// Init should succeed even if daemon start fails
 	// The .pommel directory should exist
@@ -459,7 +459,7 @@ func TestInitCmd_StartFlag_CombinesWithOtherFlags(t *testing.T) {
 
 	// Run init with multiple flags
 	var outBuf, errBuf bytes.Buffer
-	err = runInitWithFlags(tmpDir, &outBuf, &errBuf, InitFlags{
+	_ = runInitWithFlags(tmpDir, &outBuf, &errBuf, InitFlags{
 		Auto:   true,
 		Claude: true,
 		Start:  true,
