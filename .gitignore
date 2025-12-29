@@ -31,9 +31,6 @@ build/
 # Pommel project data (user-specific, not committed)
 .pommel/
 
-# Plans and design docs (local working docs)
-docs/plans/
-
 # Beads issue tracking (user-specific)
 .beads/
 
