@@ -2,9 +2,9 @@
 
 ## Project Brief — C4 Context Level Document
 
-**Version:** 0.1.0-refined
-**Status:** Planning (Design Complete)  
-**Target Platforms:** macOS, Linux (bash)  
+**Version:** 0.2.0
+**Status:** Implemented
+**Target Platforms:** macOS, Linux (bash)
 **Initial Target Agent:** Claude Code
 
 ---
@@ -340,13 +340,13 @@ Effective chunking is critical to search quality. Pommel employs a multi-level c
 2. **Hierarchy Preservation**
    - Each chunk knows its parent chunk ID
    - Enables drill-down and roll-up queries
-   - Required for v0.1 - agents need to navigate from method to containing class
+   - Required - agents need to navigate from method to containing class
 
 3. **Language Awareness**
    - Tree-sitter provides accurate AST parsing per language
-   - v0.1 support: C#, Python, JavaScript, TypeScript
-   - Fallback: Line-based chunking for unsupported languages
-   - Future versions: Go, Java, Rust
+   - Supported: Go, C#, Python, JavaScript, TypeScript, JSX, TSX
+   - Fallback: File-level chunking for unsupported languages
+   - Future versions: Java, Rust, C, C++
 
 4. **Metadata Richness**
    - Each chunk carries sufficient metadata to locate and contextualize
@@ -565,38 +565,39 @@ Agent: I need to understand how authentication works in this project.
 
 ---
 
-## Pre-1.0 Scope
+## v0.2.0 Scope
 
-### In Scope (v0.1)
+### Implemented Features
 
 - macOS and Linux support (bash environments)
 - Go implementation for daemon and CLI
 - Ollama + Jina Code Embeddings v2 (local model)
 - sqlite-vec vector database (single-file, embedded)
 - Multi-level chunking: method/function, class/module, file
-- Language support: C#, Python, JavaScript, TypeScript
+- **Language support (full AST-aware chunking):** Go, C#, Python, JavaScript, TypeScript, JSX, TSX
 - Tree-sitter for AST parsing
 - File system watching with debounce
 - CLI ↔ Daemon communication via localhost REST API
 - `.pommelignore` support
 - JSON output for all commands
 - Project-local configuration and database
-- Single-project daemon instances
+- **Multi-project support**: Each project gets its own daemon on a unique port (hash-based)
+- **Monorepo support**: Auto-detection of sub-projects, scoped search
 - Chunk hierarchy with parent references
 - Auto-setup: detect dependencies, prompt to install, auto-start services
 - `pm init --claude` to inject usage instructions into CLAUDE.md
+- `pm init --auto` for automatic language detection
 
 ### Out of Scope (Future Consideration)
 
 - Windows support
-- Multi-project / global daemon
 - Remote/cloud database options
 - IDE plugins
 - Web UI
-- Embedding model selection (locked to Jina Code v2 for v0.1)
-- Additional languages: Go, Java, Rust
+- Embedding model selection (locked to Jina Code v2 for now)
+- Additional languages: Java, Rust, C, C++
 - Block-level and line-group chunking
-- Cross-repository search
+- Cross-repository search (searching multiple unrelated repos in one query)
 - Real-time streaming results
 - Natural language to code generation
 - Diff-aware incremental re-chunking (full file re-chunk on change)
@@ -665,6 +666,7 @@ Pommel will be considered successful when:
 |---------|------|--------|---------|
 | 0.1.0-draft | 2025-01-XX | Ryan + Claude | Initial draft |
 | 0.1.0-refined | 2025-12-28 | Ryan + Claude | Design refinement: sqlite-vec replaces Chroma, Ollama for embeddings, REST API for CLI↔Daemon, Tree-sitter for parsing, scoped to 4 languages and 3 chunk levels |
+| 0.2.0 | 2025-12-29 | Ryan + Claude | Implementation complete: Added Go language support, multi-project support with hash-based ports, monorepo/sub-project detection, updated status to Implemented |
 
 ---
 

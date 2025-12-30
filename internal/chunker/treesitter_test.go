@@ -403,7 +403,6 @@ func TestDetectLanguage_Unknown(t *testing.T) {
 		filename string
 		expected Language
 	}{
-		{"file.go", LangUnknown},
 		{"file.rb", LangUnknown},
 		{"file.java", LangUnknown},
 		{"file.rust", LangUnknown},
@@ -457,6 +456,7 @@ func TestParser_IsSupported_SupportedLanguages(t *testing.T) {
 	require.NoError(t, err)
 
 	supportedLanguages := []Language{
+		LangGo,
 		LangCSharp,
 		LangPython,
 		LangJavaScript,
@@ -478,7 +478,6 @@ func TestParser_IsSupported_UnsupportedLanguages(t *testing.T) {
 
 	unsupportedLanguages := []Language{
 		LangUnknown,
-		Language("go"),
 		Language("rust"),
 		Language("java"),
 		Language("ruby"),
