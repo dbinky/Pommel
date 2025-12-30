@@ -6,7 +6,31 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Pommel is a local-first semantic code search system designed to reduce context window consumption for AI coding agents. It maintains an always-current vector database of code embeddings, enabling targeted semantic searches instead of reading numerous files into context.
 
-**Status:** v0.1.0 - Fully functional with CLI, daemon, and semantic search
+**Status:** v0.2.0 - Fully functional with CLI, daemon, and semantic search
+
+## Code Search Priority
+
+**IMPORTANT: Use `pm search` BEFORE using Grep/Glob for code exploration.**
+
+When looking for:
+- How something is implemented → `pm search "authentication flow"`
+- Where a pattern is used → `pm search "error handling"`
+- Related code/concepts → `pm search "database connection"`
+- Code that does X → `pm search "validate user input"`
+
+Only fall back to Grep/Glob when:
+- Searching for an exact string literal (e.g., a specific error message)
+- Looking for a specific identifier name you already know
+- Pommel daemon is not running
+
+Example workflow:
+```bash
+# First: semantic search to find relevant code
+pm search "retry logic with backoff" --limit 5
+
+# Then: read the specific files/lines returned
+# Only use grep if you need exact string matching
+```
 
 ## Quick Start
 

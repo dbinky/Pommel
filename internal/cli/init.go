@@ -381,7 +381,22 @@ const pommelClaudeInstructions = `
 
 This project uses Pommel for semantic code search. Pommel indexes your codebase into semantic chunks (files, classes, methods) and enables natural language search to find relevant code quickly.
 
-**Supported languages** (full AST-aware chunking): Go, C#, Python, JavaScript, TypeScript, JSX, TSX
+**Supported languages** (full AST-aware chunking): Go, Java, C#, Python, JavaScript, TypeScript, JSX, TSX
+
+### Code Search Priority
+
+**IMPORTANT: Use ` + "`pm search`" + ` BEFORE using Grep/Glob for code exploration.**
+
+When looking for:
+- How something is implemented → ` + "`pm search \"authentication flow\"`" + `
+- Where a pattern is used → ` + "`pm search \"error handling\"`" + `
+- Related code/concepts → ` + "`pm search \"database connection\"`" + `
+- Code that does X → ` + "`pm search \"validate user input\"`" + `
+
+Only fall back to Grep/Glob when:
+- Searching for an exact string literal (e.g., a specific error message)
+- Looking for a specific identifier name you already know
+- Pommel daemon is not running
 
 ### Quick Search Examples
 ` + "```" + `bash
@@ -571,7 +586,22 @@ func pommelSubprojectInstructions(sp *subproject.DetectedSubproject) string {
 
 This sub-project (%s) uses Pommel for semantic code search. Pommel indexes your codebase into semantic chunks (files, classes, methods) and enables natural language search.
 
-**Supported languages** (full AST-aware chunking): Go, C#, Python, JavaScript, TypeScript, JSX, TSX
+**Supported languages** (full AST-aware chunking): Go, Java, C#, Python, JavaScript, TypeScript, JSX, TSX
+
+### Code Search Priority
+
+**IMPORTANT: Use `+"`pm search`"+` BEFORE using Grep/Glob for code exploration.**
+
+When looking for:
+- How something is implemented → `+"`pm search \"authentication flow\"`"+`
+- Where a pattern is used → `+"`pm search \"error handling\"`"+`
+- Related code/concepts → `+"`pm search \"database connection\"`"+`
+- Code that does X → `+"`pm search \"validate user input\"`"+`
+
+Only fall back to Grep/Glob when:
+- Searching for an exact string literal (e.g., a specific error message)
+- Looking for a specific identifier name you already know
+- Pommel daemon is not running
 
 ### Quick Search Examples
 `+"```bash"+`

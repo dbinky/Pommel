@@ -10,6 +10,7 @@ import (
 	sitter "github.com/smacker/go-tree-sitter"
 	"github.com/smacker/go-tree-sitter/csharp"
 	"github.com/smacker/go-tree-sitter/golang"
+	"github.com/smacker/go-tree-sitter/java"
 	"github.com/smacker/go-tree-sitter/javascript"
 	"github.com/smacker/go-tree-sitter/python"
 	"github.com/smacker/go-tree-sitter/typescript/tsx"
@@ -21,6 +22,7 @@ type Language string
 
 const (
 	LangGo         Language = "go"
+	LangJava       Language = "java"
 	LangCSharp     Language = "csharp"
 	LangPython     Language = "python"
 	LangJavaScript Language = "javascript"
@@ -44,6 +46,11 @@ func NewParser() (*Parser, error) {
 	goParser := sitter.NewParser()
 	goParser.SetLanguage(golang.GetLanguage())
 	parsers[LangGo] = goParser
+
+	// Initialize Java parser
+	javaParser := sitter.NewParser()
+	javaParser.SetLanguage(java.GetLanguage())
+	parsers[LangJava] = javaParser
 
 	// Initialize C# parser
 	csharpParser := sitter.NewParser()
@@ -136,6 +143,8 @@ func DetectLanguage(filename string) Language {
 	switch ext {
 	case ".go":
 		return LangGo
+	case ".java":
+		return LangJava
 	case ".cs":
 		return LangCSharp
 	case ".py":
