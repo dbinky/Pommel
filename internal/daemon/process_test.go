@@ -177,13 +177,16 @@ func TestTerminateProcess_RunningProcess(t *testing.T) {
 		t.Fatalf("failed to terminate process: %v", err)
 	}
 
-	// Wait a moment for process to exit
-	time.Sleep(500 * time.Millisecond)
-
-	// Verify not running
-	if IsProcessRunning(pid) {
-		t.Error("process should not be running after termination")
+	// Wait for process to exit (with retries to handle timing)
+	for i := 0; i < 10; i++ {
+		time.Sleep(500 * time.Millisecond)
+		if !IsProcessRunning(pid) {
+			return // Success
+		}
 	}
+
+	// If still running after 5 seconds, fail
+	t.Error("process should not be running after termination (waited 5s)")
 }
 
 func TestTerminateProcess_NonExistentProcess(t *testing.T) {
