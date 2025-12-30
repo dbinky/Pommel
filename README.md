@@ -362,12 +362,15 @@ Agent needs to understand authentication...
 
 | Language | Extensions | Chunk Levels |
 |----------|------------|--------------|
+| Go | `.go` | file, struct/interface, function/method |
 | C# | `.cs` | file, class, method, property |
 | Python | `.py` | file, class, method/function |
-| JavaScript | `.js`, `.jsx`, `.mjs` | file, class, function |
-| TypeScript | `.ts`, `.tsx` | file, class/interface, function |
+| JavaScript | `.js`, `.mjs` | file, class, function |
+| JSX | `.jsx` | file, class, function |
+| TypeScript | `.ts` | file, class/interface, function |
+| TSX | `.tsx` | file, class/interface, function |
 
-Additional language support (Go, Java, Rust) planned for future releases.
+Other file types are indexed at file-level only (fallback chunking).
 
 ## Troubleshooting
 
@@ -450,11 +453,69 @@ pm reindex
 pm stop
 
 # Remove the database (will be rebuilt)
-rm .pommel/pommel.db
+rm .pommel/index.db
 
 # Restart and reindex
 pm start
 pm reindex
+```
+
+## Using Pommel with Multiple Repositories
+
+Pommel supports running across multiple unrelated repositories simultaneously. Each repository gets its own daemon instance with an automatically-assigned port.
+
+### Setup for Multiple Repos
+
+```bash
+# Initialize Pommel in each repository
+cd ~/repos/project-a
+pm init --auto --start
+
+cd ~/repos/project-b
+pm init --auto --start
+
+cd ~/repos/project-c
+pm init --auto --start
+```
+
+Each project's daemon runs independently on its own port (calculated from a hash of the project path). The CLI automatically connects to the correct daemon based on your current directory.
+
+### Managing Multiple Daemons
+
+```bash
+# Check status of current project's daemon
+pm status
+
+# Each project has independent state
+cd ~/repos/project-a && pm status  # Shows project-a's index
+cd ~/repos/project-b && pm status  # Shows project-b's index
+```
+
+### How It Works
+
+- **Port assignment**: Each project gets a unique port based on a hash of its absolute path
+- **Independent indexes**: Each `.pommel/` directory contains its own `index.db`
+- **No conflicts**: Daemons don't interfere with each other
+- **Auto-discovery**: The CLI finds the daemon by reading `.pommel/pommel.pid`
+
+### Monorepo Support
+
+For monorepos with multiple sub-projects (detected via markers like `package.json`, `go.mod`, etc.):
+
+```bash
+# Initialize with monorepo detection
+cd ~/repos/monorepo
+pm init --auto --monorepo --start
+
+# Search defaults to current sub-project
+cd ~/repos/monorepo/packages/frontend
+pm search "component state"
+
+# Search across entire monorepo
+pm search "shared utilities" --all
+
+# List detected sub-projects
+pm subprojects
 ```
 
 ## Performance
