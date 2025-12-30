@@ -23,6 +23,8 @@ func TestNewParser_SupportsAllExpectedLanguages(t *testing.T) {
 	require.NoError(t, err)
 
 	expectedLanguages := []Language{
+		LangGo,
+		LangJava,
 		LangCSharp,
 		LangPython,
 		LangJavaScript,
@@ -43,6 +45,8 @@ func TestParser_SupportedLanguages(t *testing.T) {
 	require.NoError(t, err)
 
 	langs := parser.SupportedLanguages()
+	assert.Contains(t, langs, LangGo, "SupportedLanguages should include Go")
+	assert.Contains(t, langs, LangJava, "SupportedLanguages should include Java")
 	assert.Contains(t, langs, LangCSharp, "SupportedLanguages should include C#")
 	assert.Contains(t, langs, LangPython, "SupportedLanguages should include Python")
 	assert.Contains(t, langs, LangJavaScript, "SupportedLanguages should include JavaScript")
@@ -404,7 +408,6 @@ func TestDetectLanguage_Unknown(t *testing.T) {
 		expected Language
 	}{
 		{"file.rb", LangUnknown},
-		{"file.java", LangUnknown},
 		{"file.rust", LangUnknown},
 		{"file.c", LangUnknown},
 		{"file.cpp", LangUnknown},
@@ -457,6 +460,7 @@ func TestParser_IsSupported_SupportedLanguages(t *testing.T) {
 
 	supportedLanguages := []Language{
 		LangGo,
+		LangJava,
 		LangCSharp,
 		LangPython,
 		LangJavaScript,
@@ -479,7 +483,6 @@ func TestParser_IsSupported_UnsupportedLanguages(t *testing.T) {
 	unsupportedLanguages := []Language{
 		LangUnknown,
 		Language("rust"),
-		Language("java"),
 		Language("ruby"),
 		Language("cpp"),
 		Language(""),
@@ -584,6 +587,8 @@ class SpecialChars {
 
 func TestLanguageConstants(t *testing.T) {
 	// Verify that language constants have expected values
+	assert.Equal(t, Language("go"), LangGo)
+	assert.Equal(t, Language("java"), LangJava)
 	assert.Equal(t, Language("csharp"), LangCSharp)
 	assert.Equal(t, Language("python"), LangPython)
 	assert.Equal(t, Language("javascript"), LangJavaScript)
@@ -596,6 +601,8 @@ func TestLanguageConstants(t *testing.T) {
 func TestLanguageConstants_StringRepresentation(t *testing.T) {
 	// Language constants should have meaningful string representations
 	languages := map[Language]string{
+		LangGo:         "go",
+		LangJava:       "java",
 		LangCSharp:     "csharp",
 		LangPython:     "python",
 		LangJavaScript: "javascript",

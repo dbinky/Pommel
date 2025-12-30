@@ -35,6 +35,7 @@ func NewChunkerRegistry() (*ChunkerRegistry, error) {
 
 	// Register language-specific chunkers
 	reg.chunkers[LangGo] = NewGoChunker(parser)
+	reg.chunkers[LangJava] = NewJavaChunker(parser)
 	reg.chunkers[LangCSharp] = NewCSharpChunker(parser)
 	reg.chunkers[LangPython] = NewPythonChunker(parser)
 	reg.chunkers[LangJavaScript] = NewJavaScriptChunker(parser, LangJavaScript)

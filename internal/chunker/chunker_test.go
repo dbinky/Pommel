@@ -397,7 +397,6 @@ func TestChunkerRegistry_IsSupported_ReturnsFalse(t *testing.T) {
 	unsupportedLanguages := []Language{
 		LangUnknown,
 		Language("ruby"),
-		Language("java"),
 		Language("rust"),
 		Language("cpp"),
 	}
