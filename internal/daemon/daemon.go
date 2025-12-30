@@ -578,3 +578,21 @@ func (d *Daemon) Search(ctx context.Context, req SearchRequest) (*SearchResponse
 func (d *Daemon) SearchService() *search.Service {
 	return d.searchService
 }
+
+// Close releases all resources held by the daemon.
+// This should be called when the daemon is no longer needed,
+// especially in tests that don't call Run().
+func (d *Daemon) Close() error {
+	if d.watcher != nil {
+		if err := d.watcher.Stop(); err != nil {
+			d.logger.Warn("watcher close error", "error", err)
+		}
+	}
+	if d.db != nil {
+		if err := d.db.Close(); err != nil {
+			d.logger.Warn("database close error", "error", err)
+			return err
+		}
+	}
+	return nil
+}

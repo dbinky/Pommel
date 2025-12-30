@@ -68,6 +68,9 @@ func TestNew_CreatesWithValidConfig(t *testing.T) {
 	// Assert
 	require.NoError(t, err)
 	require.NotNil(t, daemon)
+
+	// Cleanup - required on Windows to release file handles
+	require.NoError(t, daemon.Close())
 }
 
 func TestNew_InitializesAllComponents(t *testing.T) {
@@ -89,6 +92,9 @@ func TestNew_InitializesAllComponents(t *testing.T) {
 	assert.NotNil(t, daemon.state, "state manager should be initialized")
 	assert.NotNil(t, daemon.db, "database should be initialized")
 	assert.NotNil(t, daemon.embedder, "embedder should be initialized")
+
+	// Cleanup - required on Windows to release file handles
+	require.NoError(t, daemon.Close())
 }
 
 func TestNew_FailsWithInvalidProjectRoot(t *testing.T) {
@@ -796,6 +802,9 @@ func TestNew_CreatesDefaultLogger_WhenNilProvided(t *testing.T) {
 	// Assert - should succeed with a default logger
 	require.NoError(t, err)
 	require.NotNil(t, daemon)
+
+	// Cleanup - required on Windows to release file handles
+	require.NoError(t, daemon.Close())
 }
 
 func TestNew_UsesDefaultCacheSize_WhenZeroProvided(t *testing.T) {
@@ -811,6 +820,9 @@ func TestNew_UsesDefaultCacheSize_WhenZeroProvided(t *testing.T) {
 	// Assert - should succeed with default cache size
 	require.NoError(t, err)
 	require.NotNil(t, daemon)
+
+	// Cleanup - required on Windows to release file handles
+	require.NoError(t, daemon.Close())
 }
 
 func TestNew_UsesDefaultCacheSize_WhenNegativeProvided(t *testing.T) {
@@ -826,6 +838,9 @@ func TestNew_UsesDefaultCacheSize_WhenNegativeProvided(t *testing.T) {
 	// Assert - should succeed with default cache size
 	require.NoError(t, err)
 	require.NotNil(t, daemon)
+
+	// Cleanup - required on Windows to release file handles
+	require.NoError(t, daemon.Close())
 }
 
 // =============================================================================
@@ -1058,6 +1073,9 @@ func TestDaemon_SearchService(t *testing.T) {
 
 	// Assert
 	assert.NotNil(t, svc, "SearchService should return a non-nil service")
+
+	// Cleanup - required on Windows to release file handles
+	require.NoError(t, daemon.Close())
 }
 
 // =============================================================================
