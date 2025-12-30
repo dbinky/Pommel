@@ -145,18 +145,83 @@ setup_embedding_model() {
     success "Embedding model ready"
 }
 
+# Detect user's shell config file
+get_shell_config() {
+    local shell_name=$(basename "$SHELL")
+    case "$shell_name" in
+        zsh)
+            echo "$HOME/.zshrc"
+            ;;
+        bash)
+            # Prefer .bashrc, fall back to .bash_profile for macOS
+            if [[ -f "$HOME/.bashrc" ]]; then
+                echo "$HOME/.bashrc"
+            else
+                echo "$HOME/.bash_profile"
+            fi
+            ;;
+        fish)
+            echo "$HOME/.config/fish/config.fish"
+            ;;
+        *)
+            # Default to .profile for other shells
+            warn "Unknown shell '$shell_name', falling back to .profile"
+            echo "$HOME/.profile"
+            ;;
+    esac
+}
+
+# Add install dir to PATH in shell config
+add_to_path() {
+    local config_file=$(get_shell_config)
+    local shell_name=$(basename "$SHELL")
+    local export_line
+
+    # Create config file if it doesn't exist
+    if [[ ! -f "$config_file" ]]; then
+        mkdir -p "$(dirname "$config_file")"
+        touch "$config_file"
+    fi
+
+    # Check if already added
+    if grep -q "$INSTALL_DIR" "$config_file" 2>/dev/null; then
+        info "PATH entry already exists in $config_file"
+        return 0
+    fi
+
+    # Format export line based on shell
+    if [[ "$shell_name" == "fish" ]]; then
+        export_line="set -gx PATH \$PATH $INSTALL_DIR"
+    else
+        export_line="export PATH=\"\$PATH:$INSTALL_DIR\""
+    fi
+
+    # Add to config file
+    echo "" >> "$config_file"
+    echo "# Added by Pommel installer" >> "$config_file"
+    echo "$export_line" >> "$config_file"
+
+    success "Added PATH entry to $config_file"
+    info "Run 'source $config_file' or restart your terminal to apply"
+}
+
 # Check if install dir is in PATH
 check_path() {
     if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
         echo ""
         warn "$INSTALL_DIR is not in your PATH"
         echo ""
-        echo "  Add this to your shell profile (~/.bashrc, ~/.zshrc, etc.):"
-        echo ""
-        echo "    export PATH=\"\$PATH:$INSTALL_DIR\""
-        echo ""
-        echo "  Then run: source ~/.bashrc  (or restart your terminal)"
-        echo ""
+        read -p "Would you like to add it to your shell config automatically? (Y/n) " -n 1 -r
+        echo
+        if [[ -z "$REPLY" || $REPLY =~ ^[Yy]$ ]]; then
+            add_to_path
+        else
+            echo ""
+            echo "  To add manually, put this in your shell profile (~/.bashrc, ~/.zshrc, etc.):"
+            echo ""
+            echo "    export PATH=\"\$PATH:$INSTALL_DIR\""
+            echo ""
+        fi
     fi
 }
 

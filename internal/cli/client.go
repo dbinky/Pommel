@@ -10,6 +10,7 @@ import (
 
 	"github.com/pommel-dev/pommel/internal/api"
 	"github.com/pommel-dev/pommel/internal/config"
+	"github.com/pommel-dev/pommel/internal/daemon"
 )
 
 // daemonSearchResult matches the daemon's actual response format
@@ -54,7 +55,19 @@ func NewClientFromProjectRoot(projectRoot string) (*Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
-	return NewClient(cfg), nil
+
+	// Determine the port (handles nil port by calculating hash-based port)
+	port, err := daemon.DeterminePort(projectRoot, cfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to determine daemon port: %w", err)
+	}
+
+	return &Client{
+		baseURL: fmt.Sprintf("http://%s", cfg.Daemon.AddressWithPort(port)),
+		httpClient: &http.Client{
+			Timeout: 30 * time.Second,
+		},
+	}, nil
 }
 
 // Health checks if the daemon is healthy
@@ -195,4 +208,32 @@ func (c *Client) Config() (*config.Config, error) {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 	return configResp.Config, nil
+}
+
+// ListSubprojects retrieves the list of sub-projects from the daemon
+func (c *Client) ListSubprojects() (*api.SubprojectsResponse, error) {
+	var resp api.SubprojectsResponse
+	if err := c.get("/subprojects", &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// get performs a GET request and decodes the JSON response
+func (c *Client) get(path string, result interface{}) error {
+	resp, err := c.httpClient.Get(c.baseURL + path)
+	if err != nil {
+		return fmt.Errorf("daemon not reachable: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("request failed: %s", string(body))
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(result); err != nil {
+		return fmt.Errorf("failed to decode response: %w", err)
+	}
+	return nil
 }

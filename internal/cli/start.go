@@ -64,8 +64,14 @@ func runStart(cmd *cobra.Command, args []string) error {
 		return ErrDaemonStartFailed(err)
 	}
 
+	// Determine port (handles nil port by calculating hash-based port)
+	port, err := daemon.DeterminePort(projectRoot, cfg)
+	if err != nil {
+		return fmt.Errorf("failed to determine daemon port: %w", err)
+	}
+
 	// Wait for health check
-	address := cfg.Daemon.Address()
+	address := cfg.Daemon.AddressWithPort(port)
 	healthURL := fmt.Sprintf("http://%s/health", address)
 
 	timeout := time.After(10 * time.Second)

@@ -10,12 +10,15 @@ func Default() *Config {
 			"file",
 		},
 		IncludePatterns: []string{
+			"**/*.go",
 			"**/*.cs",
 			"**/*.py",
 			"**/*.js",
 			"**/*.ts",
 			"**/*.jsx",
 			"**/*.tsx",
+			"**/*.java",
+			"**/*.rs",
 		},
 		ExcludePatterns: []string{
 			"**/node_modules/**",
@@ -31,7 +34,7 @@ func Default() *Config {
 		},
 		Daemon: DaemonConfig{
 			Host:     "127.0.0.1",
-			Port:     7420,
+			Port:     nil, // nil = use hash-based port calculation
 			LogLevel: "info",
 		},
 		Embedding: EmbeddingConfig{
@@ -46,6 +49,22 @@ func Default() *Config {
 				"method",
 				"class",
 			},
+		},
+		Subprojects: SubprojectsConfig{
+			AutoDetect: true,
+			Markers: []string{
+				"*.sln",
+				"*.csproj",
+				"go.mod",
+				"Cargo.toml",
+				"pom.xml",
+				"build.gradle",
+				"package.json",
+				"pyproject.toml",
+				"setup.py",
+			},
+			Projects: nil,
+			Exclude:  nil,
 		},
 	}
 }

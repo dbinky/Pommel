@@ -396,7 +396,6 @@ func TestChunkerRegistry_IsSupported_ReturnsFalse(t *testing.T) {
 
 	unsupportedLanguages := []Language{
 		LangUnknown,
-		Language("go"),
 		Language("ruby"),
 		Language("java"),
 		Language("rust"),
@@ -412,7 +411,7 @@ func TestChunkerRegistry_IsSupported_ReturnsFalse(t *testing.T) {
 // Fallback Behavior Tests
 // =============================================================================
 
-func TestChunkerRegistry_FallbackForUnsupportedExtension_Go(t *testing.T) {
+func TestChunkerRegistry_GoChunker(t *testing.T) {
 	reg, err := NewChunkerRegistry()
 	require.NoError(t, err)
 
@@ -435,10 +434,19 @@ func main() {
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
-	// Fallback should produce exactly one file-level chunk
-	assert.Len(t, result.Chunks, 1, "Fallback chunker should produce exactly 1 chunk")
-	assert.Equal(t, models.ChunkLevelFile, result.Chunks[0].Level, "Fallback should produce file-level chunk")
-	assert.Equal(t, file.Path, result.Chunks[0].FilePath, "Chunk should have correct file path")
+	// Go chunker should produce file chunk + function chunk
+	assert.Len(t, result.Chunks, 2, "Go chunker should produce 2 chunks (file + function)")
+
+	// Find the function chunk
+	var funcChunk *models.Chunk
+	for _, c := range result.Chunks {
+		if c.Level == models.ChunkLevelMethod {
+			funcChunk = c
+			break
+		}
+	}
+	require.NotNil(t, funcChunk, "Should have a method-level chunk")
+	assert.Equal(t, "main", funcChunk.Name, "Function should be named 'main'")
 }
 
 func TestChunkerRegistry_FallbackForUnsupportedExtension_Ruby(t *testing.T) {
@@ -517,16 +525,14 @@ func TestChunkerRegistry_FallbackPreservesContent(t *testing.T) {
 	reg, err := NewChunkerRegistry()
 	require.NoError(t, err)
 
-	source := `package main
-
-func main() {
-    println("test")
-}`
+	source := `def hello
+  puts "test"
+end`
 
 	file := &models.SourceFile{
-		Path:         "test.go",
+		Path:         "test.rb",
 		Content:      []byte(source),
-		Language:     "go",
+		Language:     "ruby",
 		LastModified: time.Now(),
 	}
 

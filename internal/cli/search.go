@@ -9,9 +9,11 @@ import (
 )
 
 var (
-	searchLimit  int
-	searchLevels []string
-	searchPath   string
+	searchLimit      int
+	searchLevels     []string
+	searchPath       string
+	searchAll        bool
+	searchSubproject string
 )
 
 var searchCmd = &cobra.Command{
@@ -36,6 +38,8 @@ func init() {
 	searchCmd.Flags().IntVarP(&searchLimit, "limit", "n", 10, "Maximum results")
 	searchCmd.Flags().StringSliceVarP(&searchLevels, "level", "l", nil, "Filter by level (file, class, function, method, block)")
 	searchCmd.Flags().StringVar(&searchPath, "path", "", "Filter by path prefix")
+	searchCmd.Flags().BoolVar(&searchAll, "all", false, "Search entire index (no scope filtering)")
+	searchCmd.Flags().StringVarP(&searchSubproject, "subproject", "s", "", "Filter by sub-project ID")
 }
 
 func runSearch(cmd *cobra.Command, args []string) error {
@@ -51,6 +55,18 @@ func runSearch(cmd *cobra.Command, args []string) error {
 		Limit:      searchLimit,
 		Levels:     searchLevels,
 		PathPrefix: searchPath,
+	}
+
+	// Wire up scope flags
+	if searchAll {
+		req.Scope = api.SearchScopeRequest{
+			Mode: "all",
+		}
+	} else if searchSubproject != "" {
+		req.Scope = api.SearchScopeRequest{
+			Mode:  "subproject",
+			Value: searchSubproject,
+		}
 	}
 
 	resp, err := client.Search(req)

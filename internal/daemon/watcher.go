@@ -10,6 +10,7 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/pommel-dev/pommel/internal/config"
+	"github.com/pommel-dev/pommel/internal/subproject"
 )
 
 // Operation represents the type of file operation
@@ -318,4 +319,21 @@ func (w *Watcher) Stop() error {
 	}
 
 	return nil
+}
+
+// IsMarkerFile checks if a filename is a sub-project marker.
+func (w *Watcher) IsMarkerFile(filename string) bool {
+	return subproject.IsMarkerFile(filename, w.config.Subprojects.Markers)
+}
+
+// GetLanguageHint returns the language hint for a marker file.
+// Delegates to subproject.GetLanguageHint.
+func GetLanguageHint(markerFile string) string {
+	return subproject.GetLanguageHint(markerFile)
+}
+
+// GenerateSubprojectID creates a slug-style ID from a path.
+// Delegates to subproject.GenerateSubprojectID.
+func GenerateSubprojectID(path string) string {
+	return subproject.GenerateSubprojectID(path)
 }

@@ -614,3 +614,89 @@ eventLoop:
 
 	assert.True(t, foundRenameRelatedEvent, "expected to receive event for rename operation")
 }
+
+// =============================================================================
+// Marker Detection Tests
+// =============================================================================
+
+func TestIsMarkerFile(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	cfg := config.Default()
+
+	w, err := NewWatcher(tmpDir, cfg, nil)
+	require.NoError(t, err)
+	defer w.Stop()
+
+	tests := []struct {
+		filename string
+		expected bool
+	}{
+		{"go.mod", true},
+		{"package.json", true},
+		{"Cargo.toml", true},
+		{"pom.xml", true},
+		{"build.gradle", true},
+		{"pyproject.toml", true},
+		{"setup.py", true},
+		{"MySolution.sln", true},
+		{"MyApp.csproj", true},
+		{"main.go", false},
+		{"index.js", false},
+		{"README.md", false},
+		{"config.yaml", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.filename, func(t *testing.T) {
+			result := w.IsMarkerFile(tt.filename)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestGetLanguageHint(t *testing.T) {
+	tests := []struct {
+		marker   string
+		expected string
+	}{
+		{"go.mod", "go"},
+		{"package.json", "javascript"},
+		{"Cargo.toml", "rust"},
+		{"pom.xml", "java"},
+		{"build.gradle", "java"},
+		{"pyproject.toml", "python"},
+		{"setup.py", "python"},
+		{"MySolution.sln", "csharp"},
+		{"MyApp.csproj", "csharp"},
+		{"unknown.file", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.marker, func(t *testing.T) {
+			result := GetLanguageHint(tt.marker)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestGenerateSubprojectID(t *testing.T) {
+	tests := []struct {
+		path     string
+		expected string
+	}{
+		{"frontend", "frontend"},
+		{"packages/frontend", "frontend"},
+		{"MyApp", "myapp"},
+		{"my.app", "my-app"},
+		{"my-app-v2", "my-app-v2"},
+		{"Services/API Gateway", "api-gateway"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			result := GenerateSubprojectID(tt.path)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}

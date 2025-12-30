@@ -23,11 +23,16 @@ func daemonTestLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(io.Discard, nil))
 }
 
+// intPtr is a helper to create *int values
+func intPtr(i int) *int {
+	return &i
+}
+
 // daemonTestConfig returns a config with short timeouts for testing
 func daemonTestConfig() *config.Config {
 	cfg := config.Default()
 	cfg.Watcher.DebounceMs = 10 // Short debounce for tests
-	cfg.Daemon.Port = 0         // Use random available port
+	cfg.Daemon.Port = intPtr(0) // Use random available port (0 = system-assigned)
 	return cfg
 }
 
@@ -540,7 +545,7 @@ func TestAPIServer_StartsOnConfiguredPort(t *testing.T) {
 	// Arrange
 	projectRoot := t.TempDir()
 	cfg := daemonTestConfig()
-	cfg.Daemon.Port = 17421 // Use a specific test port
+	cfg.Daemon.Port = intPtr(17421) // Use a specific test port
 	logger := daemonTestLogger()
 
 	daemon, err := New(projectRoot, cfg, logger)
@@ -575,7 +580,7 @@ func TestAPIServer_HealthEndpointAccessible(t *testing.T) {
 	// Arrange
 	projectRoot := t.TempDir()
 	cfg := daemonTestConfig()
-	cfg.Daemon.Port = 17422 // Use a specific test port
+	cfg.Daemon.Port = intPtr(17422) // Use a specific test port
 	logger := daemonTestLogger()
 
 	daemon, err := New(projectRoot, cfg, logger)
@@ -1058,7 +1063,7 @@ func TestDaemon_SearchService(t *testing.T) {
 func TestDaemon_HandleHealth_ReturnsOK(t *testing.T) {
 	projectRoot := t.TempDir()
 	cfg := daemonTestConfig()
-	cfg.Daemon.Port = 17423
+	cfg.Daemon.Port = intPtr(17423)
 	logger := daemonTestLogger()
 
 	d, err := New(projectRoot, cfg, logger)
@@ -1082,6 +1087,16 @@ func TestDaemon_HandleHealth_ReturnsOK(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
+	// Verify response contains required fields
+	var health map[string]interface{}
+	err = json.NewDecoder(resp.Body).Decode(&health)
+	require.NoError(t, err)
+
+	assert.Equal(t, "healthy", health["status"])
+	assert.Equal(t, projectRoot, health["project_root"])
+	assert.Equal(t, float64(17423), health["port"])
+	assert.Contains(t, health, "timestamp")
+
 	cancel()
 	<-errCh
 }
@@ -1089,7 +1104,7 @@ func TestDaemon_HandleHealth_ReturnsOK(t *testing.T) {
 func TestDaemon_HandleStatus_ReturnsStatus(t *testing.T) {
 	projectRoot := t.TempDir()
 	cfg := daemonTestConfig()
-	cfg.Daemon.Port = 17424
+	cfg.Daemon.Port = intPtr(17424)
 	logger := daemonTestLogger()
 
 	d, err := New(projectRoot, cfg, logger)
@@ -1130,7 +1145,7 @@ func TestDaemon_HandleStatus_ReturnsStatus(t *testing.T) {
 func TestDaemon_HandleSearch_MethodNotAllowed(t *testing.T) {
 	projectRoot := t.TempDir()
 	cfg := daemonTestConfig()
-	cfg.Daemon.Port = 17425
+	cfg.Daemon.Port = intPtr(17425)
 	logger := daemonTestLogger()
 
 	d, err := New(projectRoot, cfg, logger)
@@ -1161,7 +1176,7 @@ func TestDaemon_HandleSearch_MethodNotAllowed(t *testing.T) {
 func TestDaemon_HandleSearch_InvalidJSON(t *testing.T) {
 	projectRoot := t.TempDir()
 	cfg := daemonTestConfig()
-	cfg.Daemon.Port = 17426
+	cfg.Daemon.Port = intPtr(17426)
 	logger := daemonTestLogger()
 
 	d, err := New(projectRoot, cfg, logger)
@@ -1194,7 +1209,7 @@ func TestDaemon_HandleSearch_ValidRequest(t *testing.T) {
 	projectRoot := t.TempDir()
 	cfg := daemonTestConfig()
 	cfg.IncludePatterns = []string{"**/*.go"}
-	cfg.Daemon.Port = 17427
+	cfg.Daemon.Port = intPtr(17427)
 	logger := daemonTestLogger()
 
 	// Create a test file
@@ -1234,7 +1249,7 @@ func main() {}
 func TestDaemon_HandleReindex_MethodNotAllowed(t *testing.T) {
 	projectRoot := t.TempDir()
 	cfg := daemonTestConfig()
-	cfg.Daemon.Port = 17428
+	cfg.Daemon.Port = intPtr(17428)
 	logger := daemonTestLogger()
 
 	d, err := New(projectRoot, cfg, logger)
@@ -1265,7 +1280,7 @@ func TestDaemon_HandleReindex_MethodNotAllowed(t *testing.T) {
 func TestDaemon_HandleReindex_ValidRequest(t *testing.T) {
 	projectRoot := t.TempDir()
 	cfg := daemonTestConfig()
-	cfg.Daemon.Port = 17429
+	cfg.Daemon.Port = intPtr(17429)
 	logger := daemonTestLogger()
 
 	d, err := New(projectRoot, cfg, logger)
@@ -1296,7 +1311,7 @@ func TestDaemon_HandleReindex_ValidRequest(t *testing.T) {
 func TestDaemon_HandleConfig_ReturnsConfig(t *testing.T) {
 	projectRoot := t.TempDir()
 	cfg := daemonTestConfig()
-	cfg.Daemon.Port = 17430
+	cfg.Daemon.Port = intPtr(17430)
 	logger := daemonTestLogger()
 
 	d, err := New(projectRoot, cfg, logger)

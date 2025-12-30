@@ -97,6 +97,7 @@ func (l *Loader) Save(cfg *Config) error {
 	l.v.Set("daemon", cfg.Daemon)
 	l.v.Set("embedding", cfg.Embedding)
 	l.v.Set("search", cfg.Search)
+	l.v.Set("subprojects", cfg.Subprojects)
 
 	if err := l.v.WriteConfigAs(l.ConfigPath()); err != nil {
 		return fmt.Errorf("failed to write config file: %w", err)

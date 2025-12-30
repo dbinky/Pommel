@@ -74,7 +74,7 @@ All commands support `--json` for structured output and `-p/--project` to specif
 | CLI Framework | Cobra + Viper |
 | Vector Database | SQLite + sqlite-vec |
 | Embedding Model | jina-embeddings-v2-base-code (via Ollama) |
-| Code Parsing | Tree-sitter (Go, Python, TypeScript, JavaScript, Java, C#, Rust, C, C++) |
+| Code Parsing | Tree-sitter (Go, C#, Python, JavaScript, TypeScript, JSX, TSX) |
 | File Watching | fsnotify |
 | HTTP Server | go-chi |
 
