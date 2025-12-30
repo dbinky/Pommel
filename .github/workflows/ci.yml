@@ -26,12 +26,26 @@ jobs:
           go-version: ${{ matrix.go-version }}
           cache: true
 
+      - name: Install SQLite (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          choco install sqlite -y
+          # Download SQLite amalgamation for headers
+          curl -L -o sqlite.zip https://www.sqlite.org/2024/sqlite-amalgamation-3450100.zip
+          unzip sqlite.zip
+          mkdir -p /c/sqlite
+          cp sqlite-amalgamation-3450100/* /c/sqlite/
+        shell: bash
+
       - name: Download dependencies
         run: go mod download
 
       - name: Run tests
         run: go test -race -coverprofile=coverage.out -covermode=atomic ./...
         shell: bash
+        env:
+          CGO_CFLAGS: ${{ runner.os == 'Windows' && '-I/c/sqlite' || '' }}
+          CGO_LDFLAGS: ${{ runner.os == 'Windows' && '-L/c/sqlite' || '' }}
 
       - name: Upload coverage
         uses: codecov/codecov-action@v5
@@ -96,11 +110,24 @@ jobs:
           go-version: '1.22'
           cache: true
 
+      - name: Install SQLite (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          choco install sqlite -y
+          curl -L -o sqlite.zip https://www.sqlite.org/2024/sqlite-amalgamation-3450100.zip
+          unzip sqlite.zip
+          mkdir -p /c/sqlite
+          cp sqlite-amalgamation-3450100/* /c/sqlite/
+        shell: bash
+
       - name: Build binaries
         run: |
           go build -o bin/pm${{ matrix.binary_ext }} ./cmd/pm
           go build -o bin/pommeld${{ matrix.binary_ext }} ./cmd/pommeld
         shell: bash
+        env:
+          CGO_CFLAGS: ${{ runner.os == 'Windows' && '-I/c/sqlite' || '' }}
+          CGO_LDFLAGS: ${{ runner.os == 'Windows' && '-L/c/sqlite' || '' }}
 
       - name: Verify binaries
         run: |

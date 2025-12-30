@@ -65,11 +65,23 @@ jobs:
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
         shell: bash
 
+      - name: Install SQLite (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          choco install sqlite -y
+          curl -L -o sqlite.zip https://www.sqlite.org/2024/sqlite-amalgamation-3450100.zip
+          unzip sqlite.zip
+          mkdir -p /c/sqlite
+          cp sqlite-amalgamation-3450100/* /c/sqlite/
+        shell: bash
+
       - name: Build binaries
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: 1
+          CGO_CFLAGS: ${{ runner.os == 'Windows' && '-I/c/sqlite' || '' }}
+          CGO_LDFLAGS: ${{ runner.os == 'Windows' && '-L/c/sqlite' || '' }}
         run: |
           VERSION=${{ steps.version.outputs.VERSION }}
           mkdir -p dist

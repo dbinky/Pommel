@@ -224,12 +224,9 @@ enum Status {
 
 	// Find enum chunks
 	var enumChunks []*models.Chunk
-	var methodChunks []*models.Chunk
 	for _, chunk := range result.Chunks {
 		if chunk.Level == models.ChunkLevelClass {
 			enumChunks = append(enumChunks, chunk)
-		} else if chunk.Level == models.ChunkLevelMethod {
-			methodChunks = append(methodChunks, chunk)
 		}
 	}
 
@@ -532,7 +529,6 @@ public class Outer {
 	// Find chunks
 	var fileChunk *models.Chunk
 	var classChunks []*models.Chunk
-	var methodChunks []*models.Chunk
 
 	for _, chunk := range result.Chunks {
 		switch chunk.Level {
@@ -540,8 +536,6 @@ public class Outer {
 			fileChunk = chunk
 		case models.ChunkLevelClass:
 			classChunks = append(classChunks, chunk)
-		case models.ChunkLevelMethod:
-			methodChunks = append(methodChunks, chunk)
 		}
 	}
 
