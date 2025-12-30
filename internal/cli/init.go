@@ -379,7 +379,9 @@ func detectLanguagePatterns(projectRoot string) []string {
 const pommelClaudeInstructions = `
 ## Pommel - Semantic Code Search
 
-This project uses Pommel for semantic code search. Use the following commands to search the codebase efficiently:
+This project uses Pommel for semantic code search. Pommel indexes your codebase into semantic chunks (files, classes, methods) and enables natural language search to find relevant code quickly.
+
+**Supported languages** (full AST-aware chunking): Go, C#, Python, JavaScript, TypeScript, JSX, TSX
 
 ### Quick Search Examples
 ` + "```" + `bash
@@ -396,18 +398,20 @@ pm search "API endpoints" --limit 5
 
 # Search specific chunk levels
 pm search "class definitions" --level class
-pm search "function implementations" --level function
+pm search "function implementations" --level method
 ` + "```" + `
 
 ### Available Commands
 - ` + "`pm search <query>`" + ` - Semantic search across the codebase
 - ` + "`pm status`" + ` - Check daemon status and index statistics
 - ` + "`pm reindex`" + ` - Force a full reindex of the codebase
+- ` + "`pm start`" + ` / ` + "`pm stop`" + ` - Control the background daemon
 
 ### Tips
 - Use natural language queries - Pommel understands semantic meaning
 - Keep the daemon running (` + "`pm start`" + `) for always-current search results
 - Use ` + "`--json`" + ` flag when you need structured output for processing
+- Chunk levels: file (entire files), class (structs/interfaces/classes), method (functions/methods)
 `
 
 // pommelClaudeMarker is used to identify Pommel sections in CLAUDE.md
@@ -565,7 +569,9 @@ func pommelSubprojectInstructions(sp *subproject.DetectedSubproject) string {
 	return fmt.Sprintf(`
 ## Pommel - Semantic Code Search
 
-This sub-project (%s) uses Pommel for semantic code search.
+This sub-project (%s) uses Pommel for semantic code search. Pommel indexes your codebase into semantic chunks (files, classes, methods) and enables natural language search.
+
+**Supported languages** (full AST-aware chunking): Go, C#, Python, JavaScript, TypeScript, JSX, TSX
 
 ### Quick Search Examples
 `+"```bash"+`
@@ -577,17 +583,21 @@ pm search "error handling" --json
 
 # Search across entire monorepo
 pm search "shared utilities" --all
+
+# Search specific chunk levels
+pm search "class definitions" --level class
 `+"```"+`
 
 ### Available Commands
 - `+"`pm search <query>`"+` - Search this sub-project (or use --all for everything)
-- `+"`pm status`"+` - Check daemon status
+- `+"`pm status`"+` - Check daemon status and index statistics
 - `+"`pm subprojects`"+` - List all sub-projects
+- `+"`pm start`"+` / `+"`pm stop`"+` - Control the background daemon
 
 ### Tips
 - Searches default to this sub-project when you're in this directory
 - Use `+"`--all`"+` to search across the entire monorepo
-- Use `+"`--path`"+` to search specific paths
+- Chunk levels: file (entire files), class (structs/interfaces/classes), method (functions/methods)
 `, sp.ID)
 }
 
