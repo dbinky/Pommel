@@ -11,8 +11,9 @@ jobs:
     name: Test
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
         go-version: ['1.21', '1.22']
 
     steps:
@@ -30,6 +31,7 @@ jobs:
 
       - name: Run tests
         run: go test -race -coverprofile=coverage.out -covermode=atomic ./...
+        shell: bash
 
       - name: Upload coverage
         uses: codecov/codecov-action@v5
@@ -73,8 +75,16 @@ jobs:
     name: Build
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            binary_ext: ""
+          - os: macos-latest
+            binary_ext: ""
+          - os: windows-latest
+            binary_ext: ".exe"
 
     steps:
       - name: Checkout code
@@ -88,10 +98,12 @@ jobs:
 
       - name: Build binaries
         run: |
-          go build -o bin/pm ./cmd/pm
-          go build -o bin/pommeld ./cmd/pommeld
+          go build -o bin/pm${{ matrix.binary_ext }} ./cmd/pm
+          go build -o bin/pommeld${{ matrix.binary_ext }} ./cmd/pommeld
+        shell: bash
 
       - name: Verify binaries
         run: |
-          ./bin/pm --help
-          ./bin/pommeld --help
+          ./bin/pm${{ matrix.binary_ext }} --help
+          ./bin/pommeld${{ matrix.binary_ext }} --help
+        shell: bash
