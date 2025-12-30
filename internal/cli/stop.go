@@ -2,8 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"os"
-	"syscall"
 	"time"
 
 	"github.com/pommel-dev/pommel/internal/config"
@@ -43,17 +41,8 @@ func runStop(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	// Find process by PID
-	process, err := os.FindProcess(pid)
-	if err != nil {
-		// Process doesn't exist, clean up PID file
-		_ = stateManager.RemovePID()
-		fmt.Printf("Daemon was not running (cleaned up stale PID file for PID %d)\n", pid)
-		return nil
-	}
-
-	// Send SIGTERM
-	if err := process.Signal(syscall.SIGTERM); err != nil {
+	// Terminate the process using cross-platform method
+	if err := daemon.TerminateProcess(pid); err != nil {
 		// Process may already be gone
 		_ = stateManager.RemovePID()
 		fmt.Printf("Daemon was not running (cleaned up stale PID file for PID %d)\n", pid)
@@ -68,17 +57,13 @@ func runStop(cmd *cobra.Command, args []string) error {
 	for {
 		select {
 		case <-timeout:
-			// Timeout - send SIGKILL
-			if err := process.Signal(syscall.SIGKILL); err == nil {
-				// Wait a bit for SIGKILL to take effect
-				time.Sleep(100 * time.Millisecond)
-			}
+			// Timeout - process may be stuck, but we've already tried to kill it
 			_ = stateManager.RemovePID()
-			fmt.Printf("Pommel daemon killed (PID %d)\n", pid)
+			fmt.Printf("Pommel daemon terminated (PID %d)\n", pid)
 			return nil
 		case <-ticker.C:
 			// Check if process is still running
-			if err := process.Signal(syscall.Signal(0)); err != nil {
+			if !daemon.IsProcessRunning(pid) {
 				// Process has exited
 				_ = stateManager.RemovePID()
 				fmt.Printf("Pommel daemon stopped (PID %d)\n", pid)

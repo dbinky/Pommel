@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"syscall"
+	"runtime"
 	"testing"
 	"time"
 
@@ -259,6 +259,10 @@ func TestRun_GracefulShutdownOnContextCancel(t *testing.T) {
 }
 
 func TestRun_GracefulShutdownOnSIGTERM(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("SIGTERM signal handling not supported on Windows; using os.Interrupt instead")
+	}
+
 	// Arrange
 	projectRoot := t.TempDir()
 	cfg := daemonTestConfig()
@@ -278,11 +282,11 @@ func TestRun_GracefulShutdownOnSIGTERM(t *testing.T) {
 	// Wait for startup
 	time.Sleep(100 * time.Millisecond)
 
-	// Send SIGTERM to current process
+	// Send SIGTERM to current process (Unix only)
 	// Note: This tests signal handling setup, but in tests we send to self
 	process, err := os.FindProcess(os.Getpid())
 	require.NoError(t, err)
-	err = process.Signal(syscall.SIGTERM)
+	err = sendSIGTERM(process)
 	require.NoError(t, err)
 
 	// Assert - should shutdown gracefully within reasonable time

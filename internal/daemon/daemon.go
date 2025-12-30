@@ -10,7 +10,6 @@ import (
 	"os/signal"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/pommel-dev/pommel/internal/config"
@@ -220,9 +219,9 @@ func (d *Daemon) Run(ctx context.Context) error {
 	runCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	// Set up signal handling
+	// Set up signal handling (cross-platform)
 	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(sigCh, ShutdownSignals()...)
 
 	// Start watcher
 	if err := d.watcher.Start(runCtx); err != nil {

@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
-	"syscall"
 	"time"
 
 	"github.com/pommel-dev/pommel/internal/config"
@@ -120,7 +119,7 @@ func runDaemonForeground(cfg *config.Config, stateManager *daemon.StateManager) 
 	defer cancel()
 
 	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(sigChan, daemon.ShutdownSignals()...)
 
 	go func() {
 		<-sigChan

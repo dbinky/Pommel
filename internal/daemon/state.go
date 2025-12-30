@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 )
 
@@ -145,17 +144,8 @@ func (s *StateManager) IsRunning() (bool, int) {
 		return false, 0
 	}
 
-	// Check if process is alive using signal 0
-	process, err := os.FindProcess(pid)
-	if err != nil {
-		// Process doesn't exist, clean up stale PID file
-		_ = s.RemovePID()
-		return false, pid
-	}
-
-	// Send signal 0 to check if process is running
-	err = process.Signal(syscall.Signal(0))
-	if err != nil {
+	// Check if process is alive using cross-platform detection
+	if !IsProcessRunning(pid) {
 		// Process is not running, clean up stale PID file
 		_ = s.RemovePID()
 		return false, pid

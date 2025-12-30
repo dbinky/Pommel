@@ -7,7 +7,6 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
-	"syscall"
 
 	"github.com/pommel-dev/pommel/internal/config"
 	"github.com/pommel-dev/pommel/internal/daemon"
@@ -54,7 +53,7 @@ func main() {
 	defer cancel()
 
 	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(sigCh, daemon.ShutdownSignals()...)
 
 	go func() {
 		sig := <-sigCh
