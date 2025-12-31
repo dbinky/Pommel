@@ -97,8 +97,8 @@ func TestStartCmd_StartsProcess(t *testing.T) {
 		// Error should be about starting/failing daemon or executable not found
 		assert.True(t,
 			strings.Contains(err.Error(), "daemon") ||
-			strings.Contains(err.Error(), "executable") ||
-			strings.Contains(err.Error(), "not found"),
+				strings.Contains(err.Error(), "executable") ||
+				strings.Contains(err.Error(), "not found"),
 			"error should be about daemon or executable: %v", err)
 	} else {
 		// Daemon started successfully - verify and clean up
