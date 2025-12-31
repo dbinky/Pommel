@@ -20,29 +20,26 @@ Pommel maintains a vector database of your code, enabling fast semantic search w
 
 ### Quick Install (Recommended)
 
+**macOS / Linux:**
 ```bash
 curl -fsSL https://raw.githubusercontent.com/dbinky/Pommel/main/scripts/install.sh | bash
 ```
 
+**Windows (PowerShell):**
+```powershell
+irm https://raw.githubusercontent.com/dbinky/Pommel/main/scripts/install.ps1 | iex
+```
+
 This will:
-- Check for Go and Ollama dependencies
-- Build and install `pm` and `pommeld` to `~/.local/bin`
+- Download pre-built binaries (or build from source on Unix)
+- Install `pm` and `pommeld` to your PATH
+- Install Ollama if not present
 - Pull the embedding model (~300MB)
 
 ### Prerequisites
 
-Before installing, ensure you have:
+**Ollama** is required for generating embeddings. The install scripts handle this automatically, but you can install manually:
 
-**1. Go 1.21+**
-```bash
-# macOS
-brew install go
-
-# Linux (Ubuntu/Debian)
-sudo apt install golang-go
-```
-
-**2. Ollama** (for local embeddings)
 ```bash
 # macOS
 brew install ollama
@@ -51,7 +48,30 @@ brew install ollama
 curl -fsSL https://ollama.com/install.sh | sh
 ```
 
+```powershell
+# Windows (winget)
+winget install Ollama.Ollama
+```
+
 ### Manual Install
+
+Download binaries from [releases](https://github.com/dbinky/Pommel/releases):
+
+| Platform | Architecture | CLI | Daemon |
+|----------|--------------|-----|--------|
+| macOS | Intel | pm-darwin-amd64 | pommeld-darwin-amd64 |
+| macOS | Apple Silicon | pm-darwin-arm64 | pommeld-darwin-arm64 |
+| Linux | x64 | pm-linux-amd64 | pommeld-linux-amd64 |
+| Linux | ARM64 | pm-linux-arm64 | pommeld-linux-arm64 |
+| Windows | x64 | pm-windows-amd64.exe | pommeld-windows-amd64.exe |
+| Windows | ARM64 | pm-windows-arm64.exe | pommeld-windows-arm64.exe |
+
+Then pull the embedding model:
+```bash
+ollama pull unclemusclez/jina-embeddings-v2-base-code
+```
+
+### Building from Source
 
 ```bash
 # Clone and build
@@ -59,11 +79,8 @@ git clone https://github.com/dbinky/Pommel.git
 cd Pommel
 make build
 
-# Install to PATH
+# Install to PATH (Unix)
 cp bin/pm bin/pommeld ~/.local/bin/
-
-# Pull embedding model
-ollama pull unclemusclez/jina-embeddings-v2-base-code
 ```
 
 ## Quick Start
@@ -371,6 +388,23 @@ Agent needs to understand authentication...
 | TSX | `.tsx` | file, class/interface, function |
 
 Other file types are indexed at file-level only (fallback chunking).
+
+## Platform Notes
+
+### Windows
+
+- Pommel runs natively on Windows (no WSL required)
+- PowerShell 5.1+ required for install script
+- Ollama installed via winget (Windows 10 1709+)
+- Data stored in project `.pommel/` directory
+- Daemon runs as background process (not Windows Service)
+- See [Windows Troubleshooting](docs/troubleshooting-windows.md) for Windows-specific issues
+
+### macOS / Linux
+
+- Standard Unix process management
+- Install script uses curl + bash
+- Daemon managed via PID files
 
 ## Troubleshooting
 
