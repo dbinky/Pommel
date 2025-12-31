@@ -10,7 +10,6 @@ import (
 	"os/signal"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/pommel-dev/pommel/internal/config"
@@ -220,9 +219,9 @@ func (d *Daemon) Run(ctx context.Context) error {
 	runCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	// Set up signal handling
+	// Set up signal handling (cross-platform)
 	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(sigCh, ShutdownSignals()...)
 
 	// Start watcher
 	if err := d.watcher.Start(runCtx); err != nil {
@@ -578,4 +577,22 @@ func (d *Daemon) Search(ctx context.Context, req SearchRequest) (*SearchResponse
 // This is used to create adapters for the api.Searcher interface.
 func (d *Daemon) SearchService() *search.Service {
 	return d.searchService
+}
+
+// Close releases all resources held by the daemon.
+// This should be called when the daemon is no longer needed,
+// especially in tests that don't call Run().
+func (d *Daemon) Close() error {
+	if d.watcher != nil {
+		if err := d.watcher.Stop(); err != nil {
+			d.logger.Warn("watcher close error", "error", err)
+		}
+	}
+	if d.db != nil {
+		if err := d.db.Close(); err != nil {
+			d.logger.Warn("database close error", "error", err)
+			return err
+		}
+	}
+	return nil
 }

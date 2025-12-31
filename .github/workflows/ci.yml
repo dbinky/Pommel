@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, dev]
+    branches: [main, dev, dev-windows-support]
   pull_request:
     branches: [main, dev]
 
@@ -11,8 +11,9 @@ jobs:
     name: Test
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
         go-version: ['1.21', '1.22']
 
     steps:
@@ -25,11 +26,26 @@ jobs:
           go-version: ${{ matrix.go-version }}
           cache: true
 
+      - name: Install SQLite (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          choco install sqlite -y
+          # Download SQLite amalgamation for headers
+          curl -L -o sqlite.zip https://www.sqlite.org/2024/sqlite-amalgamation-3450100.zip
+          unzip sqlite.zip
+          mkdir -p /c/sqlite
+          cp sqlite-amalgamation-3450100/* /c/sqlite/
+        shell: bash
+
       - name: Download dependencies
         run: go mod download
 
       - name: Run tests
         run: go test -race -coverprofile=coverage.out -covermode=atomic ./...
+        shell: bash
+        env:
+          CGO_CFLAGS: ${{ runner.os == 'Windows' && '-I/c/sqlite' || '' }}
+          CGO_LDFLAGS: ${{ runner.os == 'Windows' && '-L/c/sqlite' || '' }}
 
       - name: Upload coverage
         uses: codecov/codecov-action@v5
@@ -73,8 +89,16 @@ jobs:
     name: Build
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            binary_ext: ""
+          - os: macos-latest
+            binary_ext: ""
+          - os: windows-latest
+            binary_ext: ".exe"
 
     steps:
       - name: Checkout code
@@ -86,12 +110,27 @@ jobs:
           go-version: '1.22'
           cache: true
 
+      - name: Install SQLite (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          choco install sqlite -y
+          curl -L -o sqlite.zip https://www.sqlite.org/2024/sqlite-amalgamation-3450100.zip
+          unzip sqlite.zip
+          mkdir -p /c/sqlite
+          cp sqlite-amalgamation-3450100/* /c/sqlite/
+        shell: bash
+
       - name: Build binaries
         run: |
-          go build -o bin/pm ./cmd/pm
-          go build -o bin/pommeld ./cmd/pommeld
+          go build -o bin/pm${{ matrix.binary_ext }} ./cmd/pm
+          go build -o bin/pommeld${{ matrix.binary_ext }} ./cmd/pommeld
+        shell: bash
+        env:
+          CGO_CFLAGS: ${{ runner.os == 'Windows' && '-I/c/sqlite' || '' }}
+          CGO_LDFLAGS: ${{ runner.os == 'Windows' && '-L/c/sqlite' || '' }}
 
       - name: Verify binaries
         run: |
-          ./bin/pm --help
-          ./bin/pommeld --help
+          ./bin/pm${{ matrix.binary_ext }} --help
+          ./bin/pommeld${{ matrix.binary_ext }} --help
+        shell: bash

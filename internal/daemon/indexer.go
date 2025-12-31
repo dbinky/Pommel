@@ -101,8 +101,8 @@ func (i *Indexer) IndexFile(ctx context.Context, path string) error {
 		return nil
 	}
 
-	// Read file content
-	content, err := os.ReadFile(path)
+	// Read file content (with retry for locked files on Windows)
+	content, err := ReadFileWithRetry(path, 3)
 	if err != nil {
 		return fmt.Errorf("failed to read file: %w", err)
 	}
@@ -353,8 +353,8 @@ func (i *Indexer) indexFileInternal(ctx context.Context, path string, info os.Fi
 		return nil
 	}
 
-	// Read file content
-	content, err := os.ReadFile(path)
+	// Read file content (with retry for locked files on Windows)
+	content, err := ReadFileWithRetry(path, 3)
 	if err != nil {
 		return fmt.Errorf("failed to read file: %w", err)
 	}

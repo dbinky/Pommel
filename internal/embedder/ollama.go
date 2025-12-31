@@ -229,8 +229,25 @@ func (c *OllamaClient) EmbedBatch(ctx context.Context, texts []string, concurren
 	// Results slice to preserve order
 	results := make([][]float32, len(texts))
 	var firstErr error
+	var errMu sync.Mutex
 	var errOnce sync.Once
 	var wg sync.WaitGroup
+
+	// Helper to safely read firstErr
+	getErr := func() error {
+		errMu.Lock()
+		defer errMu.Unlock()
+		return firstErr
+	}
+
+	// Helper to safely set firstErr (only once)
+	setErr := func(err error) {
+		errOnce.Do(func() {
+			errMu.Lock()
+			firstErr = err
+			errMu.Unlock()
+		})
+	}
 
 	// Semaphore for concurrency control
 	sem := make(chan struct{}, concurrency)
@@ -245,22 +262,18 @@ func (c *OllamaClient) EmbedBatch(ctx context.Context, texts []string, concurren
 			case sem <- struct{}{}:
 				defer func() { <-sem }()
 			case <-ctx.Done():
-				errOnce.Do(func() {
-					firstErr = ctx.Err()
-				})
+				setErr(ctx.Err())
 				return
 			}
 
 			// Check if we should proceed (no error yet)
-			if firstErr != nil {
+			if getErr() != nil {
 				return
 			}
 
 			embedding, err := c.EmbedSingle(ctx, t)
 			if err != nil {
-				errOnce.Do(func() {
-					firstErr = err
-				})
+				setErr(err)
 				return
 			}
 
@@ -270,8 +283,8 @@ func (c *OllamaClient) EmbedBatch(ctx context.Context, texts []string, concurren
 
 	wg.Wait()
 
-	if firstErr != nil {
-		return nil, firstErr
+	if err := getErr(); err != nil {
+		return nil, err
 	}
 
 	return results, nil

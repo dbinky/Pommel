@@ -90,12 +90,24 @@ func TestStartCmd_StartsProcess(t *testing.T) {
 	// Execute start command
 	err = runStart(nil, nil)
 
-	// The start command tries to launch pommeld which may not be in PATH during tests
-	// This is expected - in real usage, pommeld would be installed
-	// We verify the command attempts to start the daemon (returns error about executable)
-	require.Error(t, err)
-	// Error should be about starting/failing daemon
-	assert.Contains(t, err.Error(), "daemon")
+	// Two possible outcomes:
+	// 1. pommeld not in PATH → error about executable not found
+	// 2. pommeld in PATH → daemon starts successfully
+	if err != nil {
+		// Error should be about starting/failing daemon or executable not found
+		assert.True(t,
+			strings.Contains(err.Error(), "daemon") ||
+				strings.Contains(err.Error(), "executable") ||
+				strings.Contains(err.Error(), "not found"),
+			"error should be about daemon or executable: %v", err)
+	} else {
+		// Daemon started successfully - verify and clean up
+		running, _ := stateManager.IsRunning()
+		assert.True(t, running, "daemon should be running after successful start")
+
+		// Clean up: stop the daemon we started
+		_ = runStop(nil, nil)
+	}
 }
 
 // TestStartCommand_Registered verifies the start command is properly registered

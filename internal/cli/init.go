@@ -381,6 +381,7 @@ const pommelClaudeInstructions = `
 
 This project uses Pommel for semantic code search. Pommel indexes your codebase into semantic chunks (files, classes, methods) and enables natural language search to find relevant code quickly.
 
+**Supported platforms:** macOS, Linux, Windows
 **Supported languages** (full AST-aware chunking): Go, Java, C#, Python, JavaScript, TypeScript, JSX, TSX
 
 ### Code Search Priority

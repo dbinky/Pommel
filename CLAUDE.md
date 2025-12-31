@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Pommel is a local-first semantic code search system designed to reduce context window consumption for AI coding agents. It maintains an always-current vector database of code embeddings, enabling targeted semantic searches instead of reading numerous files into context.
 
-**Status:** v0.2.0 - Fully functional with CLI, daemon, and semantic search
+**Status:** v0.3.0 - Full cross-platform support (macOS, Linux, Windows)
 
 ## Code Search Priority
 
@@ -94,11 +94,12 @@ All commands support `--json` for structured output and `-p/--project` to specif
 
 | Component | Technology |
 |-----------|------------|
-| Language | Go 1.24+ |
+| Language | Go 1.21+ |
+| Platform Support | macOS (Intel/ARM), Linux (x64/ARM64), Windows (x64/ARM64) |
 | CLI Framework | Cobra + Viper |
 | Vector Database | SQLite + sqlite-vec |
 | Embedding Model | jina-embeddings-v2-base-code (via Ollama) |
-| Code Parsing | Tree-sitter (Go, C#, Python, JavaScript, TypeScript, JSX, TSX) |
+| Code Parsing | Tree-sitter (Go, C#, Python, JavaScript, TypeScript, JSX, TSX, Java) |
 | File Watching | fsnotify |
 | HTTP Server | go-chi |
 
@@ -152,11 +153,18 @@ go test -v -run TestInitCmd      # Run specific test
 
 ### Installation
 
+**macOS / Linux:**
 ```bash
-# Quick install
 curl -fsSL https://raw.githubusercontent.com/dbinky/Pommel/main/scripts/install.sh | bash
+```
 
-# Or manual
+**Windows (PowerShell):**
+```powershell
+irm https://raw.githubusercontent.com/dbinky/Pommel/main/scripts/install.ps1 | iex
+```
+
+**Manual (from source):**
+```bash
 go install ./cmd/pm ./cmd/pommeld
 ollama pull unclemusclez/jina-embeddings-v2-base-code
 ```
