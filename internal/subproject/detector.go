@@ -13,6 +13,24 @@ type MarkerDef struct {
 	Language string
 }
 
+// DefaultExcludes defines directories to skip when scanning for sub-projects.
+// These are typically dependency directories or build outputs that contain
+// their own project markers but are not actual sub-projects.
+var DefaultExcludes = []string{
+	"node_modules",
+	"vendor",
+	".git",
+	".pommel",
+	"dist",
+	"build",
+	"bin",
+	"obj",
+	".venv",
+	"__pycache__",
+	".npm",
+	".pnpm",
+}
+
 // DefaultMarkers defines marker files and their priorities.
 var DefaultMarkers = []MarkerDef{
 	// Priority 1: Solution files (encompass multiple projects)
@@ -50,6 +68,9 @@ type Detector struct {
 func NewDetector(projectRoot string, markers []MarkerDef, excludes []string) *Detector {
 	if markers == nil {
 		markers = DefaultMarkers
+	}
+	if excludes == nil {
+		excludes = DefaultExcludes
 	}
 	return &Detector{
 		projectRoot: projectRoot,
@@ -152,11 +173,17 @@ func (d *Detector) getMarkerPriority(filename string) int {
 	return DefaultPriority
 }
 
-// isExcluded checks if a path is in the exclude list.
+// isExcluded checks if a path contains any excluded directory.
 func (d *Detector) isExcluded(path string) bool {
-	for _, excl := range d.excludes {
-		if strings.HasPrefix(path, excl) || path == excl {
-			return true
+	// Normalize path separators
+	normalizedPath := filepath.ToSlash(path)
+	parts := strings.Split(normalizedPath, "/")
+
+	for _, part := range parts {
+		for _, excl := range d.excludes {
+			if part == excl {
+				return true
+			}
 		}
 	}
 	return false

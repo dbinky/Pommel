@@ -291,17 +291,43 @@ function Install-EmbeddingModel {
             }
         }
 
-        # Check if Ollama is running
-        $ollamaProcess = Get-Process -Name "ollama" -ErrorAction SilentlyContinue
-        if (-not $ollamaProcess) {
-            Write-Step "Starting Ollama..."
-            if ($ollamaCmd -is [System.Management.Automation.CommandInfo]) {
-                Start-Process $ollamaCmd.Source -ArgumentList "serve" -WindowStyle Hidden
+        # Check if Ollama API is already accessible (avoids launching desktop app)
+        $ollamaRunning = $false
+        try {
+            $response = Invoke-WebRequest -Uri "http://localhost:11434/api/tags" -UseBasicParsing -TimeoutSec 2 -ErrorAction SilentlyContinue
+            if ($response.StatusCode -eq 200) {
+                $ollamaRunning = $true
             }
-            else {
-                Start-Process $ollamaCmd -ArgumentList "serve" -WindowStyle Hidden
+        }
+        catch {
+            # API not accessible, need to start Ollama
+        }
+
+        if (-not $ollamaRunning) {
+            Write-Step "Starting Ollama service..."
+            # Start ollama serve as a background job to avoid launching the desktop GUI
+            $ollamaExe = if ($ollamaCmd -is [System.Management.Automation.CommandInfo]) { $ollamaCmd.Source } else { $ollamaCmd }
+            Start-Process -FilePath $ollamaExe -ArgumentList "serve" -WindowStyle Hidden -RedirectStandardOutput "NUL" -RedirectStandardError "NUL"
+
+            # Wait for API to become available
+            $attempts = 0
+            $maxAttempts = 10
+            while ($attempts -lt $maxAttempts) {
+                Start-Sleep -Seconds 1
+                try {
+                    $response = Invoke-WebRequest -Uri "http://localhost:11434/api/tags" -UseBasicParsing -TimeoutSec 2 -ErrorAction SilentlyContinue
+                    if ($response.StatusCode -eq 200) {
+                        break
+                    }
+                }
+                catch {
+                    $attempts++
+                }
             }
-            Start-Sleep -Seconds 5
+
+            if ($attempts -eq $maxAttempts) {
+                Write-Warn "Ollama may not have started correctly. If a desktop app appeared, you can minimize it."
+            }
         }
 
         # Pull the model
