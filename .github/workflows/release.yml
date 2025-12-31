@@ -16,37 +16,32 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Linux
+          # Linux x64
           - os: ubuntu-latest
             goos: linux
             goarch: amd64
             suffix: linux-amd64
             binary_ext: ""
             archive_ext: tar.gz
-          - os: ubuntu-latest
-            goos: linux
-            goarch: arm64
-            suffix: linux-arm64
+          # macOS Intel (x64)
+          - os: macos-13
+            goos: darwin
+            goarch: amd64
+            suffix: darwin-amd64
             binary_ext: ""
             archive_ext: tar.gz
-          # macOS
+          # macOS Apple Silicon (ARM64)
           - os: macos-latest
             goos: darwin
             goarch: arm64
             suffix: darwin-arm64
             binary_ext: ""
             archive_ext: tar.gz
-          # Windows
+          # Windows x64
           - os: windows-latest
             goos: windows
             goarch: amd64
             suffix: windows-amd64
-            binary_ext: ".exe"
-            archive_ext: zip
-          - os: windows-latest
-            goos: windows
-            goarch: arm64
-            suffix: windows-arm64
             binary_ext: ".exe"
             archive_ext: zip
 

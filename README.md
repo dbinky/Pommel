@@ -62,9 +62,7 @@ Download binaries from [releases](https://github.com/dbinky/Pommel/releases):
 | macOS | Intel | pm-darwin-amd64 | pommeld-darwin-amd64 |
 | macOS | Apple Silicon | pm-darwin-arm64 | pommeld-darwin-arm64 |
 | Linux | x64 | pm-linux-amd64 | pommeld-linux-amd64 |
-| Linux | ARM64 | pm-linux-arm64 | pommeld-linux-arm64 |
 | Windows | x64 | pm-windows-amd64.exe | pommeld-windows-amd64.exe |
-| Windows | ARM64 | pm-windows-arm64.exe | pommeld-windows-arm64.exe |
 
 Then pull the embedding model:
 ```bash
