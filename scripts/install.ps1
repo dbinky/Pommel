@@ -101,14 +101,13 @@ function Get-LatestRelease {
     }
 }
 
-function Get-DownloadUrl {
+function Get-ArchiveUrl {
     param(
         [string]$Version,
-        [string]$Binary,
         [string]$Arch
     )
 
-    $fileName = "${Binary}-windows-${Arch}.exe"
+    $fileName = "pommel-${Version}-windows-${Arch}.zip"
     return "https://github.com/$script:Repo/releases/download/$Version/$fileName"
 }
 #endregion
@@ -128,28 +127,49 @@ function Install-PommelBinaries {
         New-Item -ItemType Directory -Path $binDir -Force | Out-Null
     }
 
-    # Download pm.exe
-    Write-Step "Downloading pm.exe..."
-    $pmUrl = Get-DownloadUrl -Version $Version -Binary "pm" -Arch $Arch
-    $pmPath = Join-Path $binDir "pm.exe"
+    # Download archive
+    Write-Step "Downloading Pommel archive..."
+    $archiveUrl = Get-ArchiveUrl -Version $Version -Arch $Arch
+    $tempZip = Join-Path $env:TEMP "pommel-$Version-windows-$Arch.zip"
     try {
-        Invoke-WebRequest -Uri $pmUrl -OutFile $pmPath -UseBasicParsing
-        Write-Success "Downloaded pm.exe"
+        Invoke-WebRequest -Uri $archiveUrl -OutFile $tempZip -UseBasicParsing
+        Write-Success "Downloaded archive"
     }
     catch {
-        throw "Failed to download pm.exe from $pmUrl : $_"
+        throw "Failed to download archive from $archiveUrl : $_"
     }
 
-    # Download pommeld.exe
-    Write-Step "Downloading pommeld.exe..."
-    $daemonUrl = Get-DownloadUrl -Version $Version -Binary "pommeld" -Arch $Arch
-    $daemonPath = Join-Path $binDir "pommeld.exe"
+    # Extract binaries
+    Write-Step "Extracting binaries..."
     try {
-        Invoke-WebRequest -Uri $daemonUrl -OutFile $daemonPath -UseBasicParsing
-        Write-Success "Downloaded pommeld.exe"
+        $tempExtract = Join-Path $env:TEMP "pommel-extract-$([System.Guid]::NewGuid().ToString('N'))"
+        Expand-Archive -Path $tempZip -DestinationPath $tempExtract -Force
+
+        # Find and copy the binaries (they have platform suffix in the archive)
+        $pmSource = Join-Path $tempExtract "pm-windows-$Arch.exe"
+        $daemonSource = Join-Path $tempExtract "pommeld-windows-$Arch.exe"
+
+        if (-not (Test-Path $pmSource)) {
+            throw "pm-windows-$Arch.exe not found in archive"
+        }
+        if (-not (Test-Path $daemonSource)) {
+            throw "pommeld-windows-$Arch.exe not found in archive"
+        }
+
+        # Copy to bin directory with simple names
+        Copy-Item $pmSource (Join-Path $binDir "pm.exe") -Force
+        Copy-Item $daemonSource (Join-Path $binDir "pommeld.exe") -Force
+
+        Write-Success "Extracted pm.exe and pommeld.exe"
+
+        # Cleanup temp files
+        Remove-Item $tempZip -Force -ErrorAction SilentlyContinue
+        Remove-Item $tempExtract -Recurse -Force -ErrorAction SilentlyContinue
     }
     catch {
-        throw "Failed to download pommeld.exe from $daemonUrl : $_"
+        # Cleanup on failure
+        Remove-Item $tempZip -Force -ErrorAction SilentlyContinue
+        throw "Failed to extract binaries: $_"
     }
 
     return $binDir
