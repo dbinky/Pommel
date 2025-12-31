@@ -24,7 +24,7 @@ jobs:
             binary_ext: ""
             archive_ext: tar.gz
           # macOS Intel (x64)
-          - os: macos-13
+          - os: macos-15-intel
             goos: darwin
             goarch: amd64
             suffix: darwin-amd64
