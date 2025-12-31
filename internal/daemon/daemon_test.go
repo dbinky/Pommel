@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"syscall"
+	"runtime"
 	"testing"
 	"time"
 
@@ -68,6 +68,9 @@ func TestNew_CreatesWithValidConfig(t *testing.T) {
 	// Assert
 	require.NoError(t, err)
 	require.NotNil(t, daemon)
+
+	// Cleanup - required on Windows to release file handles
+	require.NoError(t, daemon.Close())
 }
 
 func TestNew_InitializesAllComponents(t *testing.T) {
@@ -89,6 +92,9 @@ func TestNew_InitializesAllComponents(t *testing.T) {
 	assert.NotNil(t, daemon.state, "state manager should be initialized")
 	assert.NotNil(t, daemon.db, "database should be initialized")
 	assert.NotNil(t, daemon.embedder, "embedder should be initialized")
+
+	// Cleanup - required on Windows to release file handles
+	require.NoError(t, daemon.Close())
 }
 
 func TestNew_FailsWithInvalidProjectRoot(t *testing.T) {
@@ -214,7 +220,10 @@ func TestRun_ChecksForAlreadyRunningDaemon(t *testing.T) {
 	// Assert - should fail because daemon is already running
 	assert.Error(t, err, "Run should fail when another daemon is already running")
 
-	// Cleanup
+	// Cleanup - close daemon2 first (it didn't run, so just close resources)
+	require.NoError(t, daemon2.Close())
+
+	// Then stop daemon1
 	cancel1()
 	<-errCh1
 }
@@ -259,6 +268,10 @@ func TestRun_GracefulShutdownOnContextCancel(t *testing.T) {
 }
 
 func TestRun_GracefulShutdownOnSIGTERM(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("SIGTERM signal handling not supported on Windows; using os.Interrupt instead")
+	}
+
 	// Arrange
 	projectRoot := t.TempDir()
 	cfg := daemonTestConfig()
@@ -278,11 +291,11 @@ func TestRun_GracefulShutdownOnSIGTERM(t *testing.T) {
 	// Wait for startup
 	time.Sleep(100 * time.Millisecond)
 
-	// Send SIGTERM to current process
+	// Send SIGTERM to current process (Unix only)
 	// Note: This tests signal handling setup, but in tests we send to self
 	process, err := os.FindProcess(os.Getpid())
 	require.NoError(t, err)
-	err = process.Signal(syscall.SIGTERM)
+	err = sendSIGTERM(process)
 	require.NoError(t, err)
 
 	// Assert - should shutdown gracefully within reasonable time
@@ -792,6 +805,9 @@ func TestNew_CreatesDefaultLogger_WhenNilProvided(t *testing.T) {
 	// Assert - should succeed with a default logger
 	require.NoError(t, err)
 	require.NotNil(t, daemon)
+
+	// Cleanup - required on Windows to release file handles
+	require.NoError(t, daemon.Close())
 }
 
 func TestNew_UsesDefaultCacheSize_WhenZeroProvided(t *testing.T) {
@@ -807,6 +823,9 @@ func TestNew_UsesDefaultCacheSize_WhenZeroProvided(t *testing.T) {
 	// Assert - should succeed with default cache size
 	require.NoError(t, err)
 	require.NotNil(t, daemon)
+
+	// Cleanup - required on Windows to release file handles
+	require.NoError(t, daemon.Close())
 }
 
 func TestNew_UsesDefaultCacheSize_WhenNegativeProvided(t *testing.T) {
@@ -822,6 +841,9 @@ func TestNew_UsesDefaultCacheSize_WhenNegativeProvided(t *testing.T) {
 	// Assert - should succeed with default cache size
 	require.NoError(t, err)
 	require.NotNil(t, daemon)
+
+	// Cleanup - required on Windows to release file handles
+	require.NoError(t, daemon.Close())
 }
 
 // =============================================================================
@@ -1054,6 +1076,9 @@ func TestDaemon_SearchService(t *testing.T) {
 
 	// Assert
 	assert.NotNil(t, svc, "SearchService should return a non-nil service")
+
+	// Cleanup - required on Windows to release file handles
+	require.NoError(t, daemon.Close())
 }
 
 // =============================================================================

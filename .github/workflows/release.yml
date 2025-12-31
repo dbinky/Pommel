@@ -10,21 +10,45 @@ permissions:
 
 jobs:
   build:
-    name: Build ${{ matrix.os }}
+    name: Build ${{ matrix.suffix }}
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         include:
+          # Linux
           - os: ubuntu-latest
             goos: linux
             goarch: amd64
             suffix: linux-amd64
+            binary_ext: ""
+            archive_ext: tar.gz
+          - os: ubuntu-latest
+            goos: linux
+            goarch: arm64
+            suffix: linux-arm64
+            binary_ext: ""
+            archive_ext: tar.gz
+          # macOS
           - os: macos-latest
             goos: darwin
             goarch: arm64
             suffix: darwin-arm64
-          # Note: macOS Intel (amd64) builds require paid runners (macos-*-large)
-          # Most modern Macs use Apple Silicon - Intel builds can be added if needed
+            binary_ext: ""
+            archive_ext: tar.gz
+          # Windows
+          - os: windows-latest
+            goos: windows
+            goarch: amd64
+            suffix: windows-amd64
+            binary_ext: ".exe"
+            archive_ext: zip
+          - os: windows-latest
+            goos: windows
+            goarch: arm64
+            suffix: windows-arm64
+            binary_ext: ".exe"
+            archive_ext: zip
 
     steps:
       - name: Checkout code
@@ -39,26 +63,53 @@ jobs:
       - name: Get version from tag
         id: version
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        shell: bash
+
+      - name: Install SQLite (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          choco install sqlite -y
+          curl -L -o sqlite.zip https://www.sqlite.org/2024/sqlite-amalgamation-3450100.zip
+          unzip sqlite.zip
+          mkdir -p /c/sqlite
+          cp sqlite-amalgamation-3450100/* /c/sqlite/
+        shell: bash
 
       - name: Build binaries
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 1
+          CGO_CFLAGS: ${{ runner.os == 'Windows' && '-I/c/sqlite' || '' }}
+          CGO_LDFLAGS: ${{ runner.os == 'Windows' && '-L/c/sqlite' || '' }}
         run: |
           VERSION=${{ steps.version.outputs.VERSION }}
           mkdir -p dist
+          go build -ldflags "-X main.version=$VERSION" -o dist/pm-${{ matrix.suffix }}${{ matrix.binary_ext }} ./cmd/pm
+          go build -ldflags "-X main.version=$VERSION" -o dist/pommeld-${{ matrix.suffix }}${{ matrix.binary_ext }} ./cmd/pommeld
+        shell: bash
 
-          go build -ldflags "-X main.version=$VERSION" -o dist/pm-${{ matrix.suffix }} ./cmd/pm
-          go build -ldflags "-X main.version=$VERSION" -o dist/pommeld-${{ matrix.suffix }} ./cmd/pommeld
-
-      - name: Create archive
+      - name: Create archive (Unix)
+        if: matrix.archive_ext == 'tar.gz'
         run: |
           cd dist
           VERSION=${{ steps.version.outputs.VERSION }}
           tar -czvf pommel-${VERSION}-${{ matrix.suffix }}.tar.gz pm-${{ matrix.suffix }} pommeld-${{ matrix.suffix }}
+        shell: bash
+
+      - name: Create archive (Windows)
+        if: matrix.archive_ext == 'zip'
+        run: |
+          cd dist
+          $VERSION = "${{ steps.version.outputs.VERSION }}"
+          Compress-Archive -Path "pm-${{ matrix.suffix }}${{ matrix.binary_ext }}", "pommeld-${{ matrix.suffix }}${{ matrix.binary_ext }}" -DestinationPath "pommel-${VERSION}-${{ matrix.suffix }}.zip"
+        shell: pwsh
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v4
         with:
           name: pommel-${{ matrix.suffix }}
-          path: dist/*.tar.gz
+          path: dist/pommel-*.${{ matrix.archive_ext }}
 
   release:
     name: Create Release
@@ -84,7 +135,7 @@ jobs:
       - name: Generate checksums
         run: |
           cd dist
-          sha256sum *.tar.gz > checksums.txt
+          sha256sum *.tar.gz *.zip > checksums.txt
           cat checksums.txt
 
       - name: Generate release notes
@@ -108,4 +159,5 @@ jobs:
           prerelease: ${{ contains(steps.version.outputs.VERSION, '-') }}
           files: |
             dist/*.tar.gz
+            dist/*.zip
             dist/checksums.txt
