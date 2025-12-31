@@ -34,17 +34,28 @@ func TerminateProcess(pid int) error {
 	err = process.Signal(syscall.SIGTERM)
 	if err != nil {
 		// If SIGTERM fails, try SIGKILL
-		return process.Kill()
+		if killErr := process.Kill(); killErr != nil {
+			return killErr
+		}
+		// Wait for process to fully exit after SIGKILL
+		_, _ = process.Wait()
+		return nil
 	}
 
 	// Wait briefly for graceful shutdown
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 15; i++ {
 		time.Sleep(200 * time.Millisecond)
 		if !IsProcessRunning(pid) {
 			return nil
 		}
 	}
 
-	// Force kill if still running
-	return process.Kill()
+	// Force kill if still running after 3 seconds
+	if err := process.Kill(); err != nil {
+		return err
+	}
+
+	// Wait for process to fully exit after SIGKILL
+	_, _ = process.Wait()
+	return nil
 }

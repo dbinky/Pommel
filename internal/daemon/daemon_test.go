@@ -220,7 +220,10 @@ func TestRun_ChecksForAlreadyRunningDaemon(t *testing.T) {
 	// Assert - should fail because daemon is already running
 	assert.Error(t, err, "Run should fail when another daemon is already running")
 
-	// Cleanup
+	// Cleanup - close daemon2 first (it didn't run, so just close resources)
+	require.NoError(t, daemon2.Close())
+
+	// Then stop daemon1
 	cancel1()
 	<-errCh1
 }
