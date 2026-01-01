@@ -15,6 +15,7 @@ var (
 	searchAll        bool
 	searchSubproject string
 	searchNoHybrid   bool
+	searchNoRerank   bool
 )
 
 var searchCmd = &cobra.Command{
@@ -42,6 +43,7 @@ func init() {
 	searchCmd.Flags().BoolVar(&searchAll, "all", false, "Search entire index (no scope filtering)")
 	searchCmd.Flags().StringVarP(&searchSubproject, "subproject", "s", "", "Filter by sub-project ID")
 	searchCmd.Flags().BoolVar(&searchNoHybrid, "no-hybrid", false, "Disable hybrid search (vector only)")
+	searchCmd.Flags().BoolVar(&searchNoRerank, "no-rerank", false, "Disable re-ranking stage")
 }
 
 func runSearch(cmd *cobra.Command, args []string) error {
@@ -63,6 +65,12 @@ func runSearch(cmd *cobra.Command, args []string) error {
 	if searchNoHybrid {
 		hybridEnabled := false
 		req.HybridEnabled = &hybridEnabled
+	}
+
+	// Set rerank enabled flag if explicitly disabled
+	if searchNoRerank {
+		rerankEnabled := false
+		req.RerankEnabled = &rerankEnabled
 	}
 
 	// Wire up scope flags

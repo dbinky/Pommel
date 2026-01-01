@@ -49,7 +49,8 @@ func Default() *Config {
 				"method",
 				"class",
 			},
-			Hybrid: DefaultHybridSearchConfig(),
+			Hybrid:   DefaultHybridSearchConfig(),
+			Reranker: DefaultRerankerConfig(),
 		},
 		Subprojects: SubprojectsConfig{
 			AutoDetect: true,
