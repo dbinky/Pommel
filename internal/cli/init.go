@@ -440,6 +440,7 @@ pm search "function implementations" --level method
 const pommelClaudeMarker = "## Pommel - Semantic Code Search"
 
 // updateClaudeMD creates or updates CLAUDE.md with Pommel usage instructions
+// If an existing Pommel section is found, it is removed and replaced with the new instructions
 func updateClaudeMD(projectRoot string) error {
 	claudePath := filepath.Join(projectRoot, "CLAUDE.md")
 
@@ -449,26 +450,69 @@ func updateClaudeMD(projectRoot string) error {
 		return err
 	}
 
-	// Check if Pommel instructions already exist
-	if strings.Contains(string(existingContent), pommelClaudeMarker) {
-		// Already has Pommel instructions, don't duplicate
-		return nil
-	}
-
 	var newContent string
 	if len(existingContent) > 0 {
-		// Append to existing file
-		newContent = string(existingContent)
-		if !strings.HasSuffix(newContent, "\n") {
-			newContent += "\n"
+		// Remove existing Pommel section if present
+		contentStr := removePommelSection(string(existingContent))
+
+		// Append new Pommel instructions
+		if !strings.HasSuffix(contentStr, "\n") {
+			contentStr += "\n"
 		}
-		newContent += pommelClaudeInstructions
+		newContent = contentStr + pommelClaudeInstructions
 	} else {
 		// Create new file with header
 		newContent = "# CLAUDE.md\n" + pommelClaudeInstructions
 	}
 
 	return os.WriteFile(claudePath, []byte(newContent), 0644)
+}
+
+// removePommelSection removes the existing Pommel section from content
+// The section starts with "## Pommel - Semantic Code Search" and ends at the next "## " heading or EOF
+func removePommelSection(content string) string {
+	// Find the start of the Pommel section
+	startIdx := strings.Index(content, pommelClaudeMarker)
+	if startIdx == -1 {
+		// No Pommel section found
+		return content
+	}
+
+	// Find the end of the Pommel section (next ## heading or EOF)
+	afterStart := content[startIdx+len(pommelClaudeMarker):]
+	endIdx := -1
+
+	// Look for the next ## heading (but not ### or deeper)
+	lines := strings.Split(afterStart, "\n")
+	charCount := 0
+	for _, line := range lines {
+		charCount += len(line) + 1 // +1 for newline
+		if strings.HasPrefix(line, "## ") && !strings.HasPrefix(line, "### ") {
+			// Found the next section
+			endIdx = startIdx + len(pommelClaudeMarker) + charCount - len(line) - 1
+			break
+		}
+	}
+
+	// Build the new content
+	before := content[:startIdx]
+	var after string
+	if endIdx != -1 {
+		after = content[endIdx:]
+	}
+
+	// Clean up: remove trailing whitespace from before, but keep structure
+	before = strings.TrimRight(before, " \t")
+	// Ensure proper spacing
+	if len(before) > 0 && !strings.HasSuffix(before, "\n\n") {
+		if strings.HasSuffix(before, "\n") {
+			// Already has one newline
+		} else {
+			before += "\n"
+		}
+	}
+
+	return before + after
 }
 
 // handleMonorepoDetection handles detected subprojects during init
@@ -561,24 +605,23 @@ func updateClaudeMDFiles(projectRoot string, subprojects []*subproject.DetectedS
 }
 
 // updateClaudeMDForSubproject creates or updates CLAUDE.md for a subproject
+// If an existing Pommel section is found, it is removed and replaced with the new instructions
 func updateClaudeMDForSubproject(spPath string, sp *subproject.DetectedSubproject) error {
 	claudePath := filepath.Join(spPath, "CLAUDE.md")
 
 	var existingContent []byte
 	existingContent, _ = os.ReadFile(claudePath)
 
-	// Check if already has Pommel section
-	if strings.Contains(string(existingContent), pommelClaudeMarker) {
-		return nil // Already updated
-	}
-
 	var newContent string
 	if len(existingContent) > 0 {
-		newContent = string(existingContent)
-		if !strings.HasSuffix(newContent, "\n") {
-			newContent += "\n"
+		// Remove existing Pommel section if present
+		contentStr := removePommelSection(string(existingContent))
+
+		// Append new Pommel instructions
+		if !strings.HasSuffix(contentStr, "\n") {
+			contentStr += "\n"
 		}
-		newContent += pommelSubprojectInstructions(sp)
+		newContent = contentStr + pommelSubprojectInstructions(sp)
 	} else {
 		newContent = "# CLAUDE.md\n" + pommelSubprojectInstructions(sp)
 	}
