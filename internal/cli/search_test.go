@@ -809,3 +809,21 @@ func executeSearchWithBothFlags(daemonURL, query string, limit int, hybridEnable
 
 	return nil
 }
+
+// =============================================================================
+// Verbose Flag Tests
+// =============================================================================
+
+func TestSearchCmd_VerboseFlagRegistered(t *testing.T) {
+	flag := searchCmd.Flags().Lookup("verbose")
+	assert.NotNil(t, flag, "--verbose flag should be registered")
+	assert.Equal(t, "bool", flag.Value.Type())
+	assert.Equal(t, "false", flag.DefValue)
+	assert.Equal(t, "v", flag.Shorthand, "should have -v shorthand")
+}
+
+func TestSearchCmd_VerboseFlagDescription(t *testing.T) {
+	flag := searchCmd.Flags().Lookup("verbose")
+	require.NotNil(t, flag)
+	assert.Contains(t, flag.Usage, "detailed", "description should mention detailed output")
+}

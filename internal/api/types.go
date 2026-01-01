@@ -43,17 +43,28 @@ type SearchScopeResponse struct {
 
 // SearchResult represents a single search result
 type SearchResult struct {
-	ID          string      `json:"id"`
-	File        string      `json:"file"`
-	StartLine   int         `json:"start_line"`
-	EndLine     int         `json:"end_line"`
-	Level       string      `json:"level"`
-	Language    string      `json:"language"`
-	Name        string      `json:"name"`
-	Score       float32     `json:"score"`
-	Content     string      `json:"content"`
-	Parent      *ParentInfo `json:"parent,omitempty"`
-	MatchSource string      `json:"match_source,omitempty"` // "vector", "keyword", or "both"
+	ID           string        `json:"id"`
+	File         string        `json:"file"`
+	StartLine    int           `json:"start_line"`
+	EndLine      int           `json:"end_line"`
+	Level        string        `json:"level"`
+	Language     string        `json:"language"`
+	Name         string        `json:"name"`
+	Score        float32       `json:"score"`
+	Content      string        `json:"content"`
+	Parent       *ParentInfo   `json:"parent,omitempty"`
+	MatchSource  string        `json:"match_source,omitempty"`  // "vector", "keyword", or "both"
+	ScoreDetails *ScoreDetails `json:"score_details,omitempty"` // Detailed score breakdown
+	MatchReasons []string      `json:"match_reasons,omitempty"` // Human-readable match reasons
+}
+
+// ScoreDetails contains detailed score breakdown for a search result
+type ScoreDetails struct {
+	VectorScore   float64            `json:"vector_score,omitempty"`
+	KeywordScore  float64            `json:"keyword_score,omitempty"`
+	RRFScore      float64            `json:"rrf_score,omitempty"`
+	RerankerScore float64            `json:"reranker_score,omitempty"`
+	SignalScores  map[string]float64 `json:"signal_scores,omitempty"`
 }
 
 // ParentInfo provides information about a parent code element

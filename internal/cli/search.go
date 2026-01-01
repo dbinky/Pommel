@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/pommel-dev/pommel/internal/api"
+	"github.com/pommel-dev/pommel/internal/output"
 	"github.com/spf13/cobra"
 )
 
@@ -16,6 +17,7 @@ var (
 	searchSubproject string
 	searchNoHybrid   bool
 	searchNoRerank   bool
+	searchVerbose    bool
 )
 
 var searchCmd = &cobra.Command{
@@ -44,6 +46,7 @@ func init() {
 	searchCmd.Flags().StringVarP(&searchSubproject, "subproject", "s", "", "Filter by sub-project ID")
 	searchCmd.Flags().BoolVar(&searchNoHybrid, "no-hybrid", false, "Disable hybrid search (vector only)")
 	searchCmd.Flags().BoolVar(&searchNoRerank, "no-rerank", false, "Disable re-ranking stage")
+	searchCmd.Flags().BoolVarP(&searchVerbose, "verbose", "v", false, "Show detailed match reasons and score breakdown")
 }
 
 func runSearch(cmd *cobra.Command, args []string) error {
@@ -100,6 +103,11 @@ func runSearch(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
+	// Use verbose formatter if requested
+	if searchVerbose {
+		return formatVerboseOutput(resp, query)
+	}
+
 	Info("Found %d results for: %s (%.0fms)\n", resp.TotalResults, resp.Query, float64(resp.SearchTimeMs))
 
 	for i, result := range resp.Results {
@@ -125,6 +133,43 @@ func runSearch(cmd *cobra.Command, args []string) error {
 				fmt.Printf("   | %s\n", line)
 			}
 		}
+	}
+
+	return nil
+}
+
+// formatVerboseOutput formats results with detailed match information
+func formatVerboseOutput(resp *api.SearchResponse, query string) error {
+	formatter := output.NewFormatter(output.FormatVerbose)
+	formatter.Query = query
+
+	// Print summary
+	fmt.Println(formatter.FormatSummary(resp))
+	fmt.Println()
+
+	for i, result := range resp.Results {
+		// Generate match reasons if not already populated
+		if len(result.MatchReasons) == 0 {
+			result.MatchReasons = output.GenerateMatchReasons(&result, query, result.ScoreDetails)
+		}
+
+		fmt.Print(formatter.FormatResult(&result, i))
+
+		// Show content preview
+		content := strings.TrimSpace(result.Content)
+		lines := strings.Split(content, "\n")
+		maxLines := 3
+		if len(lines) > maxLines {
+			for _, line := range lines[:maxLines] {
+				fmt.Printf("    | %s\n", line)
+			}
+			fmt.Printf("    | ... (%d more lines)\n", len(lines)-maxLines)
+		} else {
+			for _, line := range lines {
+				fmt.Printf("    | %s\n", line)
+			}
+		}
+		fmt.Println()
 	}
 
 	return nil
