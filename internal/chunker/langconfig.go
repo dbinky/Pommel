@@ -163,10 +163,10 @@ func (c *LanguageConfig) Validate() error {
 	// Validate doc_comment_position if specified
 	if c.Extraction.DocCommentPosition != "" {
 		validPositions := map[string]bool{
-			"preceding_siblings":  true,
-			"first_child":         true,
-			"parent_first_child":  true,
-			"following_siblings":  true,
+			"preceding_siblings": true,
+			"first_child":        true,
+			"parent_first_child": true,
+			"following_siblings": true,
 		}
 		if !validPositions[c.Extraction.DocCommentPosition] {
 			return fmt.Errorf("invalid doc_comment_position: %s (valid values: preceding_siblings, first_child, parent_first_child, following_siblings)", c.Extraction.DocCommentPosition)
