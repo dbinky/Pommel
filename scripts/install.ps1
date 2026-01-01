@@ -157,31 +157,48 @@ function Install-PommelBinaries {
 #endregion
 
 #region Language Configuration Installation
+function Get-LanguageFileList {
+    <#
+    .SYNOPSIS
+        Discovers language config files from GitHub API.
+    #>
+    $apiUrl = "https://api.github.com/repos/$script:Repo/contents/languages"
+
+    try {
+        $response = Invoke-RestMethod -Uri $apiUrl -Headers @{
+            "Accept" = "application/vnd.github.v3+json"
+            "User-Agent" = "Pommel-Installer"
+        }
+
+        # Filter for .yaml files only
+        $yamlFiles = $response | Where-Object { $_.name -match '\.yaml$' } | ForEach-Object { $_.name }
+        return $yamlFiles
+    }
+    catch {
+        Write-Warn "Failed to discover language files from API: $_"
+        return @()
+    }
+}
+
 function Install-LanguageConfigs {
     param(
         [string]$InstallPath
     )
 
     $languagesDir = Join-Path $InstallPath "languages"
-    $baseUrl = "https://raw.githubusercontent.com/dbinky/Pommel/main/languages"
+    $baseUrl = "https://raw.githubusercontent.com/$script:Repo/main/languages"
 
-    $languageFiles = @(
-        "csharp.yaml",
-        "dart.yaml",
-        "elixir.yaml",
-        "go.yaml",
-        "java.yaml",
-        "javascript.yaml",
-        "kotlin.yaml",
-        "php.yaml",
-        "python.yaml",
-        "rust.yaml",
-        "solidity.yaml",
-        "swift.yaml",
-        "typescript.yaml"
-    )
+    Write-Step "Discovering language configuration files..."
 
-    Write-Step "Installing language configuration files..."
+    # Get list of language files dynamically from GitHub API
+    $languageFiles = Get-LanguageFileList
+
+    if ($languageFiles.Count -eq 0) {
+        Write-Warn "No language configuration files found"
+        return
+    }
+
+    Write-Step "Found $($languageFiles.Count) language configuration files"
 
     # Create languages directory if needed
     if (-not (Test-Path $languagesDir)) {
@@ -204,7 +221,6 @@ function Install-LanguageConfigs {
 
         try {
             Invoke-WebRequest -Uri $url -OutFile $destPath -UseBasicParsing
-            Write-Success "Downloaded $file"
             $successCount++
         }
         catch {
