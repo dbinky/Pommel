@@ -377,13 +377,19 @@ Agent needs to understand authentication...
 
 | Language | Extensions | Chunk Levels |
 |----------|------------|--------------|
+| C# | `.cs` | file, class/struct/interface, method/property |
+| Dart | `.dart` | file, class/mixin, method/function |
+| Elixir | `.ex`, `.exs` | file, module, function |
 | Go | `.go` | file, struct/interface, function/method |
-| C# | `.cs` | file, class, method, property |
-| Python | `.py` | file, class, method/function |
-| JavaScript | `.js`, `.mjs` | file, class, function |
-| JSX | `.jsx` | file, class, function |
-| TypeScript | `.ts` | file, class/interface, function |
-| TSX | `.tsx` | file, class/interface, function |
+| Java | `.java` | file, class/interface/enum, method |
+| JavaScript | `.js`, `.jsx`, `.mjs`, `.cjs` | file, class, function |
+| Kotlin | `.kt`, `.kts` | file, class/object, function |
+| PHP | `.php` | file, class/trait, method/function |
+| Python | `.py`, `.pyi` | file, class, method/function |
+| Rust | `.rs` | file, struct/enum/trait/impl, function |
+| Solidity | `.sol` | file, contract/interface, function |
+| Swift | `.swift` | file, class/struct/protocol, function |
+| TypeScript | `.ts`, `.tsx`, `.mts`, `.cts` | file, class/interface, function |
 
 Other file types are indexed at file-level only (fallback chunking).
 

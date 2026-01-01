@@ -1,0 +1,34 @@
+# Solidity language configuration for Pommel
+language: solidity
+display_name: Solidity
+extensions:
+  - .sol
+
+tree_sitter:
+  grammar: solidity
+
+chunk_mappings:
+  class:
+    - contract_declaration
+    - interface_declaration
+    - library_declaration
+    - struct_declaration
+    - enum_declaration
+
+  method:
+    - function_definition
+    - constructor_definition
+    - modifier_definition
+    - fallback_receive_definition
+
+  block:
+    - if_statement
+    - for_statement
+    - while_statement
+    - try_statement
+
+extraction:
+  name_field: name
+  doc_comments:
+    - comment
+  doc_comment_position: preceding_siblings

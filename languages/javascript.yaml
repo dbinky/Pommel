@@ -1,0 +1,36 @@
+# JavaScript language configuration for Pommel
+language: javascript
+display_name: JavaScript
+extensions:
+  - .js
+  - .jsx
+  - .mjs
+  - .cjs
+
+tree_sitter:
+  grammar: javascript
+
+chunk_mappings:
+  class:
+    - class_declaration
+    - class
+
+  method:
+    - function_declaration
+    - generator_function_declaration
+    - method_definition
+    - arrow_function
+
+  block:
+    - if_statement
+    - for_statement
+    - for_in_statement
+    - while_statement
+    - switch_statement
+    - try_statement
+
+extraction:
+  name_field: name
+  doc_comments:
+    - comment
+  doc_comment_position: preceding_siblings

@@ -17,6 +17,45 @@ import (
 	"github.com/smacker/go-tree-sitter/typescript/typescript"
 )
 
+// grammarRegistry maps grammar names (from config) to tree-sitter language getters.
+// This allows config-driven language loading without hard-coding language types.
+// Multiple aliases are supported for compatibility (e.g., "csharp" and "c_sharp").
+var grammarRegistry = map[string]func() *sitter.Language{
+	"go":         golang.GetLanguage,
+	"java":       java.GetLanguage,
+	"csharp":     csharp.GetLanguage,
+	"c_sharp":    csharp.GetLanguage, // alias for csharp
+	"python":     python.GetLanguage,
+	"javascript": javascript.GetLanguage,
+	"typescript": typescript.GetLanguage,
+	"tsx":        tsx.GetLanguage,
+}
+
+// GetLanguageGrammar returns the tree-sitter language for the given grammar name.
+// The grammar name should match the tree_sitter.grammar field in language config files.
+func GetLanguageGrammar(name string) (*sitter.Language, error) {
+	getter, ok := grammarRegistry[name]
+	if !ok {
+		return nil, fmt.Errorf("unsupported grammar: %s", name)
+	}
+	return getter(), nil
+}
+
+// SupportedGrammars returns a list of all grammar names supported by the parser.
+func SupportedGrammars() []string {
+	grammars := make([]string, 0, len(grammarRegistry))
+	for name := range grammarRegistry {
+		grammars = append(grammars, name)
+	}
+	return grammars
+}
+
+// IsGrammarSupported returns true if the given grammar name is supported.
+func IsGrammarSupported(name string) bool {
+	_, ok := grammarRegistry[name]
+	return ok
+}
+
 // Language represents a programming language supported by the parser.
 type Language string
 
@@ -56,6 +95,7 @@ func NewParser() (*Parser, error) {
 	csharpParser := sitter.NewParser()
 	csharpParser.SetLanguage(csharp.GetLanguage())
 	parsers[LangCSharp] = csharpParser
+	parsers[Language("c_sharp")] = csharpParser // alias for config compatibility
 
 	// Initialize Python parser
 	pythonParser := sitter.NewParser()

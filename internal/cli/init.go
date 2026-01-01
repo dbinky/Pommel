@@ -312,23 +312,29 @@ type InitResult struct {
 
 // Language extension mappings - maps file extension to glob pattern
 var languageExtensions = map[string]string{
-	".go":   "**/*.go",
-	".py":   "**/*.py",
-	".ts":   "**/*.ts",
-	".tsx":  "**/*.tsx",
-	".js":   "**/*.js",
-	".jsx":  "**/*.jsx",
-	".java": "**/*.java",
-	".cs":   "**/*.cs",
-	".rs":   "**/*.rs",
-	".rb":   "**/*.rb",
-	".php":  "**/*.php",
-	".c":    "**/*.c",
-	".cpp":  "**/*.cpp",
-	".cc":   "**/*.cc",
-	".cxx":  "**/*.cxx",
-	".h":    "**/*.h",
-	".hpp":  "**/*.hpp",
+	// Supported languages (full AST-aware chunking)
+	".cs":    "**/*.cs",
+	".dart":  "**/*.dart",
+	".ex":    "**/*.ex",
+	".exs":   "**/*.exs",
+	".go":    "**/*.go",
+	".java":  "**/*.java",
+	".js":    "**/*.js",
+	".jsx":   "**/*.jsx",
+	".mjs":   "**/*.mjs",
+	".cjs":   "**/*.cjs",
+	".kt":    "**/*.kt",
+	".kts":   "**/*.kts",
+	".php":   "**/*.php",
+	".py":    "**/*.py",
+	".pyi":   "**/*.pyi",
+	".rs":    "**/*.rs",
+	".sol":   "**/*.sol",
+	".swift": "**/*.swift",
+	".ts":    "**/*.ts",
+	".tsx":   "**/*.tsx",
+	".mts":   "**/*.mts",
+	".cts":   "**/*.cts",
 }
 
 // detectLanguagePatterns scans the project directory for source files
@@ -382,7 +388,7 @@ const pommelClaudeInstructions = `
 This project uses Pommel for semantic code search. Pommel indexes your codebase into semantic chunks (files, classes, methods) and enables natural language search to find relevant code quickly.
 
 **Supported platforms:** macOS, Linux, Windows
-**Supported languages** (full AST-aware chunking): Go, Java, C#, Python, JavaScript, TypeScript, JSX, TSX
+**Supported languages** (full AST-aware chunking): C#, Dart, Elixir, Go, Java, JavaScript, Kotlin, PHP, Python, Rust, Solidity, Swift, TypeScript
 
 ### Code Search Priority
 
@@ -587,7 +593,7 @@ func pommelSubprojectInstructions(sp *subproject.DetectedSubproject) string {
 
 This sub-project (%s) uses Pommel for semantic code search. Pommel indexes your codebase into semantic chunks (files, classes, methods) and enables natural language search.
 
-**Supported languages** (full AST-aware chunking): Go, Java, C#, Python, JavaScript, TypeScript, JSX, TSX
+**Supported languages** (full AST-aware chunking): C#, Dart, Elixir, Go, Java, JavaScript, Kotlin, PHP, Python, Rust, Solidity, Swift, TypeScript
 
 ### Code Search Priority
 

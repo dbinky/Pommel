@@ -11,22 +11,36 @@ import (
 )
 
 // =============================================================================
+// Helper Functions for Config-Driven Tests
+// =============================================================================
+
+// getJavaChunker returns the Java chunker from the config-driven registry.
+// This replaces the legacy NewJavaChunker function.
+func getJavaChunker(t *testing.T) Chunker {
+	t.Helper()
+	registry, err := NewChunkerRegistry()
+	require.NoError(t, err, "Failed to create chunker registry")
+
+	chunker, ok := registry.GetChunkerForExtension(".java")
+	require.True(t, ok, "Java chunker should be available")
+	return chunker
+}
+
+// =============================================================================
 // JavaChunker Initialization Tests
 // =============================================================================
 
-func TestNewJavaChunker(t *testing.T) {
-	parser, err := NewParser()
+func TestJavaChunker_Available(t *testing.T) {
+	registry, err := NewChunkerRegistry()
 	require.NoError(t, err)
 
-	chunker := NewJavaChunker(parser)
-	assert.NotNil(t, chunker, "NewJavaChunker should return a non-nil chunker")
+	chunker, ok := registry.GetChunkerForExtension(".java")
+	assert.True(t, ok, "Java chunker should be available in registry")
+	assert.NotNil(t, chunker, "Java chunker should not be nil")
 }
 
 func TestJavaChunker_Language(t *testing.T) {
-	parser, err := NewParser()
-	require.NoError(t, err)
-
-	chunker := NewJavaChunker(parser)
+	chunker := getJavaChunker(t)
 	assert.Equal(t, LangJava, chunker.Language(), "JavaChunker should report Java as its language")
 }
 
@@ -35,10 +49,7 @@ func TestJavaChunker_Language(t *testing.T) {
 // =============================================================================
 
 func TestJavaChunker_EmptyFile(t *testing.T) {
-	parser, err := NewParser()
-	require.NoError(t, err)
-
-	chunker := NewJavaChunker(parser)
+	chunker := getJavaChunker(t)
 
 	file := &models.SourceFile{
 		Path:         "/test/Empty.java",
@@ -60,10 +71,7 @@ func TestJavaChunker_EmptyFile(t *testing.T) {
 // =============================================================================
 
 func TestJavaChunker_SimpleClass(t *testing.T) {
-	parser, err := NewParser()
-	require.NoError(t, err)
-
-	chunker := NewJavaChunker(parser)
+	chunker := getJavaChunker(t)
 
 	source := []byte(`package com.example;
 
@@ -134,10 +142,7 @@ public class HelloWorld {
 // =============================================================================
 
 func TestJavaChunker_Interface(t *testing.T) {
-	parser, err := NewParser()
-	require.NoError(t, err)
-
-	chunker := NewJavaChunker(parser)
+	chunker := getJavaChunker(t)
 
 	source := []byte(`package com.example;
 
@@ -186,10 +191,7 @@ interface Writable {
 // =============================================================================
 
 func TestJavaChunker_Enum(t *testing.T) {
-	parser, err := NewParser()
-	require.NoError(t, err)
-
-	chunker := NewJavaChunker(parser)
+	chunker := getJavaChunker(t)
 
 	source := []byte(`package com.example;
 
@@ -248,10 +250,7 @@ enum Status {
 // =============================================================================
 
 func TestJavaChunker_Record(t *testing.T) {
-	parser, err := NewParser()
-	require.NoError(t, err)
-
-	chunker := NewJavaChunker(parser)
+	chunker := getJavaChunker(t)
 
 	source := []byte(`package com.example;
 
@@ -299,10 +298,7 @@ record Person(String name, int age) {}
 // =============================================================================
 
 func TestJavaChunker_AnnotationType(t *testing.T) {
-	parser, err := NewParser()
-	require.NoError(t, err)
-
-	chunker := NewJavaChunker(parser)
+	chunker := getJavaChunker(t)
 
 	source := []byte(`package com.example;
 
@@ -351,10 +347,7 @@ public @interface MyAnnotation {
 // =============================================================================
 
 func TestJavaChunker_Constructor(t *testing.T) {
-	parser, err := NewParser()
-	require.NoError(t, err)
-
-	chunker := NewJavaChunker(parser)
+	chunker := getJavaChunker(t)
 
 	source := []byte(`package com.example;
 
@@ -420,10 +413,7 @@ public class User {
 // =============================================================================
 
 func TestJavaChunker_MultipleClasses(t *testing.T) {
-	parser, err := NewParser()
-	require.NoError(t, err)
-
-	chunker := NewJavaChunker(parser)
+	chunker := getJavaChunker(t)
 
 	source := []byte(`package com.example;
 
@@ -493,10 +483,7 @@ class Utils {
 // =============================================================================
 
 func TestJavaChunker_NestedClass(t *testing.T) {
-	parser, err := NewParser()
-	require.NoError(t, err)
-
-	chunker := NewJavaChunker(parser)
+	chunker := getJavaChunker(t)
 
 	source := []byte(`package com.example;
 
@@ -563,10 +550,7 @@ public class Outer {
 // =============================================================================
 
 func TestJavaChunker_Generics(t *testing.T) {
-	parser, err := NewParser()
-	require.NoError(t, err)
-
-	chunker := NewJavaChunker(parser)
+	chunker := getJavaChunker(t)
 
 	source := []byte(`package com.example;
 
@@ -633,10 +617,7 @@ interface Comparable<T> {
 // =============================================================================
 
 func TestJavaChunker_CorrectLineNumbers(t *testing.T) {
-	parser, err := NewParser()
-	require.NoError(t, err)
-
-	chunker := NewJavaChunker(parser)
+	chunker := getJavaChunker(t)
 
 	source := []byte(`package com.example;
 
@@ -698,10 +679,7 @@ public class Calculator {
 // =============================================================================
 
 func TestJavaChunker_ChunkContent(t *testing.T) {
-	parser, err := NewParser()
-	require.NoError(t, err)
-
-	chunker := NewJavaChunker(parser)
+	chunker := getJavaChunker(t)
 
 	source := []byte(`package com.example;
 
@@ -741,10 +719,7 @@ public class Greeter {
 // =============================================================================
 
 func TestJavaChunker_MethodSignature(t *testing.T) {
-	parser, err := NewParser()
-	require.NoError(t, err)
-
-	chunker := NewJavaChunker(parser)
+	chunker := getJavaChunker(t)
 
 	source := []byte(`package com.example;
 
@@ -785,10 +760,7 @@ public class Service {
 // =============================================================================
 
 func TestJavaChunker_DeterministicIDs(t *testing.T) {
-	parser, err := NewParser()
-	require.NoError(t, err)
-
-	chunker := NewJavaChunker(parser)
+	chunker := getJavaChunker(t)
 
 	source := []byte(`package com.example;
 
@@ -843,10 +815,7 @@ public class Calculator {
 // =============================================================================
 
 func TestJavaChunker_ContextCancellation(t *testing.T) {
-	parser, err := NewParser()
-	require.NoError(t, err)
-
-	chunker := NewJavaChunker(parser)
+	chunker := getJavaChunker(t)
 
 	source := []byte(`package com.example;
 
@@ -865,7 +834,7 @@ public class Test {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // Cancel immediately
 
-	_, err = chunker.Chunk(ctx, file)
+	_, err := chunker.Chunk(ctx, file)
 	// Should either return an error or handle gracefully
 	if err != nil {
 		assert.ErrorIs(t, err, context.Canceled, "Should return context.Canceled error")
@@ -877,10 +846,7 @@ public class Test {
 // =============================================================================
 
 func TestJavaChunker_ComprehensiveFile(t *testing.T) {
-	parser, err := NewParser()
-	require.NoError(t, err)
-
-	chunker := NewJavaChunker(parser)
+	chunker := getJavaChunker(t)
 
 	source := []byte(`package com.example.service;
 

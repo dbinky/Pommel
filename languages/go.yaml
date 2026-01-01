@@ -1,0 +1,30 @@
+# Go language configuration for Pommel
+language: go
+display_name: Go
+extensions:
+  - .go
+
+tree_sitter:
+  grammar: go
+
+chunk_mappings:
+  class:
+    - type_spec          # struct and interface definitions (via type_declaration)
+    - struct_type
+    - interface_type
+
+  method:
+    - function_declaration
+    - method_declaration
+
+  block:
+    - if_statement
+    - for_statement
+    - switch_statement
+    - select_statement
+
+extraction:
+  name_field: name
+  doc_comments:
+    - comment
+  doc_comment_position: preceding_siblings

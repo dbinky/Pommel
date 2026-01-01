@@ -2,6 +2,8 @@ package chunker
 
 import (
 	"context"
+	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -24,14 +26,16 @@ func TestChunkerRegistry_ContainsAllLanguageChunkers(t *testing.T) {
 	reg, err := NewChunkerRegistry()
 	require.NoError(t, err)
 
-	// Registry should contain chunkers for all supported languages
+	// Registry should contain chunkers for all supported languages from config files
+	// Note: The config-driven registry uses grammar names as language keys
+	// Languages with supported grammars: go, java, c_sharp, python, javascript, typescript
 	expectedLanguages := []Language{
-		LangCSharp,
+		LangGo,
+		LangJava,
+		Language("c_sharp"), // C# uses c_sharp grammar
 		LangPython,
 		LangJavaScript,
 		LangTypeScript,
-		LangTSX,
-		LangJSX,
 	}
 
 	for _, lang := range expectedLanguages {
@@ -80,7 +84,7 @@ func TestChunkerRegistry_RoutesToCSharpChunker(t *testing.T) {
 	file := &models.SourceFile{
 		Path:         "src/Calculator.cs",
 		Content:      []byte(source),
-		Language:     string(LangCSharp),
+		Language:     "csharp",
 		LastModified: time.Now(),
 	}
 
@@ -91,7 +95,7 @@ func TestChunkerRegistry_RoutesToCSharpChunker(t *testing.T) {
 	// CSharpChunker should extract multiple chunks (file, class, method)
 	assert.GreaterOrEqual(t, len(result.Chunks), 3, "CSharp chunker should extract file, class, and method chunks")
 
-	// Verify language is set correctly on chunks
+	// Verify language is set correctly on chunks (from config's language field)
 	for _, chunk := range result.Chunks {
 		assert.Equal(t, "csharp", chunk.Language, "Chunks should have csharp language")
 	}
@@ -191,7 +195,7 @@ function Hello(props: Props) {
 	file := &models.SourceFile{
 		Path:         "src/Hello.tsx",
 		Content:      []byte(source),
-		Language:     string(LangTSX),
+		Language:     "typescript", // TSX uses typescript grammar
 		LastModified: time.Now(),
 	}
 
@@ -199,8 +203,8 @@ function Hello(props: Props) {
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
-	// TSXChunker should extract chunks (file, interface, function)
-	assert.GreaterOrEqual(t, len(result.Chunks), 2, "TSX chunker should extract file and component/function chunks")
+	// TypeScript chunker (handling .tsx) should extract chunks (file, interface, function)
+	assert.GreaterOrEqual(t, len(result.Chunks), 2, "TypeScript chunker should extract file and component/function chunks")
 }
 
 func TestChunkerRegistry_RoutesToJSXChunker(t *testing.T) {
@@ -214,7 +218,7 @@ func TestChunkerRegistry_RoutesToJSXChunker(t *testing.T) {
 	file := &models.SourceFile{
 		Path:         "src/Hello.jsx",
 		Content:      []byte(source),
-		Language:     string(LangJSX),
+		Language:     "javascript", // JSX uses javascript grammar
 		LastModified: time.Now(),
 	}
 
@@ -222,8 +226,8 @@ func TestChunkerRegistry_RoutesToJSXChunker(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
-	// JSXChunker should extract chunks (file, function)
-	assert.GreaterOrEqual(t, len(result.Chunks), 2, "JSX chunker should extract file and function chunks")
+	// JavaScript chunker (handling .jsx) should extract chunks (file, function)
+	assert.GreaterOrEqual(t, len(result.Chunks), 2, "JavaScript chunker should extract file and function chunks")
 }
 
 // =============================================================================
@@ -245,46 +249,46 @@ func TestChunkerRegistry_Routes(t *testing.T) {
 			name:      "C# file",
 			path:      "test.cs",
 			source:    "public class Test { }",
-			language:  string(LangCSharp),
+			language:  "csharp",
 			minChunks: 1,
 		},
 		{
 			name:      "Python file",
 			path:      "test.py",
 			source:    "class Test:\n    pass",
-			language:  string(LangPython),
+			language:  "python",
 			minChunks: 1,
 		},
 		{
 			name:      "JavaScript file",
 			path:      "test.js",
 			source:    "class Test { }",
-			language:  string(LangJavaScript),
+			language:  "javascript",
 			minChunks: 1,
 		},
 		{
 			name:      "TypeScript file",
 			path:      "test.ts",
 			source:    "class Test { }",
-			language:  string(LangTypeScript),
+			language:  "typescript",
 			minChunks: 1,
 		},
 		{
 			name:      "TSX file",
 			path:      "test.tsx",
 			source:    "function Test() { return <div/>; }",
-			language:  string(LangTSX),
+			language:  "typescript", // TSX uses typescript config
 			minChunks: 1,
 		},
 		{
 			name:      "JSX file",
 			path:      "test.jsx",
 			source:    "function Test() { return <div/>; }",
-			language:  string(LangJSX),
+			language:  "javascript", // JSX uses javascript config
 			minChunks: 1,
 		},
 		{
-			name:      "Go file (fallback)",
+			name:      "Go file",
 			path:      "test.go",
 			source:    "package main",
 			language:  "go",
@@ -341,14 +345,14 @@ func TestChunkerRegistry_SupportedLanguages(t *testing.T) {
 		langMap[lang] = true
 	}
 
-	// Verify all expected languages are present
+	// Verify all expected languages are present (using grammar names)
 	expectedLanguages := []Language{
-		LangCSharp,
+		LangGo,
+		LangJava,
+		Language("c_sharp"), // C# uses c_sharp grammar
 		LangPython,
 		LangJavaScript,
 		LangTypeScript,
-		LangTSX,
-		LangJSX,
 	}
 
 	for _, expected := range expectedLanguages {
@@ -377,12 +381,12 @@ func TestChunkerRegistry_IsSupported_ReturnsTrue(t *testing.T) {
 	require.NoError(t, err)
 
 	supportedLanguages := []Language{
-		LangCSharp,
+		LangGo,
+		LangJava,
+		Language("c_sharp"), // C# uses c_sharp grammar
 		LangPython,
 		LangJavaScript,
 		LangTypeScript,
-		LangTSX,
-		LangJSX,
 	}
 
 	for _, lang := range supportedLanguages {
@@ -841,5 +845,212 @@ func TestChunkerRegistry_ConcurrentAccess(t *testing.T) {
 	// Wait for all goroutines to complete
 	for i := 0; i < len(files); i++ {
 		<-done
+	}
+}
+
+// =============================================================================
+// Config-Driven Registry Tests
+// =============================================================================
+
+// getTestLanguagesDir returns the path to the project's languages directory.
+func getTestLanguagesDir(t *testing.T) string {
+	t.Helper()
+	// Go up from internal/chunker to project root, then to languages/
+	_, filename, _, ok := runtime.Caller(0)
+	require.True(t, ok)
+	dir := filepath.Dir(filename)
+	return filepath.Join(dir, "..", "..", "languages")
+}
+
+func TestRegistry_NewRegistryFromConfig(t *testing.T) {
+	langDir := getTestLanguagesDir(t)
+	reg, err := NewRegistryFromConfig(langDir)
+	require.NoError(t, err, "NewRegistryFromConfig should not return an error")
+	require.NotNil(t, reg, "NewRegistryFromConfig should return a non-nil registry")
+
+	// Verify at least some languages were registered
+	languages := reg.SupportedLanguages()
+	assert.NotEmpty(t, languages, "Registry should have registered languages")
+}
+
+func TestRegistry_LoadFromEmbeddedConfig(t *testing.T) {
+	// Test that we can load from the project's languages/ directory
+	langDir := getTestLanguagesDir(t)
+	reg, err := NewRegistryFromConfig(langDir)
+	require.NoError(t, err)
+	require.NotNil(t, reg)
+
+	// Registry should have multiple languages registered
+	languages := reg.SupportedLanguages()
+	assert.GreaterOrEqual(t, len(languages), 4, "Should have at least 4 languages registered from config files")
+}
+
+func TestRegistry_GetChunkerByExtension_ConfigDriven(t *testing.T) {
+	langDir := getTestLanguagesDir(t)
+	reg, err := NewRegistryFromConfig(langDir)
+	require.NoError(t, err)
+
+	tests := []struct {
+		extension string
+		wantFound bool
+		wantLang  Language
+	}{
+		{".go", true, LangGo},
+		{".py", true, LangPython},
+		{".js", true, LangJavaScript},
+		{".ts", true, LangTypeScript},
+		{".java", true, LangJava},
+		{".cs", true, LangCSharp},
+		{".xyz", false, LangUnknown},
+		{".unknown", false, LangUnknown},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.extension, func(t *testing.T) {
+			chunker, found := reg.GetChunkerForExtension(tt.extension)
+			assert.Equal(t, tt.wantFound, found, "GetChunkerForExtension(%s) found mismatch", tt.extension)
+			if found {
+				assert.NotNil(t, chunker, "Chunker should not be nil when found")
+			}
+		})
+	}
+}
+
+func TestRegistry_AllConfiguredLanguagesRegistered(t *testing.T) {
+	langDir := getTestLanguagesDir(t)
+	reg, err := NewRegistryFromConfig(langDir)
+	require.NoError(t, err)
+
+	// Load configs directly to get expected count
+	configs, errors := LoadAllLanguageConfigs(langDir)
+	if len(errors) > 0 {
+		t.Logf("Config load warnings: %v", errors)
+	}
+
+	// Count configs with supported grammars
+	expectedCount := 0
+	for _, cfg := range configs {
+		if IsGrammarSupported(cfg.TreeSitter.Grammar) {
+			expectedCount++
+		}
+	}
+
+	languages := reg.SupportedLanguages()
+	assert.Equal(t, expectedCount, len(languages), "Should have registered all configs with supported grammars")
+}
+
+func TestRegistry_MultipleExtensionsPerLanguage(t *testing.T) {
+	langDir := getTestLanguagesDir(t)
+	reg, err := NewRegistryFromConfig(langDir)
+	require.NoError(t, err)
+
+	// TypeScript config should register for .ts, .tsx, .mts, .cts
+	tsExtensions := []string{".ts", ".tsx", ".mts", ".cts"}
+
+	for _, ext := range tsExtensions {
+		chunker, found := reg.GetChunkerForExtension(ext)
+		assert.True(t, found, "Should find chunker for %s", ext)
+		if found {
+			// The chunker's language should be typescript (the grammar)
+			assert.NotNil(t, chunker, "Chunker for %s should not be nil", ext)
+		}
+	}
+}
+
+func TestRegistry_CaseInsensitiveExtensions(t *testing.T) {
+	langDir := getTestLanguagesDir(t)
+	reg, err := NewRegistryFromConfig(langDir)
+	require.NoError(t, err)
+
+	// Extension lookup should be case-insensitive
+	tests := []struct {
+		extension string
+		wantFound bool
+	}{
+		{".go", true},
+		{".GO", true},
+		{".Go", true},
+		{".py", true},
+		{".PY", true},
+		{".Py", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.extension, func(t *testing.T) {
+			_, found := reg.GetChunkerForExtension(tt.extension)
+			assert.Equal(t, tt.wantFound, found, "GetChunkerForExtension(%s) should find chunker", tt.extension)
+		})
+	}
+}
+
+func TestRegistry_EmptyConfigDir(t *testing.T) {
+	// Create a temporary empty directory
+	tempDir := t.TempDir()
+
+	reg, err := NewRegistryFromConfig(tempDir)
+	assert.Error(t, err, "Should return error for empty config directory")
+	assert.Nil(t, reg, "Registry should be nil when no configs found")
+	assert.Contains(t, err.Error(), "no language configs found", "Error should mention no configs found")
+}
+
+func TestRegistry_MissingConfigDir(t *testing.T) {
+	nonExistentDir := "/nonexistent/path/to/configs"
+
+	reg, err := NewRegistryFromConfig(nonExistentDir)
+	assert.Error(t, err, "Should return error for missing config directory")
+	assert.Nil(t, reg, "Registry should be nil when config dir missing")
+}
+
+func TestRegistry_ConfigDrivenChunking(t *testing.T) {
+	langDir := getTestLanguagesDir(t)
+	reg, err := NewRegistryFromConfig(langDir)
+	require.NoError(t, err)
+
+	// Test that we can actually chunk files using the config-driven registry
+	source := `package main
+
+func main() {
+    println("Hello, World!")
+}`
+
+	file := &models.SourceFile{
+		Path:         "test.go",
+		Content:      []byte(source),
+		Language:     string(LangGo),
+		LastModified: time.Now(),
+	}
+
+	result, err := reg.Chunk(context.Background(), file)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+
+	// Should extract at least file chunk and function chunk
+	assert.GreaterOrEqual(t, len(result.Chunks), 2, "Should extract multiple chunks")
+}
+
+func TestRegistry_GetLanguageForExtension(t *testing.T) {
+	langDir := getTestLanguagesDir(t)
+	reg, err := NewRegistryFromConfig(langDir)
+	require.NoError(t, err)
+
+	tests := []struct {
+		extension string
+		wantLang  Language
+		wantFound bool
+	}{
+		{".go", LangGo, true},
+		{".py", LangPython, true},
+		{".js", LangJavaScript, true},
+		{".xyz", LangUnknown, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.extension, func(t *testing.T) {
+			lang, found := reg.GetLanguageForExtension(tt.extension)
+			assert.Equal(t, tt.wantFound, found)
+			if tt.wantFound {
+				assert.Equal(t, tt.wantLang, lang)
+			}
+		})
 	}
 }
