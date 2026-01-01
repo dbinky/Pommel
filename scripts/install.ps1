@@ -156,6 +156,73 @@ function Install-PommelBinaries {
 }
 #endregion
 
+#region Language Configuration Installation
+function Install-LanguageConfigs {
+    param(
+        [string]$InstallPath
+    )
+
+    $languagesDir = Join-Path $InstallPath "languages"
+    $baseUrl = "https://raw.githubusercontent.com/dbinky/Pommel/main/languages"
+
+    $languageFiles = @(
+        "csharp.yaml",
+        "dart.yaml",
+        "elixir.yaml",
+        "go.yaml",
+        "java.yaml",
+        "javascript.yaml",
+        "kotlin.yaml",
+        "php.yaml",
+        "python.yaml",
+        "rust.yaml",
+        "solidity.yaml",
+        "swift.yaml",
+        "typescript.yaml"
+    )
+
+    Write-Step "Installing language configuration files..."
+
+    # Create languages directory if needed
+    if (-not (Test-Path $languagesDir)) {
+        try {
+            New-Item -ItemType Directory -Path $languagesDir -Force | Out-Null
+            Write-Success "Created languages directory: $languagesDir"
+        }
+        catch {
+            Write-Failure "Failed to create languages directory: $_"
+            return
+        }
+    }
+
+    $successCount = 0
+    $failCount = 0
+
+    foreach ($file in $languageFiles) {
+        $url = "$baseUrl/$file"
+        $destPath = Join-Path $languagesDir $file
+
+        try {
+            Invoke-WebRequest -Uri $url -OutFile $destPath -UseBasicParsing
+            Write-Success "Downloaded $file"
+            $successCount++
+        }
+        catch {
+            Write-Warn "Failed to download $file : $_"
+            $failCount++
+        }
+    }
+
+    Write-Host ""
+    if ($failCount -eq 0) {
+        Write-Success "All $successCount language configs installed"
+    }
+    else {
+        Write-Warn "Installed $successCount language configs, $failCount failed"
+    }
+}
+#endregion
+
 #region PATH Configuration
 function Add-ToPath {
     param(
@@ -354,6 +421,9 @@ function Main {
 
         # Download binaries
         $binDir = Install-PommelBinaries -Version $version -Arch $arch -InstallPath $InstallDir
+
+        # Install language configuration files
+        Install-LanguageConfigs -InstallPath $InstallDir
 
         # Add to PATH
         Add-ToPath -Directory $binDir
