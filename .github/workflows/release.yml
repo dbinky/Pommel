@@ -80,8 +80,8 @@ jobs:
         run: |
           VERSION=${{ steps.version.outputs.VERSION }}
           mkdir -p dist
-          go build -ldflags "-X main.version=$VERSION" -o dist/pm-${{ matrix.suffix }}${{ matrix.binary_ext }} ./cmd/pm
-          go build -ldflags "-X main.version=$VERSION" -o dist/pommeld-${{ matrix.suffix }}${{ matrix.binary_ext }} ./cmd/pommeld
+          go build -tags fts5 -ldflags "-X main.version=$VERSION" -o dist/pm-${{ matrix.suffix }}${{ matrix.binary_ext }} ./cmd/pm
+          go build -tags fts5 -ldflags "-X main.version=$VERSION" -o dist/pommeld-${{ matrix.suffix }}${{ matrix.binary_ext }} ./cmd/pommeld
         shell: bash
 
       - name: Copy language configs

@@ -41,7 +41,7 @@ jobs:
         run: go mod download
 
       - name: Run tests
-        run: go test -race -coverprofile=coverage.out -covermode=atomic ./...
+        run: go test -tags fts5 -race -coverprofile=coverage.out -covermode=atomic ./...
         shell: bash
         env:
           CGO_CFLAGS: ${{ runner.os == 'Windows' && '-I/c/sqlite' || '' }}
@@ -122,8 +122,8 @@ jobs:
 
       - name: Build binaries
         run: |
-          go build -o bin/pm${{ matrix.binary_ext }} ./cmd/pm
-          go build -o bin/pommeld${{ matrix.binary_ext }} ./cmd/pommeld
+          go build -tags fts5 -o bin/pm${{ matrix.binary_ext }} ./cmd/pm
+          go build -tags fts5 -o bin/pommeld${{ matrix.binary_ext }} ./cmd/pommeld
         shell: bash
         env:
           CGO_CFLAGS: ${{ runner.os == 'Windows' && '-I/c/sqlite' || '' }}
