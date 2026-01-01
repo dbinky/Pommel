@@ -385,16 +385,16 @@ func detectLanguagePatterns(projectRoot string) []string {
 const pommelClaudeInstructions = `
 ## Pommel - Semantic Code Search
 
-This project uses Pommel for semantic code search. Pommel indexes your codebase into semantic chunks (files, classes, methods) and enables natural language search to find relevant code quickly.
+This project uses Pommel (v0.5.0) for semantic code search. Pommel indexes your codebase into semantic chunks and enables natural language search with hybrid vector + keyword matching.
 
 **Supported platforms:** macOS, Linux, Windows
-**Supported languages** (full AST-aware chunking): C#, Dart, Elixir, Go, Java, JavaScript, Kotlin, PHP, Python, Rust, Solidity, Swift, TypeScript
+**Supported languages:** C#, Dart, Elixir, Go, Java, JavaScript, Kotlin, PHP, Python, Rust, Solidity, Swift, TypeScript
 
 ### Code Search Priority
 
 **IMPORTANT: Use ` + "`pm search`" + ` BEFORE using Grep/Glob for code exploration.**
 
-When looking for:
+Pommel saves ~95% of tokens compared to traditional file exploration. When looking for:
 - How something is implemented → ` + "`pm search \"authentication flow\"`" + `
 - Where a pattern is used → ` + "`pm search \"error handling\"`" + `
 - Related code/concepts → ` + "`pm search \"database connection\"`" + `
@@ -421,10 +421,16 @@ pm search "API endpoints" --limit 5
 # Search specific chunk levels
 pm search "class definitions" --level class
 pm search "function implementations" --level method
+
+# Show detailed match reasons and score breakdown
+pm search "rate limiting" --verbose
+
+# Show context savings metrics
+pm search "database queries" --metrics
 ` + "```" + `
 
 ### Available Commands
-- ` + "`pm search <query>`" + ` - Semantic search across the codebase
+- ` + "`pm search <query>`" + ` - Hybrid semantic + keyword search across the codebase
 - ` + "`pm status`" + ` - Check daemon status and index statistics
 - ` + "`pm reindex`" + ` - Force a full reindex of the codebase
 - ` + "`pm start`" + ` / ` + "`pm stop`" + ` - Control the background daemon
@@ -433,6 +439,7 @@ pm search "function implementations" --level method
 - Use natural language queries - Pommel understands semantic meaning
 - Keep the daemon running (` + "`pm start`" + `) for always-current search results
 - Use ` + "`--json`" + ` flag when you need structured output for processing
+- Use ` + "`--verbose`" + ` to see why results matched (helpful for tuning queries)
 - Chunk levels: file (entire files), class (structs/interfaces/classes), method (functions/methods)
 `
 
@@ -440,6 +447,7 @@ pm search "function implementations" --level method
 const pommelClaudeMarker = "## Pommel - Semantic Code Search"
 
 // updateClaudeMD creates or updates CLAUDE.md with Pommel usage instructions
+// If an existing Pommel section is found, it is removed and replaced with the new instructions
 func updateClaudeMD(projectRoot string) error {
 	claudePath := filepath.Join(projectRoot, "CLAUDE.md")
 
@@ -449,26 +457,69 @@ func updateClaudeMD(projectRoot string) error {
 		return err
 	}
 
-	// Check if Pommel instructions already exist
-	if strings.Contains(string(existingContent), pommelClaudeMarker) {
-		// Already has Pommel instructions, don't duplicate
-		return nil
-	}
-
 	var newContent string
 	if len(existingContent) > 0 {
-		// Append to existing file
-		newContent = string(existingContent)
-		if !strings.HasSuffix(newContent, "\n") {
-			newContent += "\n"
+		// Remove existing Pommel section if present
+		contentStr := removePommelSection(string(existingContent))
+
+		// Append new Pommel instructions
+		if !strings.HasSuffix(contentStr, "\n") {
+			contentStr += "\n"
 		}
-		newContent += pommelClaudeInstructions
+		newContent = contentStr + pommelClaudeInstructions
 	} else {
 		// Create new file with header
 		newContent = "# CLAUDE.md\n" + pommelClaudeInstructions
 	}
 
 	return os.WriteFile(claudePath, []byte(newContent), 0644)
+}
+
+// removePommelSection removes the existing Pommel section from content
+// The section starts with "## Pommel - Semantic Code Search" and ends at the next "## " heading or EOF
+func removePommelSection(content string) string {
+	// Find the start of the Pommel section
+	startIdx := strings.Index(content, pommelClaudeMarker)
+	if startIdx == -1 {
+		// No Pommel section found
+		return content
+	}
+
+	// Find the end of the Pommel section (next ## heading or EOF)
+	afterStart := content[startIdx+len(pommelClaudeMarker):]
+	endIdx := -1
+
+	// Look for the next ## heading (but not ### or deeper)
+	lines := strings.Split(afterStart, "\n")
+	charCount := 0
+	for _, line := range lines {
+		charCount += len(line) + 1 // +1 for newline
+		if strings.HasPrefix(line, "## ") && !strings.HasPrefix(line, "### ") {
+			// Found the next section
+			endIdx = startIdx + len(pommelClaudeMarker) + charCount - len(line) - 1
+			break
+		}
+	}
+
+	// Build the new content
+	before := content[:startIdx]
+	var after string
+	if endIdx != -1 {
+		after = content[endIdx:]
+	}
+
+	// Clean up: remove trailing whitespace from before, but keep structure
+	before = strings.TrimRight(before, " \t")
+	// Ensure proper spacing
+	if len(before) > 0 && !strings.HasSuffix(before, "\n\n") {
+		if strings.HasSuffix(before, "\n") {
+			// Already has one newline
+		} else {
+			before += "\n"
+		}
+	}
+
+	return before + after
 }
 
 // handleMonorepoDetection handles detected subprojects during init
@@ -561,24 +612,23 @@ func updateClaudeMDFiles(projectRoot string, subprojects []*subproject.DetectedS
 }
 
 // updateClaudeMDForSubproject creates or updates CLAUDE.md for a subproject
+// If an existing Pommel section is found, it is removed and replaced with the new instructions
 func updateClaudeMDForSubproject(spPath string, sp *subproject.DetectedSubproject) error {
 	claudePath := filepath.Join(spPath, "CLAUDE.md")
 
 	var existingContent []byte
 	existingContent, _ = os.ReadFile(claudePath)
 
-	// Check if already has Pommel section
-	if strings.Contains(string(existingContent), pommelClaudeMarker) {
-		return nil // Already updated
-	}
-
 	var newContent string
 	if len(existingContent) > 0 {
-		newContent = string(existingContent)
-		if !strings.HasSuffix(newContent, "\n") {
-			newContent += "\n"
+		// Remove existing Pommel section if present
+		contentStr := removePommelSection(string(existingContent))
+
+		// Append new Pommel instructions
+		if !strings.HasSuffix(contentStr, "\n") {
+			contentStr += "\n"
 		}
-		newContent += pommelSubprojectInstructions(sp)
+		newContent = contentStr + pommelSubprojectInstructions(sp)
 	} else {
 		newContent = "# CLAUDE.md\n" + pommelSubprojectInstructions(sp)
 	}
@@ -591,15 +641,15 @@ func pommelSubprojectInstructions(sp *subproject.DetectedSubproject) string {
 	return fmt.Sprintf(`
 ## Pommel - Semantic Code Search
 
-This sub-project (%s) uses Pommel for semantic code search. Pommel indexes your codebase into semantic chunks (files, classes, methods) and enables natural language search.
+This sub-project (%s) uses Pommel (v0.5.0) for semantic code search with hybrid vector + keyword matching.
 
-**Supported languages** (full AST-aware chunking): C#, Dart, Elixir, Go, Java, JavaScript, Kotlin, PHP, Python, Rust, Solidity, Swift, TypeScript
+**Supported languages:** C#, Dart, Elixir, Go, Java, JavaScript, Kotlin, PHP, Python, Rust, Solidity, Swift, TypeScript
 
 ### Code Search Priority
 
 **IMPORTANT: Use `+"`pm search`"+` BEFORE using Grep/Glob for code exploration.**
 
-When looking for:
+Pommel saves ~95%% of tokens compared to traditional file exploration. When looking for:
 - How something is implemented → `+"`pm search \"authentication flow\"`"+`
 - Where a pattern is used → `+"`pm search \"error handling\"`"+`
 - Related code/concepts → `+"`pm search \"database connection\"`"+`
@@ -623,10 +673,13 @@ pm search "shared utilities" --all
 
 # Search specific chunk levels
 pm search "class definitions" --level class
+
+# Show detailed match reasons
+pm search "rate limiting" --verbose
 `+"```"+`
 
 ### Available Commands
-- `+"`pm search <query>`"+` - Search this sub-project (or use --all for everything)
+- `+"`pm search <query>`"+` - Hybrid search this sub-project (or use --all for everything)
 - `+"`pm status`"+` - Check daemon status and index statistics
 - `+"`pm subprojects`"+` - List all sub-projects
 - `+"`pm start`"+` / `+"`pm stop`"+` - Control the background daemon
@@ -634,6 +687,7 @@ pm search "class definitions" --level class
 ### Tips
 - Searches default to this sub-project when you're in this directory
 - Use `+"`--all`"+` to search across the entire monorepo
+- Use `+"`--verbose`"+` to see why results matched
 - Chunk levels: file (entire files), class (structs/interfaces/classes), method (functions/methods)
 `, sp.ID)
 }

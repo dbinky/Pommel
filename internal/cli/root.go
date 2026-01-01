@@ -8,7 +8,7 @@ import (
 )
 
 var (
-	Version     = "0.1.0"
+	Version     = "0.5.0"
 	BuildCommit = "unknown"
 	BuildDate   = "unknown"
 
@@ -26,6 +26,7 @@ context window consumption for AI coding agents.
 It maintains an always-current vector database of code embeddings,
 enabling targeted semantic searches rather than reading numerous
 files into context.`,
+	Version:       Version,
 	SilenceUsage:  true,
 	SilenceErrors: true,
 }

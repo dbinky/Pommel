@@ -981,3 +981,251 @@ func TestInitCmd_DoesNotDuplicateGitignoreEntry(t *testing.T) {
 	}
 	assert.Equal(t, 1, count, "Should not duplicate .pommel/ entry")
 }
+
+// =============================================================================
+// Tests for --claude replacing existing Pommel instructions
+// =============================================================================
+
+func TestInitCmd_ClaudeFlag_ReplacesExistingPommelSection(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "pommel-init-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	// Create existing CLAUDE.md with old Pommel section
+	claudePath := filepath.Join(tmpDir, "CLAUDE.md")
+	oldContent := `# CLAUDE.md
+
+Some project instructions here.
+
+## Pommel - Semantic Code Search
+
+Old Pommel instructions that should be removed.
+These are outdated.
+
+### Old Section
+More old content.
+
+## Other Section
+
+This should be preserved.
+`
+	err = os.WriteFile(claudePath, []byte(oldContent), 0644)
+	require.NoError(t, err)
+
+	// Run init with --claude flag
+	var outBuf, errBuf bytes.Buffer
+	err = runInitWithFlags(tmpDir, &outBuf, &errBuf, InitFlags{Claude: true})
+	require.NoError(t, err)
+
+	// Verify old Pommel section was replaced
+	content, err := os.ReadFile(claudePath)
+	require.NoError(t, err)
+	contentStr := string(content)
+
+	// Should preserve content before Pommel section
+	assert.Contains(t, contentStr, "Some project instructions here", "Should preserve content before Pommel")
+
+	// Should preserve content after Pommel section
+	assert.Contains(t, contentStr, "## Other Section", "Should preserve other sections")
+	assert.Contains(t, contentStr, "This should be preserved", "Should preserve other section content")
+
+	// Should NOT contain old Pommel content
+	assert.NotContains(t, contentStr, "Old Pommel instructions", "Should remove old Pommel instructions")
+	assert.NotContains(t, contentStr, "These are outdated", "Should remove old Pommel content")
+
+	// Should contain new Pommel instructions
+	assert.Contains(t, contentStr, "pm search", "Should have new pm search instructions")
+	assert.Contains(t, contentStr, "--json", "Should have new --json flag documentation")
+
+	// Should only have one Pommel section
+	count := bytes.Count(content, []byte("## Pommel - Semantic Code Search"))
+	assert.Equal(t, 1, count, "Should have exactly one Pommel section")
+}
+
+func TestInitCmd_ClaudeFlag_ReplacesEvenWhenAtEnd(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "pommel-init-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	// Create existing CLAUDE.md with Pommel section at the end
+	claudePath := filepath.Join(tmpDir, "CLAUDE.md")
+	oldContent := `# CLAUDE.md
+
+Some project instructions.
+
+## Pommel - Semantic Code Search
+
+Old instructions at the end of file.
+`
+	err = os.WriteFile(claudePath, []byte(oldContent), 0644)
+	require.NoError(t, err)
+
+	// Run init with --claude flag
+	var outBuf, errBuf bytes.Buffer
+	err = runInitWithFlags(tmpDir, &outBuf, &errBuf, InitFlags{Claude: true})
+	require.NoError(t, err)
+
+	// Verify the section was replaced
+	content, err := os.ReadFile(claudePath)
+	require.NoError(t, err)
+	contentStr := string(content)
+
+	assert.Contains(t, contentStr, "Some project instructions", "Should preserve earlier content")
+	assert.NotContains(t, contentStr, "Old instructions at the end", "Should remove old content")
+	assert.Contains(t, contentStr, "pm search", "Should have new instructions")
+}
+
+func TestInitCmd_ClaudeFlag_PreservesContentAroundPommelSection(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "pommel-init-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	// Create CLAUDE.md with Pommel section in the middle
+	claudePath := filepath.Join(tmpDir, "CLAUDE.md")
+	oldContent := `# CLAUDE.md
+
+## Project Setup
+
+Instructions for setting up the project.
+
+## Pommel - Semantic Code Search
+
+Old Pommel stuff here.
+More old stuff.
+
+## Testing
+
+How to run tests.
+
+## Deployment
+
+How to deploy.
+`
+	err = os.WriteFile(claudePath, []byte(oldContent), 0644)
+	require.NoError(t, err)
+
+	// Run init with --claude flag
+	var outBuf, errBuf bytes.Buffer
+	err = runInitWithFlags(tmpDir, &outBuf, &errBuf, InitFlags{Claude: true})
+	require.NoError(t, err)
+
+	content, err := os.ReadFile(claudePath)
+	require.NoError(t, err)
+	contentStr := string(content)
+
+	// All other sections should be preserved
+	assert.Contains(t, contentStr, "## Project Setup", "Should preserve Project Setup")
+	assert.Contains(t, contentStr, "Instructions for setting up", "Should preserve Project Setup content")
+	assert.Contains(t, contentStr, "## Testing", "Should preserve Testing section")
+	assert.Contains(t, contentStr, "How to run tests", "Should preserve Testing content")
+	assert.Contains(t, contentStr, "## Deployment", "Should preserve Deployment section")
+	assert.Contains(t, contentStr, "How to deploy", "Should preserve Deployment content")
+
+	// Old Pommel content should be gone
+	assert.NotContains(t, contentStr, "Old Pommel stuff", "Should remove old Pommel content")
+
+	// New Pommel content should be at the end
+	assert.Contains(t, contentStr, "pm search", "Should have new Pommel instructions")
+}
+
+func TestInitCmd_ClaudeFlag_HandlesSubsectionsInPommelSection(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "pommel-init-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	// Create CLAUDE.md with Pommel section that has subsections (### headings)
+	claudePath := filepath.Join(tmpDir, "CLAUDE.md")
+	oldContent := `# CLAUDE.md
+
+## Introduction
+
+Welcome.
+
+## Pommel - Semantic Code Search
+
+Old intro.
+
+### Old Subsection 1
+
+Content 1.
+
+### Old Subsection 2
+
+Content 2.
+
+## Conclusion
+
+Final notes.
+`
+	err = os.WriteFile(claudePath, []byte(oldContent), 0644)
+	require.NoError(t, err)
+
+	// Run init with --claude flag
+	var outBuf, errBuf bytes.Buffer
+	err = runInitWithFlags(tmpDir, &outBuf, &errBuf, InitFlags{Claude: true})
+	require.NoError(t, err)
+
+	content, err := os.ReadFile(claudePath)
+	require.NoError(t, err)
+	contentStr := string(content)
+
+	// Should remove the entire Pommel section including subsections
+	assert.NotContains(t, contentStr, "Old intro", "Should remove Pommel intro")
+	assert.NotContains(t, contentStr, "Old Subsection 1", "Should remove subsection 1")
+	assert.NotContains(t, contentStr, "Old Subsection 2", "Should remove subsection 2")
+	assert.NotContains(t, contentStr, "Content 1", "Should remove subsection content")
+
+	// Should preserve other sections
+	assert.Contains(t, contentStr, "## Introduction", "Should preserve Introduction")
+	assert.Contains(t, contentStr, "## Conclusion", "Should preserve Conclusion")
+	assert.Contains(t, contentStr, "Final notes", "Should preserve Conclusion content")
+}
+
+func TestInitCmd_ClaudeFlag_UpdatesSubprojectWithExistingSection(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "pommel-init-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	// Create subproject with existing Pommel section
+	subDir := filepath.Join(tmpDir, "backend")
+	require.NoError(t, os.MkdirAll(subDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(subDir, "go.mod"), []byte("module backend"), 0644))
+
+	claudePath := filepath.Join(subDir, "CLAUDE.md")
+	oldContent := `# Backend
+
+## Setup
+
+Backend setup instructions.
+
+## Pommel - Semantic Code Search
+
+Old subproject pommel instructions.
+
+## API
+
+API documentation.
+`
+	err = os.WriteFile(claudePath, []byte(oldContent), 0644)
+	require.NoError(t, err)
+
+	// Run init with --claude --monorepo
+	var outBuf, errBuf bytes.Buffer
+	err = runInitWithFlags(tmpDir, &outBuf, &errBuf, InitFlags{Claude: true, Monorepo: true})
+	require.NoError(t, err)
+
+	content, err := os.ReadFile(claudePath)
+	require.NoError(t, err)
+	contentStr := string(content)
+
+	// Should preserve other sections
+	assert.Contains(t, contentStr, "## Setup", "Should preserve Setup")
+	assert.Contains(t, contentStr, "## API", "Should preserve API")
+
+	// Should remove old Pommel content
+	assert.NotContains(t, contentStr, "Old subproject pommel", "Should remove old content")
+
+	// Should have new Pommel instructions
+	assert.Contains(t, contentStr, "pm search", "Should have new instructions")
+	assert.Contains(t, contentStr, "backend", "Should mention subproject name")
+}

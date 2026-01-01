@@ -41,8 +41,48 @@ type EmbeddingConfig struct {
 
 // SearchConfig contains search default settings
 type SearchConfig struct {
-	DefaultLimit  int      `yaml:"default_limit" json:"default_limit" mapstructure:"default_limit"`
-	DefaultLevels []string `yaml:"default_levels" json:"default_levels" mapstructure:"default_levels"`
+	DefaultLimit  int                `yaml:"default_limit" json:"default_limit" mapstructure:"default_limit"`
+	DefaultLevels []string           `yaml:"default_levels" json:"default_levels" mapstructure:"default_levels"`
+	Hybrid        HybridSearchConfig `yaml:"hybrid" json:"hybrid" mapstructure:"hybrid"`
+	Reranker      RerankerConfig     `yaml:"reranker" json:"reranker" mapstructure:"reranker"`
+}
+
+// HybridSearchConfig contains hybrid search settings
+type HybridSearchConfig struct {
+	Enabled       bool    `yaml:"enabled" json:"enabled" mapstructure:"enabled"`
+	RRFK          int     `yaml:"rrf_k" json:"rrf_k" mapstructure:"rrf_k"`
+	VectorWeight  float64 `yaml:"vector_weight" json:"vector_weight" mapstructure:"vector_weight"`
+	KeywordWeight float64 `yaml:"keyword_weight" json:"keyword_weight" mapstructure:"keyword_weight"`
+}
+
+// DefaultHybridSearchConfig returns the default hybrid search configuration
+func DefaultHybridSearchConfig() HybridSearchConfig {
+	return HybridSearchConfig{
+		Enabled:       true,
+		RRFK:          60,
+		VectorWeight:  0.7,
+		KeywordWeight: 0.3,
+	}
+}
+
+// RerankerConfig contains re-ranker settings
+type RerankerConfig struct {
+	Enabled    bool   `yaml:"enabled" json:"enabled" mapstructure:"enabled"`
+	Model      string `yaml:"model" json:"model,omitempty" mapstructure:"model"`
+	TimeoutMs  int    `yaml:"timeout_ms" json:"timeout_ms" mapstructure:"timeout_ms"`
+	Fallback   string `yaml:"fallback" json:"fallback" mapstructure:"fallback"`
+	Candidates int    `yaml:"candidates" json:"candidates" mapstructure:"candidates"`
+}
+
+// DefaultRerankerConfig returns the default re-ranker configuration
+func DefaultRerankerConfig() RerankerConfig {
+	return RerankerConfig{
+		Enabled:    true,
+		Model:      "",   // Empty = use heuristic only
+		TimeoutMs:  2000, // 2 seconds
+		Fallback:   "heuristic",
+		Candidates: 20,
+	}
 }
 
 // SubprojectsConfig contains sub-project detection settings
