@@ -6,6 +6,7 @@ BINARY_DAEMON = pommeld
 BUILD_DIR = bin
 GO = go
 GOFLAGS = -trimpath
+TAGS = fts5
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 DATE ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
@@ -25,22 +26,22 @@ build: build-cli build-daemon
 .PHONY: build-cli
 build-cli:
 	@mkdir -p $(BUILD_DIR)
-	$(GO) build $(GOFLAGS) -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_CLI) ./cmd/pm
+	$(GO) build $(GOFLAGS) -tags "$(TAGS)" -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_CLI) ./cmd/pm
 
 .PHONY: build-daemon
 build-daemon:
 	@mkdir -p $(BUILD_DIR)
-	$(GO) build $(GOFLAGS) -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_DAEMON) ./cmd/pommeld
+	$(GO) build $(GOFLAGS) -tags "$(TAGS)" -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_DAEMON) ./cmd/pommeld
 
 # Run tests
 .PHONY: test
 test:
-	$(GO) test -v -race -cover ./...
+	$(GO) test -tags "$(TAGS)" -v -race -cover ./...
 
 # Run tests with coverage report
 .PHONY: coverage
 coverage:
-	$(GO) test -v -race -coverprofile=coverage.out ./...
+	$(GO) test -tags "$(TAGS)" -v -race -coverprofile=coverage.out ./...
 	$(GO) tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report: coverage.html"
 
@@ -67,18 +68,18 @@ clean:
 # Install binaries to GOPATH/bin
 .PHONY: install
 install:
-	$(GO) install ./cmd/pm
-	$(GO) install ./cmd/pommeld
+	$(GO) install -tags "$(TAGS)" ./cmd/pm
+	$(GO) install -tags "$(TAGS)" ./cmd/pommeld
 
 # Run the CLI (for development)
 .PHONY: run-cli
 run-cli:
-	$(GO) run ./cmd/pm $(ARGS)
+	$(GO) run -tags "$(TAGS)" ./cmd/pm $(ARGS)
 
 # Run the daemon (for development)
 .PHONY: run-daemon
 run-daemon:
-	$(GO) run ./cmd/pommeld $(ARGS)
+	$(GO) run -tags "$(TAGS)" ./cmd/pommeld $(ARGS)
 
 # Tidy dependencies
 .PHONY: tidy

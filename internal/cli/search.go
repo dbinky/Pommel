@@ -3,8 +3,11 @@ package cli
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/pommel-dev/pommel/internal/api"
+	"github.com/pommel-dev/pommel/internal/metrics"
+	"github.com/pommel-dev/pommel/internal/output"
 	"github.com/spf13/cobra"
 )
 
@@ -14,6 +17,10 @@ var (
 	searchPath       string
 	searchAll        bool
 	searchSubproject string
+	searchNoHybrid   bool
+	searchNoRerank   bool
+	searchVerbose    bool
+	searchMetrics    bool
 )
 
 var searchCmd = &cobra.Command{
@@ -40,6 +47,10 @@ func init() {
 	searchCmd.Flags().StringVar(&searchPath, "path", "", "Filter by path prefix")
 	searchCmd.Flags().BoolVar(&searchAll, "all", false, "Search entire index (no scope filtering)")
 	searchCmd.Flags().StringVarP(&searchSubproject, "subproject", "s", "", "Filter by sub-project ID")
+	searchCmd.Flags().BoolVar(&searchNoHybrid, "no-hybrid", false, "Disable hybrid search (vector only)")
+	searchCmd.Flags().BoolVar(&searchNoRerank, "no-rerank", false, "Disable re-ranking stage")
+	searchCmd.Flags().BoolVarP(&searchVerbose, "verbose", "v", false, "Show detailed match reasons and score breakdown")
+	searchCmd.Flags().BoolVar(&searchMetrics, "metrics", false, "Show context savings metrics vs grep baseline")
 }
 
 func runSearch(cmd *cobra.Command, args []string) error {
@@ -55,6 +66,18 @@ func runSearch(cmd *cobra.Command, args []string) error {
 		Limit:      searchLimit,
 		Levels:     searchLevels,
 		PathPrefix: searchPath,
+	}
+
+	// Set hybrid enabled flag if explicitly disabled
+	if searchNoHybrid {
+		hybridEnabled := false
+		req.HybridEnabled = &hybridEnabled
+	}
+
+	// Set rerank enabled flag if explicitly disabled
+	if searchNoRerank {
+		rerankEnabled := false
+		req.RerankEnabled = &rerankEnabled
 	}
 
 	// Wire up scope flags
@@ -84,6 +107,11 @@ func runSearch(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
+	// Use verbose formatter if requested
+	if searchVerbose {
+		return formatVerboseOutput(resp, query)
+	}
+
 	Info("Found %d results for: %s (%.0fms)\n", resp.TotalResults, resp.Query, float64(resp.SearchTimeMs))
 
 	for i, result := range resp.Results {
@@ -109,6 +137,69 @@ func runSearch(cmd *cobra.Command, args []string) error {
 				fmt.Printf("   | %s\n", line)
 			}
 		}
+	}
+
+	// Show metrics if requested
+	if searchMetrics {
+		showSearchMetrics(resp)
+	}
+
+	return nil
+}
+
+// showSearchMetrics displays context savings metrics
+func showSearchMetrics(resp *api.SearchResponse) {
+	// Calculate metrics from search results
+	searchTime := time.Duration(resp.SearchTimeMs) * time.Millisecond
+	m := metrics.FromSearchResults(resp.Results, searchTime)
+
+	// Estimate baseline (typical project: 500 files, 100 lines avg)
+	// In a real implementation, this would query the actual index stats
+	baseline := metrics.EstimateGrepBaseline(500, 100)
+	savings := metrics.CalculateSavings(m.TotalTokens, baseline.EstimatedTokens)
+
+	fmt.Println()
+	fmt.Println("───────────────────────────────────────")
+	fmt.Printf("Context Savings:\n")
+	fmt.Printf("  Pommel returned: %d tokens (%d lines)\n", m.TotalTokens, m.TotalLines)
+	fmt.Printf("  Grep would read: ~%d tokens (%d lines)\n", baseline.EstimatedTokens, baseline.TotalLines)
+	if savings.PercentSaved > 0 {
+		fmt.Printf("  Saved: %d tokens (%.0f%% reduction)\n", savings.TokensSaved, savings.PercentSaved)
+	}
+}
+
+// formatVerboseOutput formats results with detailed match information
+func formatVerboseOutput(resp *api.SearchResponse, query string) error {
+	formatter := output.NewFormatter(output.FormatVerbose)
+	formatter.Query = query
+
+	// Print summary
+	fmt.Println(formatter.FormatSummary(resp))
+	fmt.Println()
+
+	for i, result := range resp.Results {
+		// Generate match reasons if not already populated
+		if len(result.MatchReasons) == 0 {
+			result.MatchReasons = output.GenerateMatchReasons(&result, query, result.ScoreDetails)
+		}
+
+		fmt.Print(formatter.FormatResult(&result, i))
+
+		// Show content preview
+		content := strings.TrimSpace(result.Content)
+		lines := strings.Split(content, "\n")
+		maxLines := 3
+		if len(lines) > maxLines {
+			for _, line := range lines[:maxLines] {
+				fmt.Printf("    | %s\n", line)
+			}
+			fmt.Printf("    | ... (%d more lines)\n", len(lines)-maxLines)
+		} else {
+			for _, line := range lines {
+				fmt.Printf("    | %s\n", line)
+			}
+		}
+		fmt.Println()
 	}
 
 	return nil

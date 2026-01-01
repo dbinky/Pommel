@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-const SchemaVersion = 2
+const SchemaVersion = 3
 
 // Migrate runs database migrations to ensure schema is up to date.
 func (db *DB) Migrate(ctx context.Context) error {
@@ -28,6 +28,12 @@ func (db *DB) Migrate(ctx context.Context) error {
 	if currentVersion < 2 {
 		if err := db.migrateV2(ctx); err != nil {
 			return fmt.Errorf("failed to run v2 migration: %w", err)
+		}
+	}
+
+	if currentVersion < 3 {
+		if err := db.migrateV3(ctx); err != nil {
+			return fmt.Errorf("failed to run v3 migration: %w", err)
 		}
 	}
 
@@ -260,4 +266,28 @@ func (db *DB) columnExists(ctx context.Context, table, column string) bool {
 		}
 	}
 	return false
+}
+
+// migrateV3 adds FTS5 full-text search support.
+func (db *DB) migrateV3(ctx context.Context) error {
+	// Create FTS5 table for full-text search
+	if err := db.CreateFTSTable(ctx); err != nil {
+		return fmt.Errorf("failed to create FTS table: %w", err)
+	}
+
+	// Populate FTS from existing chunks
+	count, err := db.PopulateFTSFromChunks(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to populate FTS table: %w", err)
+	}
+
+	// Log the number of entries populated (for debugging)
+	_ = count
+
+	// Update schema version
+	if err := db.setSchemaVersion(ctx, 3); err != nil {
+		return fmt.Errorf("failed to set schema version: %w", err)
+	}
+
+	return nil
 }
