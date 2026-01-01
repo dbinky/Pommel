@@ -506,3 +506,130 @@ func executeSearchWithScope(daemonURL, query string, limit int, levels []string,
 
 	return string(body), nil
 }
+
+// =============================================================================
+// Hybrid Search Flag Tests
+// =============================================================================
+
+func TestSearchCmd_NoHybridFlagRegistered(t *testing.T) {
+	flag := searchCmd.Flags().Lookup("no-hybrid")
+	assert.NotNil(t, flag, "--no-hybrid flag should be registered")
+	assert.Equal(t, "bool", flag.Value.Type())
+	assert.Equal(t, "false", flag.DefValue)
+}
+
+func TestSearchCmd_DefaultHybridEnabled(t *testing.T) {
+	// Test that without --no-hybrid flag, HybridEnabled is nil (uses config default)
+	var receivedReq api.SearchRequest
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		require.NoError(t, err)
+		err = json.Unmarshal(body, &receivedReq)
+		require.NoError(t, err)
+
+		response := api.SearchResponse{
+			Query:         receivedReq.Query,
+			Results:       []api.SearchResult{},
+			TotalResults:  0,
+			SearchTimeMs:  5,
+			HybridEnabled: true,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	err := executeSearchWithHybrid(server.URL, "test query", 10, nil, "", nil)
+	require.NoError(t, err)
+	assert.Nil(t, receivedReq.HybridEnabled, "HybridEnabled should be nil when not specified")
+}
+
+func TestSearchCmd_NoHybridFlagDisablesHybrid(t *testing.T) {
+	// Test that --no-hybrid flag sets HybridEnabled to false
+	var receivedReq api.SearchRequest
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		require.NoError(t, err)
+		err = json.Unmarshal(body, &receivedReq)
+		require.NoError(t, err)
+
+		response := api.SearchResponse{
+			Query:         receivedReq.Query,
+			Results:       []api.SearchResult{},
+			TotalResults:  0,
+			SearchTimeMs:  5,
+			HybridEnabled: false,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	hybridEnabled := false
+	err := executeSearchWithHybrid(server.URL, "test query", 10, nil, "", &hybridEnabled)
+	require.NoError(t, err)
+	require.NotNil(t, receivedReq.HybridEnabled, "HybridEnabled should be set")
+	assert.False(t, *receivedReq.HybridEnabled, "HybridEnabled should be false")
+}
+
+func TestSearchCmd_HybridWithOtherFlags(t *testing.T) {
+	// Test that --no-hybrid combines with --limit, --level, --path
+	var receivedReq api.SearchRequest
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		require.NoError(t, err)
+		err = json.Unmarshal(body, &receivedReq)
+		require.NoError(t, err)
+
+		response := api.SearchResponse{
+			Query:         receivedReq.Query,
+			Results:       []api.SearchResult{},
+			TotalResults:  0,
+			SearchTimeMs:  5,
+			HybridEnabled: false,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	hybridEnabled := false
+	levels := []string{"function", "method"}
+	err := executeSearchWithHybrid(server.URL, "test query", 5, levels, "internal/", &hybridEnabled)
+	require.NoError(t, err)
+
+	assert.Equal(t, "test query", receivedReq.Query)
+	assert.Equal(t, 5, receivedReq.Limit)
+	assert.Equal(t, levels, receivedReq.Levels)
+	assert.Equal(t, "internal/", receivedReq.PathPrefix)
+	require.NotNil(t, receivedReq.HybridEnabled)
+	assert.False(t, *receivedReq.HybridEnabled)
+}
+
+// executeSearchWithHybrid sends a search request with hybrid flag support
+func executeSearchWithHybrid(daemonURL, query string, limit int, levels []string, pathPrefix string, hybridEnabled *bool) error {
+	req := api.SearchRequest{
+		Query:         query,
+		Limit:         limit,
+		Levels:        levels,
+		PathPrefix:    pathPrefix,
+		HybridEnabled: hybridEnabled,
+	}
+
+	reqBody, err := json.Marshal(req)
+	if err != nil {
+		return fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	resp, err := http.Post(daemonURL+"/search", "application/json", bytes.NewReader(reqBody))
+	if err != nil {
+		return fmt.Errorf("failed to connect to daemon: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("search failed with status %d", resp.StatusCode)
+	}
+
+	return nil
+}

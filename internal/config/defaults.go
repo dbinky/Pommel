@@ -49,6 +49,7 @@ func Default() *Config {
 				"method",
 				"class",
 			},
+			Hybrid: DefaultHybridSearchConfig(),
 		},
 		Subprojects: SubprojectsConfig{
 			AutoDetect: true,

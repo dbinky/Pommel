@@ -8,11 +8,12 @@ import "time"
 
 // SearchRequest represents a search query request
 type SearchRequest struct {
-	Query      string             `json:"query"`
-	Limit      int                `json:"limit,omitempty"`
-	Levels     []string           `json:"levels,omitempty"`
-	PathPrefix string             `json:"path_prefix,omitempty"`
-	Scope      SearchScopeRequest `json:"scope,omitempty"`
+	Query         string             `json:"query"`
+	Limit         int                `json:"limit,omitempty"`
+	Levels        []string           `json:"levels,omitempty"`
+	PathPrefix    string             `json:"path_prefix,omitempty"`
+	Scope         SearchScopeRequest `json:"scope,omitempty"`
+	HybridEnabled *bool              `json:"hybrid_enabled,omitempty"` // nil = use config default, true/false = explicit
 }
 
 // SearchScopeRequest specifies the search scope in the request
@@ -23,11 +24,12 @@ type SearchScopeRequest struct {
 
 // SearchResponse represents the search results response
 type SearchResponse struct {
-	Query        string               `json:"query"`
-	Results      []SearchResult       `json:"results"`
-	TotalResults int                  `json:"total_results"`
-	SearchTimeMs int64                `json:"search_time_ms"`
-	Scope        *SearchScopeResponse `json:"scope,omitempty"`
+	Query         string               `json:"query"`
+	Results       []SearchResult       `json:"results"`
+	TotalResults  int                  `json:"total_results"`
+	SearchTimeMs  int64                `json:"search_time_ms"`
+	Scope         *SearchScopeResponse `json:"scope,omitempty"`
+	HybridEnabled bool                 `json:"hybrid_enabled"`
 }
 
 // SearchScopeResponse provides scope information in the response
@@ -39,16 +41,17 @@ type SearchScopeResponse struct {
 
 // SearchResult represents a single search result
 type SearchResult struct {
-	ID        string      `json:"id"`
-	File      string      `json:"file"`
-	StartLine int         `json:"start_line"`
-	EndLine   int         `json:"end_line"`
-	Level     string      `json:"level"`
-	Language  string      `json:"language"`
-	Name      string      `json:"name"`
-	Score     float32     `json:"score"`
-	Content   string      `json:"content"`
-	Parent    *ParentInfo `json:"parent,omitempty"`
+	ID          string      `json:"id"`
+	File        string      `json:"file"`
+	StartLine   int         `json:"start_line"`
+	EndLine     int         `json:"end_line"`
+	Level       string      `json:"level"`
+	Language    string      `json:"language"`
+	Name        string      `json:"name"`
+	Score       float32     `json:"score"`
+	Content     string      `json:"content"`
+	Parent      *ParentInfo `json:"parent,omitempty"`
+	MatchSource string      `json:"match_source,omitempty"` // "vector", "keyword", or "both"
 }
 
 // ParentInfo provides information about a parent code element

@@ -127,6 +127,12 @@ func TestDefault(t *testing.T) {
 	// Search
 	assert.Equal(t, 10, cfg.Search.DefaultLimit)
 	assert.Equal(t, []string{"method", "class"}, cfg.Search.DefaultLevels)
+
+	// Hybrid Search
+	assert.True(t, cfg.Search.Hybrid.Enabled)
+	assert.Equal(t, 60, cfg.Search.Hybrid.RRFK)
+	assert.Equal(t, 0.7, cfg.Search.Hybrid.VectorWeight)
+	assert.Equal(t, 0.3, cfg.Search.Hybrid.KeywordWeight)
 }
 
 func TestDefault_Validation(t *testing.T) {
@@ -706,4 +712,107 @@ func TestValidLogLevels(t *testing.T) {
 			}
 		})
 	}
+}
+
+// ============================================================================
+// Hybrid search config tests
+// ============================================================================
+
+func TestDefaultHybridSearchConfig(t *testing.T) {
+	cfg := DefaultHybridSearchConfig()
+
+	assert.True(t, cfg.Enabled, "hybrid search should be enabled by default")
+	assert.Equal(t, 60, cfg.RRFK, "default RRFK should be 60")
+	assert.Equal(t, 0.7, cfg.VectorWeight, "default vector weight should be 0.7")
+	assert.Equal(t, 0.3, cfg.KeywordWeight, "default keyword weight should be 0.3")
+}
+
+func TestHybridConfig_DefaultsEnabled(t *testing.T) {
+	cfg := Default()
+	assert.True(t, cfg.Search.Hybrid.Enabled)
+}
+
+func TestHybridConfig_LoadFromYAML(t *testing.T) {
+	tmpDir := t.TempDir()
+	pommelDir := filepath.Join(tmpDir, ".pommel")
+	require.NoError(t, os.MkdirAll(pommelDir, 0755))
+
+	configContent := `
+version: 1
+chunk_levels:
+  - method
+include_patterns:
+  - "**/*.go"
+search:
+  default_limit: 10
+  hybrid:
+    enabled: true
+    rrf_k: 30
+    vector_weight: 0.8
+    keyword_weight: 0.2
+`
+	configPath := filepath.Join(pommelDir, "config.yaml")
+	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0644))
+
+	loader := NewLoader(tmpDir)
+	cfg, err := loader.Load()
+	require.NoError(t, err)
+
+	assert.True(t, cfg.Search.Hybrid.Enabled)
+	assert.Equal(t, 30, cfg.Search.Hybrid.RRFK)
+	assert.Equal(t, 0.8, cfg.Search.Hybrid.VectorWeight)
+	assert.Equal(t, 0.2, cfg.Search.Hybrid.KeywordWeight)
+}
+
+func TestHybridConfig_DisabledInConfig(t *testing.T) {
+	tmpDir := t.TempDir()
+	pommelDir := filepath.Join(tmpDir, ".pommel")
+	require.NoError(t, os.MkdirAll(pommelDir, 0755))
+
+	configContent := `
+version: 1
+chunk_levels:
+  - method
+include_patterns:
+  - "**/*.go"
+search:
+  default_limit: 10
+  hybrid:
+    enabled: false
+`
+	configPath := filepath.Join(pommelDir, "config.yaml")
+	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0644))
+
+	loader := NewLoader(tmpDir)
+	cfg, err := loader.Load()
+	require.NoError(t, err)
+
+	assert.False(t, cfg.Search.Hybrid.Enabled)
+}
+
+func TestHybridConfig_MissingSection(t *testing.T) {
+	tmpDir := t.TempDir()
+	pommelDir := filepath.Join(tmpDir, ".pommel")
+	require.NoError(t, os.MkdirAll(pommelDir, 0755))
+
+	// Config without hybrid section - should use defaults
+	configContent := `
+version: 1
+chunk_levels:
+  - method
+include_patterns:
+  - "**/*.go"
+search:
+  default_limit: 10
+`
+	configPath := filepath.Join(pommelDir, "config.yaml")
+	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0644))
+
+	loader := NewLoader(tmpDir)
+	cfg, err := loader.Load()
+	require.NoError(t, err)
+
+	// When hybrid section is missing, values should be zero/false (YAML default)
+	// The application should handle this by using defaults when values are zero
+	assert.False(t, cfg.Search.Hybrid.Enabled) // YAML default when not specified
 }

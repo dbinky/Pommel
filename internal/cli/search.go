@@ -14,6 +14,7 @@ var (
 	searchPath       string
 	searchAll        bool
 	searchSubproject string
+	searchNoHybrid   bool
 )
 
 var searchCmd = &cobra.Command{
@@ -40,6 +41,7 @@ func init() {
 	searchCmd.Flags().StringVar(&searchPath, "path", "", "Filter by path prefix")
 	searchCmd.Flags().BoolVar(&searchAll, "all", false, "Search entire index (no scope filtering)")
 	searchCmd.Flags().StringVarP(&searchSubproject, "subproject", "s", "", "Filter by sub-project ID")
+	searchCmd.Flags().BoolVar(&searchNoHybrid, "no-hybrid", false, "Disable hybrid search (vector only)")
 }
 
 func runSearch(cmd *cobra.Command, args []string) error {
@@ -55,6 +57,12 @@ func runSearch(cmd *cobra.Command, args []string) error {
 		Limit:      searchLimit,
 		Levels:     searchLevels,
 		PathPrefix: searchPath,
+	}
+
+	// Set hybrid enabled flag if explicitly disabled
+	if searchNoHybrid {
+		hybridEnabled := false
+		req.HybridEnabled = &hybridEnabled
 	}
 
 	// Wire up scope flags
