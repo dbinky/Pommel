@@ -1,0 +1,35 @@
+# Kotlin language configuration for Pommel
+language: kotlin
+display_name: Kotlin
+extensions:
+  - .kt
+  - .kts
+
+tree_sitter:
+  grammar: kotlin
+
+chunk_mappings:
+  class:
+    - class_declaration
+    - object_declaration
+    - interface_declaration
+    - enum_class_body
+
+  method:
+    - function_declaration
+    - secondary_constructor
+    - primary_constructor
+
+  block:
+    - if_expression
+    - for_statement
+    - while_statement
+    - when_expression
+    - try_expression
+
+extraction:
+  name_field: simple_identifier
+  doc_comments:
+    - multiline_comment
+    - line_comment
+  doc_comment_position: preceding_siblings

@@ -1,0 +1,38 @@
+# TypeScript language configuration for Pommel
+language: typescript
+display_name: TypeScript
+extensions:
+  - .ts
+  - .tsx
+  - .mts
+  - .cts
+
+tree_sitter:
+  grammar: typescript
+
+chunk_mappings:
+  class:
+    - class_declaration
+    - class
+    - interface_declaration
+    - type_alias_declaration
+
+  method:
+    - function_declaration
+    - generator_function_declaration
+    - method_definition
+    - arrow_function
+
+  block:
+    - if_statement
+    - for_statement
+    - for_in_statement
+    - while_statement
+    - switch_statement
+    - try_statement
+
+extraction:
+  name_field: name
+  doc_comments:
+    - comment
+  doc_comment_position: preceding_siblings

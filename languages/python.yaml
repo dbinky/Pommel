@@ -1,0 +1,31 @@
+# Python language configuration for Pommel
+language: python
+display_name: Python
+extensions:
+  - .py
+  - .pyi
+  - .pyw
+
+tree_sitter:
+  grammar: python
+
+chunk_mappings:
+  class:
+    - class_definition
+
+  method:
+    - function_definition
+
+  block:
+    - if_statement
+    - for_statement
+    - while_statement
+    - try_statement
+    - with_statement
+
+extraction:
+  name_field: name
+  doc_comments:
+    - comment
+    - string           # docstrings are string nodes
+  doc_comment_position: first_child

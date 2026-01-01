@@ -1,0 +1,38 @@
+# PHP language configuration for Pommel
+language: php
+display_name: PHP
+extensions:
+  - .php
+  - .phtml
+  - .php3
+  - .php4
+  - .php5
+  - .phps
+
+tree_sitter:
+  grammar: php
+
+chunk_mappings:
+  class:
+    - class_declaration
+    - interface_declaration
+    - trait_declaration
+    - enum_declaration
+
+  method:
+    - function_definition
+    - method_declaration
+
+  block:
+    - if_statement
+    - for_statement
+    - foreach_statement
+    - while_statement
+    - switch_statement
+    - try_statement
+
+extraction:
+  name_field: name
+  doc_comments:
+    - comment
+  doc_comment_position: preceding_siblings

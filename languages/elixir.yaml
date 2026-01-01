@@ -1,0 +1,29 @@
+# Elixir language configuration for Pommel
+language: elixir
+display_name: Elixir
+extensions:
+  - .ex
+  - .exs
+
+tree_sitter:
+  grammar: elixir
+
+chunk_mappings:
+  class:
+    - call           # defmodule is a call node
+
+  method:
+    - call           # def, defp are call nodes
+
+  block:
+    - do_block
+    - case
+    - cond
+    - if
+    - with
+
+extraction:
+  name_field: arguments
+  doc_comments:
+    - comment
+  doc_comment_position: preceding_siblings

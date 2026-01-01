@@ -1,0 +1,38 @@
+# Swift language configuration for Pommel
+language: swift
+display_name: Swift
+extensions:
+  - .swift
+
+tree_sitter:
+  grammar: swift
+
+chunk_mappings:
+  class:
+    - class_declaration
+    - struct_declaration
+    - protocol_declaration
+    - enum_declaration
+    - extension_declaration
+    - actor_declaration
+
+  method:
+    - function_declaration
+    - init_declaration
+    - deinit_declaration
+    - subscript_declaration
+
+  block:
+    - if_statement
+    - for_statement
+    - while_statement
+    - switch_statement
+    - do_statement
+    - guard_statement
+
+extraction:
+  name_field: name
+  doc_comments:
+    - comment
+    - multiline_comment
+  doc_comment_position: preceding_siblings
