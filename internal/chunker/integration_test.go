@@ -1075,7 +1075,7 @@ func TestIntegration_RegistryExtensionMapping(t *testing.T) {
 	require.NoError(t, err)
 
 	testCases := []struct {
-		ext      string
+		ext        string
 		hasChunker bool
 	}{
 		{".go", true},
