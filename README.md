@@ -6,14 +6,19 @@ Local-first semantic code search for AI coding agents.
 [![Go Version](https://img.shields.io/github/go-mod/go-version/dbinky/Pommel)](https://go.dev/)
 [![License](https://img.shields.io/github/license/dbinky/Pommel)](LICENSE)
 
+**v0.5.0** - Now with hybrid search, intelligent re-ranking, and context savings metrics!
+
 Pommel maintains a vector database of your code, enabling fast semantic search without loading files into context. Designed to complement AI coding assistants by providing targeted code discovery.
 
 ## Features
 
+- **Hybrid search** - Combines semantic vector search with keyword search (FTS5) using Reciprocal Rank Fusion for best-of-both-worlds results.
+- **Intelligent re-ranking** - Heuristic signals boost results based on name matches, exact phrases, file paths, recency, and code structure.
 - **Semantic code search** - Find code by meaning, not just keywords. Search for "rate limiting logic" and find relevant implementations regardless of naming conventions.
 - **Always-fresh file watching** - Automatic file system monitoring keeps your index synchronized with code changes. No manual reindexing required.
 - **Multi-level chunks** - Search at file, class/module, or method/function granularity for precise results.
 - **Low latency local embeddings** - All processing happens locally via Ollama with Jina Code Embeddings v2 (768-dim vectors).
+- **Context savings metrics** - See how much context window you're saving compared to grep-based approaches with `--metrics`.
 - **JSON output for agents** - All commands support `--json` flag for structured output, optimized for AI agent consumption.
 
 ## Installation
@@ -125,7 +130,7 @@ pm stop                    # Stop the running daemon
 
 ### `pm search <query>`
 
-Semantic search across the codebase. Returns ranked results based on semantic similarity.
+Hybrid search across the codebase. Combines semantic vector search with keyword matching, then re-ranks results using code-aware heuristics.
 
 ```bash
 # Basic search
@@ -143,6 +148,18 @@ pm search "api handler" --path src/api/
 
 # JSON output (for agents)
 pm search "user validation" --json --limit 5
+
+# Verbose output with match reasons and score breakdown
+pm search "rate limiting" --verbose
+
+# Show context savings metrics
+pm search "database queries" --metrics
+
+# Disable hybrid search (vector-only)
+pm search "config parsing" --no-hybrid
+
+# Disable re-ranking stage
+pm search "utility functions" --no-rerank
 ```
 
 **Options:**
@@ -153,6 +170,10 @@ pm search "user validation" --json --limit 5
 | `--level` | `-l` | Chunk level filter: `file`, `class`, `method` |
 | `--path` | `-p` | Path prefix filter |
 | `--json` | `-j` | Output as JSON (agent-friendly) |
+| `--verbose` | `-v` | Show detailed match reasons and score breakdown |
+| `--metrics` | | Show context savings vs grep baseline |
+| `--no-hybrid` | | Disable hybrid search (vector-only mode) |
+| `--no-rerank` | | Disable re-ranking stage |
 
 **Example JSON Output:**
 
@@ -170,6 +191,13 @@ pm search "user validation" --json --limit 5
       "name": "AuthMiddleware",
       "score": 0.89,
       "content": "class AuthMiddleware:\n    ...",
+      "match_source": "both",
+      "match_reasons": ["semantic similarity", "keyword match via BM25", "contains 'auth' in name"],
+      "score_details": {
+        "vector_score": 0.85,
+        "keyword_score": 0.72,
+        "rrf_score": 0.89
+      },
       "parent": {
         "id": "chunk-parent123",
         "name": "auth.middleware",
@@ -178,7 +206,9 @@ pm search "user validation" --json --limit 5
     }
   ],
   "total_results": 1,
-  "search_time_ms": 42
+  "search_time_ms": 42,
+  "hybrid_enabled": true,
+  "rerank_enabled": true
 }
 ```
 
@@ -290,6 +320,20 @@ search:
   default_levels:
     - method
     - class
+
+# Hybrid search settings (v0.5.0+)
+hybrid_search:
+  enabled: true              # Enable hybrid vector + keyword search
+  rrf_k: 60                  # RRF constant (higher = more weight to lower ranks)
+  vector_weight: 1.0         # Weight for vector search results
+  keyword_weight: 1.0        # Weight for keyword search results
+
+# Re-ranker settings (v0.5.0+)
+reranker:
+  enabled: true              # Enable heuristic re-ranking
+  model: "heuristic"         # Re-ranking model (currently only "heuristic")
+  timeout_ms: 100            # Timeout for re-ranking
+  candidates: 50             # Number of candidates to re-rank
 ```
 
 ## Ignoring Files
@@ -575,17 +619,47 @@ AI Agent / Developer
         |
         v
     Pommel Daemon (pommeld)
-    - File watcher (debounced)
-    - Multi-level chunker (Tree-sitter)
-    - Embedding generator (Ollama)
+    ├── File watcher (debounced)
+    ├── Multi-level chunker (Tree-sitter)
+    ├── Embedding generator (Ollama)
+    └── Search Pipeline:
+        ├── Vector search (sqlite-vec)
+        ├── Keyword search (FTS5)
+        ├── RRF merge (k=60)
+        └── Heuristic re-ranker
         |
         v
-    sqlite-vec (local vector DB)
+    SQLite Database
+    ├── sqlite-vec (vector embeddings)
+    └── FTS5 (full-text index)
         ^
         |
     Jina Code Embeddings v2
     (768-dim, via Ollama)
 ```
+
+## How Search Works
+
+Pommel uses a multi-stage search pipeline for optimal result quality:
+
+### 1. Hybrid Retrieval
+- **Vector Search**: Finds semantically similar code using embedding similarity
+- **Keyword Search**: Finds exact keyword matches using SQLite FTS5 with BM25 scoring
+- Results are merged using Reciprocal Rank Fusion (RRF) with k=60
+
+### 2. Re-ranking
+Heuristic signals boost results based on:
+- **Name match**: Query terms appearing in function/class names
+- **Exact phrase**: Complete query phrase found in content
+- **Path match**: Query terms in file path
+- **Recency**: Recently modified files get a small boost
+- **Test penalty**: Test files ranked slightly lower (configurable)
+
+### 3. Result Enrichment
+Each result includes:
+- `match_source`: Whether it matched via "vector", "keyword", or "both"
+- `match_reasons`: Human-readable explanations of why it matched
+- `score_details`: Breakdown of vector, keyword, and RRF scores
 
 ## Development
 
