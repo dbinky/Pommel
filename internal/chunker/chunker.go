@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 
+	"github.com/pommel-dev/pommel/internal/config"
 	"github.com/pommel-dev/pommel/internal/models"
 )
 
@@ -37,14 +39,29 @@ func NewChunkerRegistry() (*ChunkerRegistry, error) {
 }
 
 // getEmbeddedLanguagesDir returns the path to the languages/ directory.
-// It finds the directory relative to the current source file.
+// It checks locations in this order:
+//  1. Platform-specific installed location (via config.LanguagesDir)
+//  2. Source-relative path (for development)
+//  3. Current directory fallback
 func getEmbeddedLanguagesDir() string {
-	_, filename, _, ok := runtime.Caller(0)
-	if !ok {
-		return "languages"
+	// First, try the installed location (e.g., ~/.local/share/pommel/languages)
+	if installedDir, err := config.LanguagesDir(); err == nil {
+		if _, err := os.Stat(installedDir); err == nil {
+			return installedDir
+		}
 	}
-	// Go from internal/chunker/chunker.go to project root, then to languages/
-	return filepath.Join(filepath.Dir(filename), "..", "..", "languages")
+
+	// Fall back to source-relative path (for development)
+	_, filename, _, ok := runtime.Caller(0)
+	if ok {
+		sourceDir := filepath.Join(filepath.Dir(filename), "..", "..", "languages")
+		if _, err := os.Stat(sourceDir); err == nil {
+			return sourceDir
+		}
+	}
+
+	// Last resort fallback
+	return "languages"
 }
 
 // NewRegistryFromConfig creates a registry by loading language configs from a directory.
