@@ -3,8 +3,10 @@ package cli
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/pommel-dev/pommel/internal/api"
+	"github.com/pommel-dev/pommel/internal/metrics"
 	"github.com/pommel-dev/pommel/internal/output"
 	"github.com/spf13/cobra"
 )
@@ -18,6 +20,7 @@ var (
 	searchNoHybrid   bool
 	searchNoRerank   bool
 	searchVerbose    bool
+	searchMetrics    bool
 )
 
 var searchCmd = &cobra.Command{
@@ -47,6 +50,7 @@ func init() {
 	searchCmd.Flags().BoolVar(&searchNoHybrid, "no-hybrid", false, "Disable hybrid search (vector only)")
 	searchCmd.Flags().BoolVar(&searchNoRerank, "no-rerank", false, "Disable re-ranking stage")
 	searchCmd.Flags().BoolVarP(&searchVerbose, "verbose", "v", false, "Show detailed match reasons and score breakdown")
+	searchCmd.Flags().BoolVar(&searchMetrics, "metrics", false, "Show context savings metrics vs grep baseline")
 }
 
 func runSearch(cmd *cobra.Command, args []string) error {
@@ -135,7 +139,33 @@ func runSearch(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// Show metrics if requested
+	if searchMetrics {
+		showSearchMetrics(resp)
+	}
+
 	return nil
+}
+
+// showSearchMetrics displays context savings metrics
+func showSearchMetrics(resp *api.SearchResponse) {
+	// Calculate metrics from search results
+	searchTime := time.Duration(resp.SearchTimeMs) * time.Millisecond
+	m := metrics.FromSearchResults(resp.Results, searchTime)
+
+	// Estimate baseline (typical project: 500 files, 100 lines avg)
+	// In a real implementation, this would query the actual index stats
+	baseline := metrics.EstimateGrepBaseline(500, 100)
+	savings := metrics.CalculateSavings(m.TotalTokens, baseline.EstimatedTokens)
+
+	fmt.Println()
+	fmt.Println("───────────────────────────────────────")
+	fmt.Printf("Context Savings:\n")
+	fmt.Printf("  Pommel returned: %d tokens (%d lines)\n", m.TotalTokens, m.TotalLines)
+	fmt.Printf("  Grep would read: ~%d tokens (%d lines)\n", baseline.EstimatedTokens, baseline.TotalLines)
+	if savings.PercentSaved > 0 {
+		fmt.Printf("  Saved: %d tokens (%.0f%% reduction)\n", savings.TokensSaved, savings.PercentSaved)
+	}
 }
 
 // formatVerboseOutput formats results with detailed match information

@@ -827,3 +827,20 @@ func TestSearchCmd_VerboseFlagDescription(t *testing.T) {
 	require.NotNil(t, flag)
 	assert.Contains(t, flag.Usage, "detailed", "description should mention detailed output")
 }
+
+// =============================================================================
+// Metrics Flag Tests
+// =============================================================================
+
+func TestSearchCmd_MetricsFlagRegistered(t *testing.T) {
+	flag := searchCmd.Flags().Lookup("metrics")
+	assert.NotNil(t, flag, "--metrics flag should be registered")
+	assert.Equal(t, "bool", flag.Value.Type())
+	assert.Equal(t, "false", flag.DefValue)
+}
+
+func TestSearchCmd_MetricsFlagDescription(t *testing.T) {
+	flag := searchCmd.Flags().Lookup("metrics")
+	require.NotNil(t, flag)
+	assert.Contains(t, flag.Usage, "savings", "description should mention context savings")
+}
