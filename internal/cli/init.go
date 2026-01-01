@@ -385,16 +385,16 @@ func detectLanguagePatterns(projectRoot string) []string {
 const pommelClaudeInstructions = `
 ## Pommel - Semantic Code Search
 
-This project uses Pommel for semantic code search. Pommel indexes your codebase into semantic chunks (files, classes, methods) and enables natural language search to find relevant code quickly.
+This project uses Pommel (v0.5.0) for semantic code search. Pommel indexes your codebase into semantic chunks and enables natural language search with hybrid vector + keyword matching.
 
 **Supported platforms:** macOS, Linux, Windows
-**Supported languages** (full AST-aware chunking): C#, Dart, Elixir, Go, Java, JavaScript, Kotlin, PHP, Python, Rust, Solidity, Swift, TypeScript
+**Supported languages:** C#, Dart, Elixir, Go, Java, JavaScript, Kotlin, PHP, Python, Rust, Solidity, Swift, TypeScript
 
 ### Code Search Priority
 
 **IMPORTANT: Use ` + "`pm search`" + ` BEFORE using Grep/Glob for code exploration.**
 
-When looking for:
+Pommel saves ~95% of tokens compared to traditional file exploration. When looking for:
 - How something is implemented → ` + "`pm search \"authentication flow\"`" + `
 - Where a pattern is used → ` + "`pm search \"error handling\"`" + `
 - Related code/concepts → ` + "`pm search \"database connection\"`" + `
@@ -421,10 +421,16 @@ pm search "API endpoints" --limit 5
 # Search specific chunk levels
 pm search "class definitions" --level class
 pm search "function implementations" --level method
+
+# Show detailed match reasons and score breakdown
+pm search "rate limiting" --verbose
+
+# Show context savings metrics
+pm search "database queries" --metrics
 ` + "```" + `
 
 ### Available Commands
-- ` + "`pm search <query>`" + ` - Semantic search across the codebase
+- ` + "`pm search <query>`" + ` - Hybrid semantic + keyword search across the codebase
 - ` + "`pm status`" + ` - Check daemon status and index statistics
 - ` + "`pm reindex`" + ` - Force a full reindex of the codebase
 - ` + "`pm start`" + ` / ` + "`pm stop`" + ` - Control the background daemon
@@ -433,6 +439,7 @@ pm search "function implementations" --level method
 - Use natural language queries - Pommel understands semantic meaning
 - Keep the daemon running (` + "`pm start`" + `) for always-current search results
 - Use ` + "`--json`" + ` flag when you need structured output for processing
+- Use ` + "`--verbose`" + ` to see why results matched (helpful for tuning queries)
 - Chunk levels: file (entire files), class (structs/interfaces/classes), method (functions/methods)
 `
 
@@ -634,15 +641,15 @@ func pommelSubprojectInstructions(sp *subproject.DetectedSubproject) string {
 	return fmt.Sprintf(`
 ## Pommel - Semantic Code Search
 
-This sub-project (%s) uses Pommel for semantic code search. Pommel indexes your codebase into semantic chunks (files, classes, methods) and enables natural language search.
+This sub-project (%s) uses Pommel (v0.5.0) for semantic code search with hybrid vector + keyword matching.
 
-**Supported languages** (full AST-aware chunking): C#, Dart, Elixir, Go, Java, JavaScript, Kotlin, PHP, Python, Rust, Solidity, Swift, TypeScript
+**Supported languages:** C#, Dart, Elixir, Go, Java, JavaScript, Kotlin, PHP, Python, Rust, Solidity, Swift, TypeScript
 
 ### Code Search Priority
 
 **IMPORTANT: Use `+"`pm search`"+` BEFORE using Grep/Glob for code exploration.**
 
-When looking for:
+Pommel saves ~95%% of tokens compared to traditional file exploration. When looking for:
 - How something is implemented → `+"`pm search \"authentication flow\"`"+`
 - Where a pattern is used → `+"`pm search \"error handling\"`"+`
 - Related code/concepts → `+"`pm search \"database connection\"`"+`
@@ -666,10 +673,13 @@ pm search "shared utilities" --all
 
 # Search specific chunk levels
 pm search "class definitions" --level class
+
+# Show detailed match reasons
+pm search "rate limiting" --verbose
 `+"```"+`
 
 ### Available Commands
-- `+"`pm search <query>`"+` - Search this sub-project (or use --all for everything)
+- `+"`pm search <query>`"+` - Hybrid search this sub-project (or use --all for everything)
 - `+"`pm status`"+` - Check daemon status and index statistics
 - `+"`pm subprojects`"+` - List all sub-projects
 - `+"`pm start`"+` / `+"`pm stop`"+` - Control the background daemon
@@ -677,6 +687,7 @@ pm search "class definitions" --level class
 ### Tips
 - Searches default to this sub-project when you're in this directory
 - Use `+"`--all`"+` to search across the entire monorepo
+- Use `+"`--verbose`"+` to see why results matched
 - Chunk levels: file (entire files), class (structs/interfaces/classes), method (functions/methods)
 `, sp.ID)
 }
