@@ -8,13 +8,13 @@ import "time"
 
 // SearchRequest represents a search query request
 type SearchRequest struct {
-	Query          string             `json:"query"`
-	Limit          int                `json:"limit,omitempty"`
-	Levels         []string           `json:"levels,omitempty"`
-	PathPrefix     string             `json:"path_prefix,omitempty"`
-	Scope          SearchScopeRequest `json:"scope,omitempty"`
-	HybridEnabled  *bool              `json:"hybrid_enabled,omitempty"`  // nil = use config default, true/false = explicit
-	RerankEnabled  *bool              `json:"rerank_enabled,omitempty"`  // nil = use config default, true/false = explicit
+	Query         string             `json:"query"`
+	Limit         int                `json:"limit,omitempty"`
+	Levels        []string           `json:"levels,omitempty"`
+	PathPrefix    string             `json:"path_prefix,omitempty"`
+	Scope         SearchScopeRequest `json:"scope,omitempty"`
+	HybridEnabled *bool              `json:"hybrid_enabled,omitempty"` // nil = use config default, true/false = explicit
+	RerankEnabled *bool              `json:"rerank_enabled,omitempty"` // nil = use config default, true/false = explicit
 }
 
 // SearchScopeRequest specifies the search scope in the request
@@ -25,13 +25,13 @@ type SearchScopeRequest struct {
 
 // SearchResponse represents the search results response
 type SearchResponse struct {
-	Query          string               `json:"query"`
-	Results        []SearchResult       `json:"results"`
-	TotalResults   int                  `json:"total_results"`
-	SearchTimeMs   int64                `json:"search_time_ms"`
-	Scope          *SearchScopeResponse `json:"scope,omitempty"`
-	HybridEnabled  bool                 `json:"hybrid_enabled"`
-	RerankEnabled  bool                 `json:"rerank_enabled"`
+	Query         string               `json:"query"`
+	Results       []SearchResult       `json:"results"`
+	TotalResults  int                  `json:"total_results"`
+	SearchTimeMs  int64                `json:"search_time_ms"`
+	Scope         *SearchScopeResponse `json:"scope,omitempty"`
+	HybridEnabled bool                 `json:"hybrid_enabled"`
+	RerankEnabled bool                 `json:"rerank_enabled"`
 }
 
 // SearchScopeResponse provides scope information in the response

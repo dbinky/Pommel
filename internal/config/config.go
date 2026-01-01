@@ -78,8 +78,8 @@ type RerankerConfig struct {
 func DefaultRerankerConfig() RerankerConfig {
 	return RerankerConfig{
 		Enabled:    true,
-		Model:      "",         // Empty = use heuristic only
-		TimeoutMs:  2000,       // 2 seconds
+		Model:      "",   // Empty = use heuristic only
+		TimeoutMs:  2000, // 2 seconds
 		Fallback:   "heuristic",
 		Candidates: 20,
 	}
