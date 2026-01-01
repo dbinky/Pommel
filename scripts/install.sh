@@ -118,6 +118,58 @@ install_pommel() {
     success "Installed pm and pommeld to $INSTALL_DIR"
 }
 
+# Install language configuration files
+install_language_configs() {
+    info "Installing language configuration files..."
+
+    LANG_CONFIG_DIR="$HOME/.local/share/pommel/languages"
+
+    # Create the language config directory
+    if ! mkdir -p "$LANG_CONFIG_DIR" 2>/dev/null; then
+        warn "Failed to create directory: $LANG_CONFIG_DIR"
+        warn "Language configs not installed. You may need to copy them manually."
+        return 1
+    fi
+
+    # Check if we have language files to copy (we're still in the cloned repo)
+    if [[ ! -d "languages" ]]; then
+        warn "Language configs directory not found in repository"
+        return 1
+    fi
+
+    # Count available language files
+    local lang_count=$(find languages -name "*.yaml" -type f 2>/dev/null | wc -l | tr -d ' ')
+    if [[ "$lang_count" -eq 0 ]]; then
+        warn "No language configuration files found in repository"
+        return 1
+    fi
+
+    info "Found $lang_count language configuration files"
+
+    # Copy all .yaml files from languages/ to the config directory
+    local copied=0
+    local failed=0
+    for lang_file in languages/*.yaml; do
+        if [[ -f "$lang_file" ]]; then
+            local filename=$(basename "$lang_file")
+            if cp "$lang_file" "$LANG_CONFIG_DIR/$filename" 2>/dev/null; then
+                ((copied++))
+            else
+                warn "Failed to copy: $filename"
+                ((failed++))
+            fi
+        fi
+    done
+
+    if [[ "$failed" -gt 0 ]]; then
+        warn "Copied $copied language configs, $failed failed"
+        return 1
+    fi
+
+    success "Installed $copied language configs to $LANG_CONFIG_DIR"
+    return 0
+}
+
 # Pull the embedding model
 setup_embedding_model() {
     if [[ "$OLLAMA_INSTALLED" != "true" ]]; then
@@ -255,6 +307,11 @@ print_usage() {
     echo ""
     echo "    pm search \"authentication middleware\" --json"
     echo ""
+    echo "  Installed locations:"
+    echo ""
+    echo "    Binaries:          $INSTALL_DIR/pm, $INSTALL_DIR/pommeld"
+    echo "    Language configs:  ~/.local/share/pommel/languages/"
+    echo ""
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo ""
 }
@@ -272,6 +329,7 @@ main() {
     check_dependencies
     get_install_dir
     install_pommel
+    install_language_configs
     setup_embedding_model
     check_path
     verify_install

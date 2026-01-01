@@ -176,6 +176,89 @@ function Install-PommelBinaries {
 }
 #endregion
 
+#region Language Configuration Installation
+function Get-LanguageFileList {
+    <#
+    .SYNOPSIS
+        Discovers language config files from GitHub API.
+    #>
+    $apiUrl = "https://api.github.com/repos/$script:Repo/contents/languages"
+
+    try {
+        $response = Invoke-RestMethod -Uri $apiUrl -Headers @{
+            "Accept" = "application/vnd.github.v3+json"
+            "User-Agent" = "Pommel-Installer"
+        }
+
+        # Filter for .yaml files only
+        $yamlFiles = $response | Where-Object { $_.name -match '\.yaml$' } | ForEach-Object { $_.name }
+        return $yamlFiles
+    }
+    catch {
+        Write-Warn "Failed to discover language files from API: $_"
+        return @()
+    }
+}
+
+function Install-LanguageConfigs {
+    param(
+        [string]$InstallPath
+    )
+
+    $languagesDir = Join-Path $InstallPath "languages"
+    $baseUrl = "https://raw.githubusercontent.com/$script:Repo/main/languages"
+
+    Write-Step "Discovering language configuration files..."
+
+    # Get list of language files dynamically from GitHub API
+    $languageFiles = Get-LanguageFileList
+
+    if ($languageFiles.Count -eq 0) {
+        Write-Warn "No language configuration files found"
+        return
+    }
+
+    Write-Step "Found $($languageFiles.Count) language configuration files"
+
+    # Create languages directory if needed
+    if (-not (Test-Path $languagesDir)) {
+        try {
+            New-Item -ItemType Directory -Path $languagesDir -Force | Out-Null
+            Write-Success "Created languages directory: $languagesDir"
+        }
+        catch {
+            Write-Failure "Failed to create languages directory: $_"
+            return
+        }
+    }
+
+    $successCount = 0
+    $failCount = 0
+
+    foreach ($file in $languageFiles) {
+        $url = "$baseUrl/$file"
+        $destPath = Join-Path $languagesDir $file
+
+        try {
+            Invoke-WebRequest -Uri $url -OutFile $destPath -UseBasicParsing
+            $successCount++
+        }
+        catch {
+            Write-Warn "Failed to download $file : $_"
+            $failCount++
+        }
+    }
+
+    Write-Host ""
+    if ($failCount -eq 0) {
+        Write-Success "All $successCount language configs installed"
+    }
+    else {
+        Write-Warn "Installed $successCount language configs, $failCount failed"
+    }
+}
+#endregion
+
 #region PATH Configuration
 function Add-ToPath {
     param(
@@ -400,6 +483,9 @@ function Main {
 
         # Download binaries
         $binDir = Install-PommelBinaries -Version $version -Arch $arch -InstallPath $InstallDir
+
+        # Install language configuration files
+        Install-LanguageConfigs -InstallPath $InstallDir
 
         # Add to PATH
         Add-ToPath -Directory $binDir

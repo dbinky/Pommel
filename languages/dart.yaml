@@ -1,0 +1,36 @@
+# Dart language configuration for Pommel
+language: dart
+display_name: Dart
+extensions:
+  - .dart
+
+tree_sitter:
+  grammar: dart
+
+chunk_mappings:
+  class:
+    - class_definition
+    - enum_declaration
+    - mixin_declaration
+    - extension_declaration
+
+  method:
+    - function_signature
+    - method_signature
+    - getter_signature
+    - setter_signature
+    - constructor_signature
+
+  block:
+    - if_statement
+    - for_statement
+    - while_statement
+    - switch_statement
+    - try_statement
+
+extraction:
+  name_field: name
+  doc_comments:
+    - comment
+    - documentation_comment
+  doc_comment_position: preceding_siblings

@@ -1,0 +1,35 @@
+# Java language configuration for Pommel
+language: java
+display_name: Java
+extensions:
+  - .java
+
+tree_sitter:
+  grammar: java
+
+chunk_mappings:
+  class:
+    - class_declaration
+    - interface_declaration
+    - enum_declaration
+    - record_declaration
+    - annotation_type_declaration
+
+  method:
+    - method_declaration
+    - constructor_declaration
+
+  block:
+    - if_statement
+    - for_statement
+    - enhanced_for_statement
+    - while_statement
+    - switch_expression
+    - try_statement
+
+extraction:
+  name_field: name
+  doc_comments:
+    - block_comment
+    - line_comment
+  doc_comment_position: preceding_siblings

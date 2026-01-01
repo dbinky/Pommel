@@ -11,22 +11,36 @@ import (
 )
 
 // =============================================================================
+// Helper Functions for Config-Driven Tests
+// =============================================================================
+
+// getGoChunker returns the Go chunker from the config-driven registry.
+// This replaces the legacy NewGoChunker function.
+func getGoChunker(t *testing.T) Chunker {
+	t.Helper()
+	registry, err := NewChunkerRegistry()
+	require.NoError(t, err, "Failed to create chunker registry")
+
+	chunker, ok := registry.GetChunkerForExtension(".go")
+	require.True(t, ok, "Go chunker should be available")
+	return chunker
+}
+
+// =============================================================================
 // GoChunker Initialization Tests
 // =============================================================================
 
-func TestNewGoChunker(t *testing.T) {
-	parser, err := NewParser()
+func TestGoChunker_Available(t *testing.T) {
+	registry, err := NewChunkerRegistry()
 	require.NoError(t, err)
 
-	chunker := NewGoChunker(parser)
-	assert.NotNil(t, chunker, "NewGoChunker should return a non-nil chunker")
+	chunker, ok := registry.GetChunkerForExtension(".go")
+	assert.True(t, ok, "Go chunker should be available in registry")
+	assert.NotNil(t, chunker, "Go chunker should not be nil")
 }
 
 func TestGoChunker_Language(t *testing.T) {
-	parser, err := NewParser()
-	require.NoError(t, err)
-
-	chunker := NewGoChunker(parser)
+	chunker := getGoChunker(t)
 	assert.Equal(t, LangGo, chunker.Language(), "GoChunker should report Go as its language")
 }
 
@@ -35,10 +49,7 @@ func TestGoChunker_Language(t *testing.T) {
 // =============================================================================
 
 func TestGoChunker_EmptyFile(t *testing.T) {
-	parser, err := NewParser()
-	require.NoError(t, err)
-
-	chunker := NewGoChunker(parser)
+	chunker := getGoChunker(t)
 
 	file := &models.SourceFile{
 		Path:         "/test/empty.go",
@@ -60,10 +71,7 @@ func TestGoChunker_EmptyFile(t *testing.T) {
 // =============================================================================
 
 func TestGoChunker_SimpleFunction(t *testing.T) {
-	parser, err := NewParser()
-	require.NoError(t, err)
-
-	chunker := NewGoChunker(parser)
+	chunker := getGoChunker(t)
 
 	source := []byte(`package main
 
@@ -126,10 +134,7 @@ func greet(name string) string {
 // =============================================================================
 
 func TestGoChunker_MethodWithReceiver(t *testing.T) {
-	parser, err := NewParser()
-	require.NoError(t, err)
-
-	chunker := NewGoChunker(parser)
+	chunker := getGoChunker(t)
 
 	source := []byte(`package main
 
@@ -208,10 +213,7 @@ func (u *User) SetName(name string) {
 // =============================================================================
 
 func TestGoChunker_StructType(t *testing.T) {
-	parser, err := NewParser()
-	require.NoError(t, err)
-
-	chunker := NewGoChunker(parser)
+	chunker := getGoChunker(t)
 
 	source := []byte(`package models
 
@@ -267,10 +269,7 @@ type Address struct {
 // =============================================================================
 
 func TestGoChunker_InterfaceType(t *testing.T) {
-	parser, err := NewParser()
-	require.NoError(t, err)
-
-	chunker := NewGoChunker(parser)
+	chunker := getGoChunker(t)
 
 	source := []byte(`package io
 
@@ -327,10 +326,7 @@ type ReadWriter interface {
 // =============================================================================
 
 func TestGoChunker_MultipleConstructs(t *testing.T) {
-	parser, err := NewParser()
-	require.NoError(t, err)
-
-	chunker := NewGoChunker(parser)
+	chunker := getGoChunker(t)
 
 	source := []byte(`package service
 
@@ -396,10 +392,7 @@ func helper() {
 // =============================================================================
 
 func TestGoChunker_TypeAlias(t *testing.T) {
-	parser, err := NewParser()
-	require.NoError(t, err)
-
-	chunker := NewGoChunker(parser)
+	chunker := getGoChunker(t)
 
 	source := []byte(`package types
 
@@ -441,10 +434,7 @@ type Handler func(w Writer, r Reader)
 // =============================================================================
 
 func TestGoChunker_GenericTypes(t *testing.T) {
-	parser, err := NewParser()
-	require.NoError(t, err)
-
-	chunker := NewGoChunker(parser)
+	chunker := getGoChunker(t)
 
 	source := []byte(`package collections
 
@@ -531,10 +521,7 @@ func Map[T, U any](items []T, fn func(T) U) []U {
 // =============================================================================
 
 func TestGoChunker_CorrectLineNumbers(t *testing.T) {
-	parser, err := NewParser()
-	require.NoError(t, err)
-
-	chunker := NewGoChunker(parser)
+	chunker := getGoChunker(t)
 
 	source := []byte(`package main
 
@@ -596,10 +583,7 @@ func (c *Calculator) Subtract(a, b int) int {
 // =============================================================================
 
 func TestGoChunker_ChunkContent(t *testing.T) {
-	parser, err := NewParser()
-	require.NoError(t, err)
-
-	chunker := NewGoChunker(parser)
+	chunker := getGoChunker(t)
 
 	source := []byte(`package main
 
@@ -637,10 +621,7 @@ func greet(name string) string {
 // =============================================================================
 
 func TestGoChunker_FunctionSignature(t *testing.T) {
-	parser, err := NewParser()
-	require.NoError(t, err)
-
-	chunker := NewGoChunker(parser)
+	chunker := getGoChunker(t)
 
 	source := []byte(`package main
 
@@ -679,10 +660,7 @@ func calculate(x, y int, opts ...Option) (int, error) {
 // =============================================================================
 
 func TestGoChunker_DeterministicIDs(t *testing.T) {
-	parser, err := NewParser()
-	require.NoError(t, err)
-
-	chunker := NewGoChunker(parser)
+	chunker := getGoChunker(t)
 
 	source := []byte(`package main
 
@@ -737,10 +715,7 @@ func (c *Calculator) Add(a, b int) int {
 // =============================================================================
 
 func TestGoChunker_ContextCancellation(t *testing.T) {
-	parser, err := NewParser()
-	require.NoError(t, err)
-
-	chunker := NewGoChunker(parser)
+	chunker := getGoChunker(t)
 
 	source := []byte(`package main
 
@@ -759,7 +734,7 @@ func (t *Test) Method() {}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // Cancel immediately
 
-	_, err = chunker.Chunk(ctx, file)
+	_, err := chunker.Chunk(ctx, file)
 	// Should either return an error or handle gracefully
 	if err != nil {
 		assert.ErrorIs(t, err, context.Canceled, "Should return context.Canceled error")
@@ -771,10 +746,7 @@ func (t *Test) Method() {}
 // =============================================================================
 
 func TestGoChunker_OnlyPackageDeclaration(t *testing.T) {
-	parser, err := NewParser()
-	require.NoError(t, err)
-
-	chunker := NewGoChunker(parser)
+	chunker := getGoChunker(t)
 
 	source := []byte(`package main
 `)
@@ -795,10 +767,7 @@ func TestGoChunker_OnlyPackageDeclaration(t *testing.T) {
 }
 
 func TestGoChunker_WithImports(t *testing.T) {
-	parser, err := NewParser()
-	require.NoError(t, err)
-
-	chunker := NewGoChunker(parser)
+	chunker := getGoChunker(t)
 
 	source := []byte(`package main
 
@@ -836,10 +805,7 @@ func main() {
 }
 
 func TestGoChunker_InitFunction(t *testing.T) {
-	parser, err := NewParser()
-	require.NoError(t, err)
-
-	chunker := NewGoChunker(parser)
+	chunker := getGoChunker(t)
 
 	source := []byte(`package main
 
@@ -882,10 +848,7 @@ func main() {
 }
 
 func TestGoChunker_ExportedVsUnexported(t *testing.T) {
-	parser, err := NewParser()
-	require.NoError(t, err)
-
-	chunker := NewGoChunker(parser)
+	chunker := getGoChunker(t)
 
 	source := []byte(`package mypackage
 
@@ -944,10 +907,7 @@ func (p *PublicStruct) privateMethod() {}
 }
 
 func TestGoChunker_EmbeddedStructs(t *testing.T) {
-	parser, err := NewParser()
-	require.NoError(t, err)
-
-	chunker := NewGoChunker(parser)
+	chunker := getGoChunker(t)
 
 	source := []byte(`package main
 
@@ -995,10 +955,7 @@ type Derived struct {
 // =============================================================================
 
 func TestGoChunker_ComprehensiveFile(t *testing.T) {
-	parser, err := NewParser()
-	require.NoError(t, err)
-
-	chunker := NewGoChunker(parser)
+	chunker := getGoChunker(t)
 
 	source := []byte(`// Package example provides an example for testing.
 package example

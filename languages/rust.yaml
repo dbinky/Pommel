@@ -1,0 +1,35 @@
+# Rust language configuration for Pommel
+language: rust
+display_name: Rust
+extensions:
+  - .rs
+
+tree_sitter:
+  grammar: rust
+
+chunk_mappings:
+  class:
+    - struct_item
+    - enum_item
+    - trait_item
+    - impl_item
+    - type_item
+    - union_item
+
+  method:
+    - function_item
+    - function_signature_item
+
+  block:
+    - if_expression
+    - for_expression
+    - while_expression
+    - loop_expression
+    - match_expression
+
+extraction:
+  name_field: name
+  doc_comments:
+    - line_comment
+    - block_comment
+  doc_comment_position: preceding_siblings

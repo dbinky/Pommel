@@ -84,12 +84,18 @@ jobs:
           go build -ldflags "-X main.version=$VERSION" -o dist/pommeld-${{ matrix.suffix }}${{ matrix.binary_ext }} ./cmd/pommeld
         shell: bash
 
+      - name: Copy language configs
+        run: |
+          mkdir -p dist/languages
+          cp languages/*.yaml dist/languages/
+        shell: bash
+
       - name: Create archive (Unix)
         if: matrix.archive_ext == 'tar.gz'
         run: |
           cd dist
           VERSION=${{ steps.version.outputs.VERSION }}
-          tar -czvf pommel-${VERSION}-${{ matrix.suffix }}.tar.gz pm-${{ matrix.suffix }} pommeld-${{ matrix.suffix }}
+          tar -czvf pommel-${VERSION}-${{ matrix.suffix }}.tar.gz pm-${{ matrix.suffix }} pommeld-${{ matrix.suffix }} languages/
         shell: bash
 
       - name: Create archive (Windows)
@@ -97,7 +103,7 @@ jobs:
         run: |
           cd dist
           $VERSION = "${{ steps.version.outputs.VERSION }}"
-          Compress-Archive -Path "pm-${{ matrix.suffix }}${{ matrix.binary_ext }}", "pommeld-${{ matrix.suffix }}${{ matrix.binary_ext }}" -DestinationPath "pommel-${VERSION}-${{ matrix.suffix }}.zip"
+          Compress-Archive -Path "pm-${{ matrix.suffix }}${{ matrix.binary_ext }}", "pommeld-${{ matrix.suffix }}${{ matrix.binary_ext }}", "languages" -DestinationPath "pommel-${VERSION}-${{ matrix.suffix }}.zip"
         shell: pwsh
 
       - name: Upload artifact
