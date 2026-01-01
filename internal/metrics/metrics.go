@@ -30,10 +30,6 @@ type ContextSavings struct {
 	PercentSaved float64 // Percentage of context saved
 }
 
-// tokensPerChar is the average tokens per character for code
-// Based on typical tokenizer behavior (~4 chars per token)
-const tokensPerChar = 0.25
-
 // tokensPerLine is the estimated tokens per line of code
 // Based on ~40 chars per line average
 const tokensPerLine = 10

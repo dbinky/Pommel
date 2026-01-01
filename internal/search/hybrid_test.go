@@ -1,9 +1,7 @@
 package search
 
 import (
-	"context"
 	"testing"
-	"time"
 )
 
 // ============================================================================
@@ -102,44 +100,4 @@ func TestMergedResult_MatchSource(t *testing.T) {
 			}
 		})
 	}
-}
-
-// ============================================================================
-// Mock types for testing
-// ============================================================================
-
-// mockEmbedder implements embedder.Embedder for testing
-type mockEmbedder struct {
-	embedding []float32
-	err       error
-}
-
-func (m *mockEmbedder) EmbedSingle(ctx context.Context, text string) ([]float32, error) {
-	if m.err != nil {
-		return nil, m.err
-	}
-	if m.embedding != nil {
-		return m.embedding, nil
-	}
-	// Return a dummy embedding
-	return make([]float32, 768), nil
-}
-
-func (m *mockEmbedder) EmbedBatch(ctx context.Context, texts []string) ([][]float32, error) {
-	if m.err != nil {
-		return nil, m.err
-	}
-	result := make([][]float32, len(texts))
-	for i := range texts {
-		result[i] = make([]float32, 768)
-	}
-	return result, nil
-}
-
-func (m *mockEmbedder) Available(ctx context.Context) bool {
-	return m.err == nil
-}
-
-func (m *mockEmbedder) WaitForReady(ctx context.Context, timeout time.Duration) error {
-	return m.err
 }
