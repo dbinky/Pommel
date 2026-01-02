@@ -6,7 +6,7 @@ Local-first semantic code search for AI coding agents.
 [![Go Version](https://img.shields.io/github/go-mod/go-version/dbinky/Pommel)](https://go.dev/)
 [![License](https://img.shields.io/github/license/dbinky/Pommel)](LICENSE)
 
-**v0.5.0** - Now with hybrid search, intelligent re-ranking, and context savings metrics!
+**v0.5.2** - Now with hybrid search, intelligent re-ranking, and context savings metrics!
 
 Pommel maintains a vector database of your code, enabling fast semantic search without loading files into context. Designed to complement AI coding assistants by providing targeted code discovery.
 
@@ -374,13 +374,45 @@ Pommel also respects your existing `.gitignore` by default.
 
 ## AI Agent Integration
 
-Pommel is designed specifically for AI coding agents. Add to your `CLAUDE.md` (or equivalent agent instructions):
+Pommel is designed specifically for AI coding agents. It provides ~18x token savings compared to traditional exploration.
+
+### When to Use Pommel vs Explorer/Grep
+
+**Use `pm search` FIRST for:**
+- Finding specific implementations ("where is X implemented")
+- Quick code lookups when you know what you're looking for
+- Iterative exploration (multiple related searches)
+- Cost/time-sensitive tasks
+
+**Fall back to Explorer/Grep when:**
+- Verifying something does NOT exist (Pommel may return false positives)
+- Understanding architecture or code flow relationships
+- Need full context around matches (not just snippets)
+- Searching for exact string literals
+
+**Decision rule:** Start with `pm search`. If results seem off-topic or you need to confirm absence, use Explorer.
+
+### Use Case Reference
+
+| Use Case                         | Recommended Tool          |
+|----------------------------------|---------------------------|
+| Quick code lookup                | Pommel                    |
+| Understanding architecture       | Explorer                  |
+| Finding specific implementations | Pommel                    |
+| Verifying if feature exists      | Explorer                  |
+| Iterative exploration            | Pommel                    |
+| Comprehensive documentation      | Explorer                  |
+| Cost-sensitive workflows         | Pommel (18x fewer tokens) |
+| Time-sensitive tasks             | Pommel (1000x+ faster)    |
+
+### CLAUDE.md Integration
+
+Run `pm init --claude` to automatically add Pommel instructions to your project's `CLAUDE.md`. Or add manually:
 
 ```markdown
 ## Code Search
 
-This project uses Pommel for semantic code search. Before reading multiple
-files to find relevant code, use the `pm` CLI:
+This project uses Pommel for semantic code search.
 
 \`\`\`bash
 # Find code related to a concept
@@ -393,8 +425,7 @@ pm search "retry with exponential backoff" --level method --json
 pm search "validation" --path "src/Api/" --json
 \`\`\`
 
-Use Pommel search results to identify specific files and line ranges,
-then read only those targeted sections into context.
+**Tip:** Low scores (< 0.5) suggest weak matches - use Explorer to confirm.
 ```
 
 ### Workflow Comparison
