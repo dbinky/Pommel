@@ -385,62 +385,68 @@ func detectLanguagePatterns(projectRoot string) []string {
 const pommelClaudeInstructions = `
 ## Pommel - Semantic Code Search
 
-This project uses Pommel (v0.5.0) for semantic code search. Pommel indexes your codebase into semantic chunks and enables natural language search with hybrid vector + keyword matching.
+This project uses Pommel (v0.5.2) for semantic code search. Pommel indexes your codebase into semantic chunks and enables natural language search with hybrid vector + keyword matching.
 
 **Supported platforms:** macOS, Linux, Windows
 **Supported languages:** C#, Dart, Elixir, Go, Java, JavaScript, Kotlin, PHP, Python, Rust, Solidity, Swift, TypeScript
 
-### Code Search Priority
+### Code Search Decision Tree
 
-**IMPORTANT: Use ` + "`pm search`" + ` BEFORE using Grep/Glob for code exploration.**
+**Use ` + "`pm search`" + ` FIRST for:**
+- Finding specific implementations ("where is X implemented")
+- Quick code lookups when you know what you're looking for
+- Iterative exploration (multiple related searches)
+- Cost/time-sensitive tasks (~18x fewer tokens, 1000x+ faster)
 
-Pommel saves ~95% of tokens compared to traditional file exploration. When looking for:
-- How something is implemented → ` + "`pm search \"authentication flow\"`" + `
-- Where a pattern is used → ` + "`pm search \"error handling\"`" + `
-- Related code/concepts → ` + "`pm search \"database connection\"`" + `
-- Code that does X → ` + "`pm search \"validate user input\"`" + `
+**Fall back to Explorer/Grep when:**
+- Verifying something does NOT exist (Pommel may return false positives)
+- Understanding architecture or code flow relationships
+- Need full context around matches (not just snippets)
+- Searching for exact string literals (specific error messages, identifiers)
 
-Only fall back to Grep/Glob when:
-- Searching for an exact string literal (e.g., a specific error message)
-- Looking for a specific identifier name you already know
-- Pommel daemon is not running
+**Decision rule:** Start with ` + "`pm search`" + `. If results seem off-topic or you need to confirm absence, use Explorer.
+
+### When to Use Which Tool
+
+| Use Case                         | Recommended Tool          |
+|----------------------------------|---------------------------|
+| Quick code lookup                | Pommel                    |
+| Understanding architecture       | Explorer                  |
+| Finding specific implementations | Pommel                    |
+| Verifying if feature exists      | Explorer                  |
+| Iterative exploration            | Pommel                    |
+| Comprehensive documentation      | Explorer                  |
+| Cost-sensitive workflows         | Pommel (18x fewer tokens) |
+| Time-sensitive tasks             | Pommel (1000x+ faster)    |
 
 ### Quick Search Examples
 ` + "```" + `bash
 # Find code by semantic meaning (not just keywords)
 pm search "authentication logic"
 pm search "error handling patterns"
-pm search "database connection setup"
 
 # Search with JSON output for programmatic use
 pm search "user validation" --json
 
-# Limit results
+# Limit results and filter by chunk level
 pm search "API endpoints" --limit 5
-
-# Search specific chunk levels
 pm search "class definitions" --level class
-pm search "function implementations" --level method
 
 # Show detailed match reasons and score breakdown
 pm search "rate limiting" --verbose
-
-# Show context savings metrics
-pm search "database queries" --metrics
 ` + "```" + `
 
 ### Available Commands
-- ` + "`pm search <query>`" + ` - Hybrid semantic + keyword search across the codebase
+- ` + "`pm search <query>`" + ` - Hybrid semantic + keyword search (~18x fewer tokens than grep)
 - ` + "`pm status`" + ` - Check daemon status and index statistics
 - ` + "`pm reindex`" + ` - Force a full reindex of the codebase
 - ` + "`pm start`" + ` / ` + "`pm stop`" + ` - Control the background daemon
 
 ### Tips
+- **Low scores (< 0.5) suggest weak matches** - consider using Explorer to confirm
 - Use natural language queries - Pommel understands semantic meaning
 - Keep the daemon running (` + "`pm start`" + `) for always-current search results
-- Use ` + "`--json`" + ` flag when you need structured output for processing
 - Use ` + "`--verbose`" + ` to see why results matched (helpful for tuning queries)
-- Chunk levels: file (entire files), class (structs/interfaces/classes), method (functions/methods)
 `
 
 // pommelClaudeMarker is used to identify Pommel sections in CLAUDE.md
@@ -641,24 +647,37 @@ func pommelSubprojectInstructions(sp *subproject.DetectedSubproject) string {
 	return fmt.Sprintf(`
 ## Pommel - Semantic Code Search
 
-This sub-project (%s) uses Pommel (v0.5.0) for semantic code search with hybrid vector + keyword matching.
+This sub-project (%s) uses Pommel (v0.5.2) for semantic code search with hybrid vector + keyword matching.
 
 **Supported languages:** C#, Dart, Elixir, Go, Java, JavaScript, Kotlin, PHP, Python, Rust, Solidity, Swift, TypeScript
 
-### Code Search Priority
+### Code Search Decision Tree
 
-**IMPORTANT: Use `+"`pm search`"+` BEFORE using Grep/Glob for code exploration.**
+**Use `+"`pm search`"+` FIRST for:**
+- Finding specific implementations ("where is X implemented")
+- Quick code lookups when you know what you're looking for
+- Iterative exploration (multiple related searches)
+- Cost/time-sensitive tasks (~18x fewer tokens, 1000x+ faster)
 
-Pommel saves ~95%% of tokens compared to traditional file exploration. When looking for:
-- How something is implemented → `+"`pm search \"authentication flow\"`"+`
-- Where a pattern is used → `+"`pm search \"error handling\"`"+`
-- Related code/concepts → `+"`pm search \"database connection\"`"+`
-- Code that does X → `+"`pm search \"validate user input\"`"+`
+**Fall back to Explorer/Grep when:**
+- Verifying something does NOT exist (Pommel may return false positives)
+- Understanding architecture or code flow relationships
+- Need full context around matches (not just snippets)
+- Searching for exact string literals (specific error messages, identifiers)
 
-Only fall back to Grep/Glob when:
-- Searching for an exact string literal (e.g., a specific error message)
-- Looking for a specific identifier name you already know
-- Pommel daemon is not running
+**Decision rule:** Start with `+"`pm search`"+`. If results seem off-topic or you need to confirm absence, use Explorer.
+
+### When to Use Which Tool
+
+| Use Case                         | Recommended Tool          |
+|----------------------------------|---------------------------|
+| Quick code lookup                | Pommel                    |
+| Understanding architecture       | Explorer                  |
+| Finding specific implementations | Pommel                    |
+| Verifying if feature exists      | Explorer                  |
+| Iterative exploration            | Pommel                    |
+| Cost-sensitive workflows         | Pommel (18x fewer tokens) |
+| Time-sensitive tasks             | Pommel (1000x+ faster)    |
 
 ### Quick Search Examples
 `+"```bash"+`
@@ -671,24 +690,21 @@ pm search "error handling" --json
 # Search across entire monorepo
 pm search "shared utilities" --all
 
-# Search specific chunk levels
-pm search "class definitions" --level class
-
 # Show detailed match reasons
 pm search "rate limiting" --verbose
 `+"```"+`
 
 ### Available Commands
-- `+"`pm search <query>`"+` - Hybrid search this sub-project (or use --all for everything)
+- `+"`pm search <query>`"+` - Hybrid search (~18x fewer tokens than grep)
 - `+"`pm status`"+` - Check daemon status and index statistics
 - `+"`pm subprojects`"+` - List all sub-projects
 - `+"`pm start`"+` / `+"`pm stop`"+` - Control the background daemon
 
 ### Tips
+- **Low scores (< 0.5) suggest weak matches** - consider using Explorer to confirm
 - Searches default to this sub-project when you're in this directory
 - Use `+"`--all`"+` to search across the entire monorepo
 - Use `+"`--verbose`"+` to see why results matched
-- Chunk levels: file (entire files), class (structs/interfaces/classes), method (functions/methods)
 `, sp.ID)
 }
 

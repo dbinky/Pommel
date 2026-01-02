@@ -2,7 +2,7 @@
 
 ## Project Brief — C4 Context Level Document
 
-**Version:** 0.5.0
+**Version:** 0.5.2
 **Status:** Implemented
 **Target Platforms:** macOS, Linux, Windows
 **Initial Target Agent:** Claude Code
