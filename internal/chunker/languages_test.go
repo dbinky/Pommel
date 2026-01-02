@@ -395,7 +395,7 @@ func TestLanguageConfig_TypeScript(t *testing.T) {
 // Aggregate Tests
 // =============================================================================
 
-// expectedLanguageConfigs defines all 13 language configs that should be shipped.
+// expectedLanguageConfigs defines all 14 language configs that should be shipped.
 var expectedLanguageConfigs = []struct {
 	filename string
 	language string
@@ -407,6 +407,7 @@ var expectedLanguageConfigs = []struct {
 	{"java.yaml", "java"},
 	{"javascript.yaml", "javascript"},
 	{"kotlin.yaml", "kotlin"},
+	{"markdown.yaml", "markdown"},
 	{"php.yaml", "php"},
 	{"python.yaml", "python"},
 	{"rust.yaml", "rust"},
@@ -416,7 +417,7 @@ var expectedLanguageConfigs = []struct {
 }
 
 func TestAllLanguageConfigs_Load(t *testing.T) {
-	// All 13 configs should load without error
+	// All 14 configs should load without error
 	languagesDir := getLanguagesDir(t)
 
 	for _, expected := range expectedLanguageConfigs {
@@ -452,8 +453,8 @@ func TestAllLanguageConfigs_UniqueLanguageIDs(t *testing.T) {
 		seenLanguages[cfg.Language] = expected.filename
 	}
 
-	// Verify we checked all 13 configs
-	assert.Len(t, seenLanguages, 13, "Should have 13 unique language identifiers")
+	// Verify we checked all 14 configs
+	assert.Len(t, seenLanguages, 14, "Should have 14 unique language identifiers")
 }
 
 func TestAllLanguageConfigs_UniqueExtensions(t *testing.T) {
@@ -575,8 +576,8 @@ func TestAllLanguageConfigs_Count(t *testing.T) {
 		}
 	}
 
-	assert.Equal(t, 13, yamlCount,
-		"Languages directory should contain exactly 13 YAML config files")
+	assert.Equal(t, 14, yamlCount,
+		"Languages directory should contain exactly 14 YAML config files")
 }
 
 func TestAllLanguageConfigs_FilenameMatchesLanguage(t *testing.T) {

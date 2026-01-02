@@ -1,0 +1,27 @@
+# Markdown language configuration for Pommel
+language: markdown
+display_name: Markdown
+extensions:
+  - .md
+  - .markdown
+  - .mdown
+  - .mkdn
+
+tree_sitter:
+  grammar: markdown
+
+chunk_mappings:
+  class:
+    - atx_heading          # # Heading
+    - setext_heading       # Heading with underline
+
+  method:
+    - fenced_code_block    # ```code```
+    - indented_code_block  # 4-space indented code
+    - list                 # Bullet/numbered lists
+    - list_item            # Individual list items
+
+extraction:
+  name_field: null         # Markdown headings don't have a "name" field
+  doc_comments: []
+  doc_comment_position: following_siblings

@@ -12,6 +12,7 @@ import (
 	"github.com/smacker/go-tree-sitter/golang"
 	"github.com/smacker/go-tree-sitter/java"
 	"github.com/smacker/go-tree-sitter/javascript"
+	markdown "github.com/smacker/go-tree-sitter/markdown/tree-sitter-markdown"
 	"github.com/smacker/go-tree-sitter/python"
 	"github.com/smacker/go-tree-sitter/typescript/tsx"
 	"github.com/smacker/go-tree-sitter/typescript/typescript"
@@ -29,6 +30,7 @@ var grammarRegistry = map[string]func() *sitter.Language{
 	"javascript": javascript.GetLanguage,
 	"typescript": typescript.GetLanguage,
 	"tsx":        tsx.GetLanguage,
+	"markdown":   markdown.GetLanguage,
 }
 
 // GetLanguageGrammar returns the tree-sitter language for the given grammar name.
@@ -68,6 +70,7 @@ const (
 	LangTypeScript Language = "typescript"
 	LangTSX        Language = "tsx"
 	LangJSX        Language = "jsx"
+	LangMarkdown   Language = "markdown"
 	LangUnknown    Language = "unknown"
 )
 
@@ -121,6 +124,11 @@ func NewParser() (*Parser, error) {
 	jsxParser := sitter.NewParser()
 	jsxParser.SetLanguage(javascript.GetLanguage())
 	parsers[LangJSX] = jsxParser
+
+	// Initialize Markdown parser
+	mdParser := sitter.NewParser()
+	mdParser.SetLanguage(markdown.GetLanguage())
+	parsers[LangMarkdown] = mdParser
 
 	return &Parser{
 		parsers: parsers,
@@ -197,6 +205,8 @@ func DetectLanguage(filename string) Language {
 		return LangTypeScript
 	case ".tsx":
 		return LangTSX
+	case ".md", ".markdown", ".mdown", ".mkdn":
+		return LangMarkdown
 	default:
 		return LangUnknown
 	}

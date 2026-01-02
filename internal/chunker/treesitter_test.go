@@ -31,6 +31,7 @@ func TestNewParser_SupportsAllExpectedLanguages(t *testing.T) {
 		LangTypeScript,
 		LangTSX,
 		LangJSX,
+		LangMarkdown,
 	}
 
 	for _, lang := range expectedLanguages {
@@ -53,6 +54,7 @@ func TestParser_SupportedLanguages(t *testing.T) {
 	assert.Contains(t, langs, LangTypeScript, "SupportedLanguages should include TypeScript")
 	assert.Contains(t, langs, LangTSX, "SupportedLanguages should include TSX")
 	assert.Contains(t, langs, LangJSX, "SupportedLanguages should include JSX")
+	assert.Contains(t, langs, LangMarkdown, "SupportedLanguages should include Markdown")
 }
 
 // =============================================================================
@@ -402,6 +404,27 @@ func TestDetectLanguage_TSX(t *testing.T) {
 	}
 }
 
+func TestDetectLanguage_Markdown(t *testing.T) {
+	tests := []struct {
+		filename string
+		expected Language
+	}{
+		{"file.md", LangMarkdown},
+		{"README.md", LangMarkdown},
+		{"docs/architecture.md", LangMarkdown},
+		{"file.markdown", LangMarkdown},
+		{"file.mdown", LangMarkdown},
+		{"file.mkdn", LangMarkdown},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.filename, func(t *testing.T) {
+			lang := DetectLanguage(tt.filename)
+			assert.Equal(t, tt.expected, lang)
+		})
+	}
+}
+
 func TestDetectLanguage_Unknown(t *testing.T) {
 	tests := []struct {
 		filename string
@@ -413,7 +436,6 @@ func TestDetectLanguage_Unknown(t *testing.T) {
 		{"file.cpp", LangUnknown},
 		{"file.h", LangUnknown},
 		{"file.txt", LangUnknown},
-		{"file.md", LangUnknown},
 		{"file.json", LangUnknown},
 		{"file.yaml", LangUnknown},
 		{"file", LangUnknown},       // No extension
