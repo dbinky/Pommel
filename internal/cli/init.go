@@ -335,6 +335,9 @@ var languageExtensions = map[string]string{
 	".tsx":   "**/*.tsx",
 	".mts":   "**/*.mts",
 	".cts":   "**/*.cts",
+	// Documentation (AST-aware chunking for markdown)
+	".md":       "**/*.md",
+	".markdown": "**/*.markdown",
 }
 
 // detectLanguagePatterns scans the project directory for source files
