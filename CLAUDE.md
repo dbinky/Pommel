@@ -99,7 +99,7 @@ All commands support `--json` for structured output and `-p/--project` to specif
 | CLI Framework | Cobra + Viper |
 | Vector Database | SQLite + sqlite-vec |
 | Embedding Model | jina-embeddings-v2-base-code (via Ollama) |
-| Code Parsing | Tree-sitter (32 languages - see Supported Languages below) |
+| Code Parsing | Tree-sitter (33 languages - see Supported Languages below) |
 | File Watching | fsnotify |
 | HTTP Server | go-chi |
 
@@ -200,7 +200,7 @@ Embedding generation via Ollama's local API. Includes caching layer and mock imp
 
 ## Supported Languages
 
-Pommel provides AST-aware code chunking for 32 programming languages:
+Pommel provides AST-aware code chunking for 33 programming languages:
 
 **Systems Languages:** C, C++, Rust, Go
 **JVM Languages:** Java, Kotlin, Scala, Groovy
@@ -209,6 +209,7 @@ Pommel provides AST-aware code chunking for 32 programming languages:
 **Functional Languages:** Elm, OCaml
 **Mobile Languages:** Swift, Kotlin
 **Infrastructure Languages:** HCL (Terraform), Dockerfile, SQL, Protocol Buffers, CUE, TOML, YAML
+**Documentation Languages:** Markdown
 
 Language configurations are stored in `languages/*.yaml` and define:
 - File extensions to detect

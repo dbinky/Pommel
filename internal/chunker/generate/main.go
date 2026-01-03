@@ -40,9 +40,9 @@ var grammarToImport = map[string]importInfo{
 	"javascript": {pkg: "javascript", path: "github.com/smacker/go-tree-sitter/javascript"},
 	"jsx":        {pkg: "javascript", path: "github.com/smacker/go-tree-sitter/javascript"}, // JSX uses JavaScript parser
 	"kotlin":     {pkg: "kotlin", path: "github.com/smacker/go-tree-sitter/kotlin"},
-	"lua":        {pkg: "lua", path: "github.com/smacker/go-tree-sitter/lua"},
-	// Note: markdown is excluded - it has a special API (MarkdownTree) that doesn't use simple GetLanguage()
-	"ocaml":      {pkg: "ocaml", path: "github.com/smacker/go-tree-sitter/ocaml"},
+	"lua":      {pkg: "lua", path: "github.com/smacker/go-tree-sitter/lua"},
+	"markdown": {pkg: "markdown", path: "github.com/smacker/go-tree-sitter/markdown", special: true}, // Custom parsing in treesitter.go
+	"ocaml":    {pkg: "ocaml", path: "github.com/smacker/go-tree-sitter/ocaml"},
 	"php":        {pkg: "php", path: "github.com/smacker/go-tree-sitter/php"},
 	"protobuf":   {pkg: "protobuf", path: "github.com/smacker/go-tree-sitter/protobuf"},
 	"python":     {pkg: "python", path: "github.com/smacker/go-tree-sitter/python"},
@@ -59,8 +59,9 @@ var grammarToImport = map[string]importInfo{
 }
 
 type importInfo struct {
-	pkg  string // Package alias for import
-	path string // Full import path
+	pkg     string // Package alias for import
+	path    string // Full import path
+	special bool   // If true, skip grammarRegistry (has custom parsing in treesitter.go)
 }
 
 // LanguageConfig represents a language YAML configuration file
@@ -306,10 +307,13 @@ func validateConfigs(configs []LanguageConfig) error {
 }
 
 func buildTemplateData(configs []LanguageConfig) TemplateData {
-	// Collect unique imports
+	// Collect unique imports (skip special grammars with custom parsing)
 	importSet := make(map[string]importInfo)
 	for _, cfg := range configs {
 		info := grammarToImport[cfg.TreeSitter.Grammar]
+		if info.special {
+			continue // Skip special grammars - they have custom parsing in treesitter.go
+		}
 		importSet[info.path] = info
 	}
 
@@ -325,10 +329,13 @@ func buildTemplateData(configs []LanguageConfig) TemplateData {
 		imports = append(imports, ImportEntry{Alias: info.pkg, Path: path})
 	}
 
-	// Build grammar entries (one per config)
+	// Build grammar entries (skip special grammars with custom parsing)
 	var grammarEntries []GrammarEntry
 	for _, cfg := range configs {
 		info := grammarToImport[cfg.TreeSitter.Grammar]
+		if info.special {
+			continue // Skip special grammars - they have custom parsing in treesitter.go
+		}
 		grammarEntries = append(grammarEntries, GrammarEntry{
 			Name:    cfg.TreeSitter.Grammar,
 			PkgFunc: info.pkg,

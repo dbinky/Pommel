@@ -450,7 +450,7 @@ Agent needs to understand authentication...
 
 ## Supported Languages
 
-Pommel supports 32 programming languages with AST-aware chunking via Tree-sitter:
+Pommel supports 33 programming languages with AST-aware chunking via Tree-sitter:
 
 | Language | Extensions | Chunk Levels |
 |----------|------------|--------------|
@@ -472,6 +472,7 @@ Pommel supports 32 programming languages with AST-aware chunking via Tree-sitter
 | JSX | `.jsx` | file, class, function |
 | Kotlin | `.kt`, `.kts` | file, class/object, function |
 | Lua | `.lua` | file, function |
+| Markdown | `.md`, `.markdown`, `.mdx` | file, section/heading |
 | OCaml | `.ml`, `.mli` | file, module/class, function |
 | PHP | `.php`, `.php3`, `.php4`, `.php5`, `.phps`, `.phtml` | file, class/trait, method/function |
 | Protocol Buffers | `.proto` | file, message/enum/service, field/rpc |
@@ -488,8 +489,6 @@ Pommel supports 32 programming languages with AST-aware chunking via Tree-sitter
 | YAML | `.yaml`, `.yml` | file, mapping |
 
 Other file types are indexed at file-level only (fallback chunking).
-
-**Note:** Markdown support is planned but requires special Tree-sitter integration.
 
 **macOS Build Note:** Building YAML support requires C++ headers. Set `CGO_CXXFLAGS="-I$(xcrun --show-sdk-path)/usr/include/c++/v1"` if you encounter C++ header errors.
 

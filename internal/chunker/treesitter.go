@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	sitter "github.com/smacker/go-tree-sitter"
+	"github.com/smacker/go-tree-sitter/markdown"
 )
 
 // Language represents a programming language supported by the parser.
@@ -31,6 +32,9 @@ type Parser struct {
 	mu      sync.Mutex
 }
 
+// markdownLangName is the language name for markdown, which requires special handling.
+const markdownLangName = "markdown"
+
 // NewParser initializes parsers for all supported languages and returns a new Parser instance.
 // Parsers are created dynamically from the generated language registry.
 func NewParser() (*Parser, error) {
@@ -38,6 +42,12 @@ func NewParser() (*Parser, error) {
 
 	// Create a parser for each language, looking up its grammar
 	for _, langName := range supportedLanguages {
+		// Markdown uses special parsing - we mark it as supported but don't create a parser
+		if langName == markdownLangName {
+			parsers[langName] = nil // Mark as supported, special handling in ParseByName
+			continue
+		}
+
 		grammarName := GetGrammarForLanguage(langName)
 		getLanguage, ok := grammarRegistry[grammarName]
 		if !ok {
@@ -77,12 +87,34 @@ func (p *Parser) ParseByName(ctx context.Context, langName string, source []byte
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
+	// Markdown requires special handling with its dual-parser API
+	if langName == markdownLangName {
+		return p.parseMarkdown(ctx, source)
+	}
+
 	tree, err := parser.ParseCtx(ctx, nil, source)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse %s: %w", langName, err)
 	}
 
 	return tree, nil
+}
+
+// parseMarkdown uses the markdown package's special dual-parser API.
+// It returns the block-level tree which contains the document structure
+// (headings, paragraphs, code blocks, lists, etc.).
+func (p *Parser) parseMarkdown(ctx context.Context, source []byte) (*sitter.Tree, error) {
+	// Use markdown.ParseCtx which handles both block and inline parsing
+	mdTree, err := markdown.ParseCtx(ctx, nil, source)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse markdown: %w", err)
+	}
+
+	// Return the block tree which contains the document structure
+	// This includes headings, paragraphs, code blocks, lists, blockquotes, etc.
+	// The inline trees (bold, italic, links within paragraphs) are available
+	// via mdTree.InlineTrees() if needed in the future.
+	return mdTree.BlockTree(), nil
 }
 
 // IsSupported returns true if the given language is supported by the parser.

@@ -349,7 +349,7 @@ func TestLanguageConfig_TypeScript(t *testing.T) {
 // Aggregate Tests
 // =============================================================================
 
-// expectedLanguageConfigs defines all 32 language configs that should be shipped.
+// expectedLanguageConfigs defines all 33 language configs that should be shipped.
 var expectedLanguageConfigs = []struct {
 	filename string
 	language string
@@ -372,6 +372,7 @@ var expectedLanguageConfigs = []struct {
 	{"jsx.yaml", "jsx"},
 	{"kotlin.yaml", "kotlin"},
 	{"lua.yaml", "lua"},
+	{"markdown.yaml", "markdown"},
 	{"ocaml.yaml", "ocaml"},
 	{"php.yaml", "php"},
 	{"protobuf.yaml", "protobuf"},
@@ -389,7 +390,7 @@ var expectedLanguageConfigs = []struct {
 }
 
 func TestAllLanguageConfigs_Load(t *testing.T) {
-	// All 32 configs should load without error
+	// All 33 configs should load without error
 	languagesDir := getLanguagesDir(t)
 
 	for _, expected := range expectedLanguageConfigs {
@@ -425,8 +426,8 @@ func TestAllLanguageConfigs_UniqueLanguageIDs(t *testing.T) {
 		seenLanguages[cfg.Language] = expected.filename
 	}
 
-	// Verify we checked all 32 configs
-	assert.Len(t, seenLanguages, 32, "Should have 32 unique language identifiers")
+	// Verify we checked all 33 configs
+	assert.Len(t, seenLanguages, 33, "Should have 33 unique language identifiers")
 }
 
 func TestAllLanguageConfigs_UniqueExtensions(t *testing.T) {
@@ -535,7 +536,7 @@ func TestAllLanguageConfigs_HaveGrammar(t *testing.T) {
 }
 
 func TestAllLanguageConfigs_Count(t *testing.T) {
-	// Verify exactly 32 language configs exist in the languages directory
+	// Verify exactly 33 language configs exist in the languages directory
 	languagesDir := getLanguagesDir(t)
 
 	entries, err := os.ReadDir(languagesDir)
@@ -548,8 +549,8 @@ func TestAllLanguageConfigs_Count(t *testing.T) {
 		}
 	}
 
-	assert.Equal(t, 32, yamlCount,
-		"Languages directory should contain exactly 32 YAML config files")
+	assert.Equal(t, 33, yamlCount,
+		"Languages directory should contain exactly 33 YAML config files")
 }
 
 func TestAllLanguageConfigs_FilenameMatchesLanguage(t *testing.T) {
