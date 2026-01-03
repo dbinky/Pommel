@@ -29,12 +29,12 @@ func NewGenericChunker(parser *Parser, config *LanguageConfig) (*GenericChunker,
 		return nil, fmt.Errorf("config is required")
 	}
 
-	// Determine the Language enum from the config
-	lang := Language(config.TreeSitter.Grammar)
+	// Use the user-friendly language name
+	lang := Language(config.Language)
 
 	// Verify the parser supports this language
 	if !parser.IsSupported(lang) {
-		return nil, fmt.Errorf("parser does not support language: %s", config.TreeSitter.Grammar)
+		return nil, fmt.Errorf("parser does not support language: %s", config.Language)
 	}
 
 	return &GenericChunker{

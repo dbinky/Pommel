@@ -1,60 +1,15 @@
 package chunker
 
+//go:generate go run ./generate/main.go
+
 import (
 	"context"
 	"fmt"
-	"path/filepath"
-	"strings"
 	"sync"
 
 	sitter "github.com/smacker/go-tree-sitter"
-	"github.com/smacker/go-tree-sitter/csharp"
-	"github.com/smacker/go-tree-sitter/golang"
-	"github.com/smacker/go-tree-sitter/java"
-	"github.com/smacker/go-tree-sitter/javascript"
-	"github.com/smacker/go-tree-sitter/python"
-	"github.com/smacker/go-tree-sitter/typescript/tsx"
-	"github.com/smacker/go-tree-sitter/typescript/typescript"
+	"github.com/smacker/go-tree-sitter/markdown"
 )
-
-// grammarRegistry maps grammar names (from config) to tree-sitter language getters.
-// This allows config-driven language loading without hard-coding language types.
-// Multiple aliases are supported for compatibility (e.g., "csharp" and "c_sharp").
-var grammarRegistry = map[string]func() *sitter.Language{
-	"go":         golang.GetLanguage,
-	"java":       java.GetLanguage,
-	"csharp":     csharp.GetLanguage,
-	"c_sharp":    csharp.GetLanguage, // alias for csharp
-	"python":     python.GetLanguage,
-	"javascript": javascript.GetLanguage,
-	"typescript": typescript.GetLanguage,
-	"tsx":        tsx.GetLanguage,
-}
-
-// GetLanguageGrammar returns the tree-sitter language for the given grammar name.
-// The grammar name should match the tree_sitter.grammar field in language config files.
-func GetLanguageGrammar(name string) (*sitter.Language, error) {
-	getter, ok := grammarRegistry[name]
-	if !ok {
-		return nil, fmt.Errorf("unsupported grammar: %s", name)
-	}
-	return getter(), nil
-}
-
-// SupportedGrammars returns a list of all grammar names supported by the parser.
-func SupportedGrammars() []string {
-	grammars := make([]string, 0, len(grammarRegistry))
-	for name := range grammarRegistry {
-		grammars = append(grammars, name)
-	}
-	return grammars
-}
-
-// IsGrammarSupported returns true if the given grammar name is supported.
-func IsGrammarSupported(name string) bool {
-	_, ok := grammarRegistry[name]
-	return ok
-}
 
 // Language represents a programming language supported by the parser.
 type Language string
@@ -73,54 +28,36 @@ const (
 
 // Parser wraps tree-sitter functionality for parsing multiple languages.
 type Parser struct {
-	parsers map[Language]*sitter.Parser
+	parsers map[string]*sitter.Parser
 	mu      sync.Mutex
 }
 
-// NewParser initializes all language parsers and returns a new Parser instance.
+// markdownLangName is the language name for markdown, which requires special handling.
+const markdownLangName = "markdown"
+
+// NewParser initializes parsers for all supported languages and returns a new Parser instance.
+// Parsers are created dynamically from the generated language registry.
 func NewParser() (*Parser, error) {
-	parsers := make(map[Language]*sitter.Parser)
+	parsers := make(map[string]*sitter.Parser)
 
-	// Initialize Go parser
-	goParser := sitter.NewParser()
-	goParser.SetLanguage(golang.GetLanguage())
-	parsers[LangGo] = goParser
+	// Create a parser for each language, looking up its grammar
+	for _, langName := range supportedLanguages {
+		// Markdown uses special parsing - we mark it as supported but don't create a parser
+		if langName == markdownLangName {
+			parsers[langName] = nil // Mark as supported, special handling in ParseByName
+			continue
+		}
 
-	// Initialize Java parser
-	javaParser := sitter.NewParser()
-	javaParser.SetLanguage(java.GetLanguage())
-	parsers[LangJava] = javaParser
-
-	// Initialize C# parser
-	csharpParser := sitter.NewParser()
-	csharpParser.SetLanguage(csharp.GetLanguage())
-	parsers[LangCSharp] = csharpParser
-	parsers[Language("c_sharp")] = csharpParser // alias for config compatibility
-
-	// Initialize Python parser
-	pythonParser := sitter.NewParser()
-	pythonParser.SetLanguage(python.GetLanguage())
-	parsers[LangPython] = pythonParser
-
-	// Initialize JavaScript parser
-	jsParser := sitter.NewParser()
-	jsParser.SetLanguage(javascript.GetLanguage())
-	parsers[LangJavaScript] = jsParser
-
-	// Initialize TypeScript parser
-	tsParser := sitter.NewParser()
-	tsParser.SetLanguage(typescript.GetLanguage())
-	parsers[LangTypeScript] = tsParser
-
-	// Initialize TSX parser
-	tsxParser := sitter.NewParser()
-	tsxParser.SetLanguage(tsx.GetLanguage())
-	parsers[LangTSX] = tsxParser
-
-	// Initialize JSX parser (uses JavaScript parser since JS supports JSX)
-	jsxParser := sitter.NewParser()
-	jsxParser.SetLanguage(javascript.GetLanguage())
-	parsers[LangJSX] = jsxParser
+		grammarName := GetGrammarForLanguage(langName)
+		getLanguage, ok := grammarRegistry[grammarName]
+		if !ok {
+			// This shouldn't happen if configs are validated correctly
+			continue
+		}
+		parser := sitter.NewParser()
+		parser.SetLanguage(getLanguage())
+		parsers[langName] = parser
+	}
 
 	return &Parser{
 		parsers: parsers,
@@ -129,9 +66,14 @@ func NewParser() (*Parser, error) {
 
 // Parse parses the given source code using the appropriate language parser.
 func (p *Parser) Parse(ctx context.Context, lang Language, source []byte) (*sitter.Tree, error) {
-	parser, ok := p.parsers[lang]
+	return p.ParseByName(ctx, string(lang), source)
+}
+
+// ParseByName parses the given source code using the parser for the named language.
+func (p *Parser) ParseByName(ctx context.Context, langName string, source []byte) (*sitter.Tree, error) {
+	parser, ok := p.parsers[langName]
 	if !ok {
-		return nil, fmt.Errorf("unsupported language: %s", lang)
+		return nil, fmt.Errorf("unsupported language: %s", langName)
 	}
 
 	// Check if context is already cancelled
@@ -145,59 +87,58 @@ func (p *Parser) Parse(ctx context.Context, lang Language, source []byte) (*sitt
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
+	// Markdown requires special handling with its dual-parser API
+	if langName == markdownLangName {
+		return p.parseMarkdown(ctx, source)
+	}
+
 	tree, err := parser.ParseCtx(ctx, nil, source)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse %s: %w", lang, err)
+		return nil, fmt.Errorf("failed to parse %s: %w", langName, err)
 	}
 
 	return tree, nil
 }
 
-// SupportedLanguages returns a list of all supported languages.
-func (p *Parser) SupportedLanguages() []Language {
-	languages := make([]Language, 0, len(p.parsers))
-	for lang := range p.parsers {
-		languages = append(languages, lang)
+// parseMarkdown uses the markdown package's special dual-parser API.
+// It returns the block-level tree which contains the document structure
+// (headings, paragraphs, code blocks, lists, etc.).
+func (p *Parser) parseMarkdown(ctx context.Context, source []byte) (*sitter.Tree, error) {
+	// Use markdown.ParseCtx which handles both block and inline parsing
+	mdTree, err := markdown.ParseCtx(ctx, nil, source)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse markdown: %w", err)
 	}
-	return languages
+
+	// Return the block tree which contains the document structure
+	// This includes headings, paragraphs, code blocks, lists, blockquotes, etc.
+	// The inline trees (bold, italic, links within paragraphs) are available
+	// via mdTree.InlineTrees() if needed in the future.
+	return mdTree.BlockTree(), nil
 }
 
 // IsSupported returns true if the given language is supported by the parser.
 func (p *Parser) IsSupported(lang Language) bool {
-	_, ok := p.parsers[lang]
+	_, ok := p.parsers[string(lang)]
+	return ok
+}
+
+// IsSupportedByName returns true if the given language name is supported by the parser.
+func (p *Parser) IsSupportedByName(langName string) bool {
+	_, ok := p.parsers[langName]
 	return ok
 }
 
 // DetectLanguage detects the programming language based on the file extension.
-// Detection is case-sensitive - only lowercase extensions are recognized.
+// This is a convenience wrapper that returns the Language type.
+// For the string-based language name, use DetectLanguageByExtension directly.
 func DetectLanguage(filename string) Language {
-	ext := strings.ToLower(filepath.Ext(filename))
+	langName := DetectLanguageByExtension(filename)
+	return Language(langName)
+}
 
-	// Check if the original extension matches the lowercase version
-	// This ensures case-sensitivity - only lowercase extensions match
-	originalExt := filepath.Ext(filename)
-	if ext != originalExt {
-		return LangUnknown
-	}
-
-	switch ext {
-	case ".go":
-		return LangGo
-	case ".java":
-		return LangJava
-	case ".cs":
-		return LangCSharp
-	case ".py":
-		return LangPython
-	case ".js":
-		return LangJavaScript
-	case ".jsx":
-		return LangJSX
-	case ".ts":
-		return LangTypeScript
-	case ".tsx":
-		return LangTSX
-	default:
-		return LangUnknown
-	}
+// SupportedGrammars returns a list of all grammar names supported by the parser.
+// Deprecated: Use SupportedLanguages() instead.
+func SupportedGrammars() []string {
+	return SupportedLanguages()
 }

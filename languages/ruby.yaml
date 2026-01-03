@@ -1,0 +1,35 @@
+# Ruby language configuration for Pommel
+language: ruby
+display_name: Ruby
+extensions:
+  - .rb
+  - .rake
+  - .gemspec
+
+tree_sitter:
+  grammar: ruby
+
+chunk_mappings:
+  class:
+    - class
+    - module
+    - singleton_class
+
+  method:
+    - method
+    - singleton_method
+
+  block:
+    - if
+    - unless
+    - case
+    - while
+    - until
+    - for
+    - begin
+
+extraction:
+  name_field: name
+  doc_comments:
+    - comment
+  doc_comment_position: preceding_siblings

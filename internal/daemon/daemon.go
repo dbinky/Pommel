@@ -316,18 +316,46 @@ func (d *Daemon) handleHealth(w http.ResponseWriter, r *http.Request) {
 
 func (d *Daemon) handleStatus(w http.ResponseWriter, r *http.Request) {
 	stats := d.indexer.Stats()
+
+	// Build index status
+	indexStatus := map[string]interface{}{
+		"total_files":     stats.TotalFiles,
+		"total_chunks":    stats.TotalChunks,
+		"indexing_active": stats.IndexingActive,
+		"pending_changes": stats.PendingFiles,
+	}
+
+	// Add progress information if indexing is active
+	if stats.IndexingActive && stats.FilesToProcess > 0 {
+		percentComplete := float64(stats.FilesProcessed) / float64(stats.FilesToProcess) * 100
+
+		// Calculate ETA
+		var etaSeconds float64
+		if stats.FilesProcessed > 0 && !stats.IndexingStarted.IsZero() {
+			elapsed := time.Since(stats.IndexingStarted).Seconds()
+			rate := float64(stats.FilesProcessed) / elapsed
+			if rate > 0 {
+				remaining := stats.FilesToProcess - stats.FilesProcessed
+				etaSeconds = float64(remaining) / rate
+			}
+		}
+
+		indexStatus["progress"] = map[string]interface{}{
+			"files_to_process": stats.FilesToProcess,
+			"files_processed":  stats.FilesProcessed,
+			"percent_complete": percentComplete,
+			"indexing_started": stats.IndexingStarted,
+			"eta_seconds":      etaSeconds,
+		}
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"daemon": map[string]interface{}{
 			"running": true,
 			"pid":     os.Getpid(),
 		},
-		"index": map[string]interface{}{
-			"total_files":     stats.TotalFiles,
-			"total_chunks":    stats.TotalChunks,
-			"indexing_active": stats.IndexingActive,
-			"pending_changes": stats.PendingFiles,
-		},
+		"index": indexStatus,
 	})
 }
 

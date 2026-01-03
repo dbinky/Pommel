@@ -129,8 +129,8 @@ func (r *ChunkerRegistry) registerFromConfig(config *LanguageConfig) error {
 		return fmt.Errorf("failed to create chunker for %s: %w", config.Language, err)
 	}
 
-	// Determine the Language key - use the grammar name for parser compatibility
-	lang := Language(config.TreeSitter.Grammar)
+	// Determine the Language key - use the user-friendly language name
+	lang := Language(config.Language)
 
 	// Register the chunker
 	r.chunkers[lang] = chunker

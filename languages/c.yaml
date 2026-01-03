@@ -1,0 +1,30 @@
+# C language configuration for Pommel
+language: c
+display_name: C
+extensions:
+  - .c
+  - .h
+
+tree_sitter:
+  grammar: c
+
+chunk_mappings:
+  class:
+    - struct_specifier
+    - union_specifier
+    - enum_specifier
+
+  method:
+    - function_definition
+
+  block:
+    - if_statement
+    - for_statement
+    - while_statement
+    - switch_statement
+
+extraction:
+  name_field: declarator
+  doc_comments:
+    - comment
+  doc_comment_position: preceding_siblings

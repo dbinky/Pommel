@@ -1,0 +1,27 @@
+# HCL (HashiCorp Configuration Language) configuration for Pommel
+language: hcl
+display_name: HCL
+extensions:
+  - .hcl
+  - .tf
+  - .tfvars
+
+tree_sitter:
+  grammar: hcl
+
+chunk_mappings:
+  class:
+    - block
+
+  method:
+    - attribute
+
+  block:
+    - for_expr
+    - conditional
+
+extraction:
+  name_field: identifier
+  doc_comments:
+    - comment
+  doc_comment_position: preceding_siblings

@@ -1,0 +1,26 @@
+# Protocol Buffers configuration for Pommel
+language: protobuf
+display_name: Protocol Buffers
+extensions:
+  - .proto
+
+tree_sitter:
+  grammar: protobuf
+
+chunk_mappings:
+  class:
+    - message
+    - enum
+    - service
+
+  method:
+    - field
+    - rpc
+
+  block: []
+
+extraction:
+  name_field: name
+  doc_comments:
+    - comment
+  doc_comment_position: preceding_siblings

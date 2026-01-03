@@ -12,9 +12,10 @@ import (
 type ChunkLevel string
 
 const (
-	ChunkLevelFile   ChunkLevel = "file"
-	ChunkLevelClass  ChunkLevel = "class"
-	ChunkLevelMethod ChunkLevel = "method"
+	ChunkLevelFile    ChunkLevel = "file"
+	ChunkLevelClass   ChunkLevel = "class"
+	ChunkLevelSection ChunkLevel = "section"
+	ChunkLevelMethod  ChunkLevel = "method"
 )
 
 // Chunk represents a semantic unit of code

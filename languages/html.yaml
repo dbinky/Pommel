@@ -1,0 +1,23 @@
+# HTML language configuration for Pommel
+language: html
+display_name: HTML
+extensions:
+  - .html
+  - .htm
+
+tree_sitter:
+  grammar: html
+
+chunk_mappings:
+  class:
+    - element
+
+  method: []
+
+  block: []
+
+extraction:
+  name_field: tag_name
+  doc_comments:
+    - comment
+  doc_comment_position: preceding_siblings

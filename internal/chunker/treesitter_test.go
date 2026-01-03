@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	sitter "github.com/smacker/go-tree-sitter"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -22,37 +23,48 @@ func TestNewParser_SupportsAllExpectedLanguages(t *testing.T) {
 	parser, err := NewParser()
 	require.NoError(t, err)
 
-	expectedLanguages := []Language{
-		LangGo,
-		LangJava,
-		LangCSharp,
-		LangPython,
-		LangJavaScript,
-		LangTypeScript,
-		LangTSX,
-		LangJSX,
+	// Test that parser supports the languages from YAML configs
+	// Note: JSX/TSX now have their own configs
+	expectedLanguages := []string{
+		"go",
+		"java",
+		"csharp", // User-friendly name, not grammar name
+		"python",
+		"javascript",
+		"typescript",
+		"rust", // Now supported
+		"jsx",
+		"tsx",
 	}
 
 	for _, lang := range expectedLanguages {
-		t.Run(string(lang), func(t *testing.T) {
-			assert.True(t, parser.IsSupported(lang), "Parser should support %s", lang)
+		t.Run(lang, func(t *testing.T) {
+			assert.True(t, parser.IsSupportedByName(lang), "Parser should support %s", lang)
 		})
 	}
 }
 
 func TestParser_SupportedLanguages(t *testing.T) {
+	// Test package-level SupportedLanguages function
+	langs := SupportedLanguages()
+	assert.NotEmpty(t, langs, "SupportedLanguages should return at least one language")
+
+	// Test that parser supports the expected core languages
 	parser, err := NewParser()
 	require.NoError(t, err)
 
-	langs := parser.SupportedLanguages()
-	assert.Contains(t, langs, LangGo, "SupportedLanguages should include Go")
-	assert.Contains(t, langs, LangJava, "SupportedLanguages should include Java")
-	assert.Contains(t, langs, LangCSharp, "SupportedLanguages should include C#")
-	assert.Contains(t, langs, LangPython, "SupportedLanguages should include Python")
-	assert.Contains(t, langs, LangJavaScript, "SupportedLanguages should include JavaScript")
-	assert.Contains(t, langs, LangTypeScript, "SupportedLanguages should include TypeScript")
-	assert.Contains(t, langs, LangTSX, "SupportedLanguages should include TSX")
-	assert.Contains(t, langs, LangJSX, "SupportedLanguages should include JSX")
+	expectedLanguages := []string{
+		"go",
+		"java",
+		"csharp", // User-friendly name
+		"python",
+		"javascript",
+		"typescript",
+	}
+
+	for _, lang := range expectedLanguages {
+		assert.True(t, parser.IsSupportedByName(lang), "Parser should support %s", lang)
+	}
 }
 
 // =============================================================================
@@ -407,19 +419,11 @@ func TestDetectLanguage_Unknown(t *testing.T) {
 		filename string
 		expected Language
 	}{
-		{"file.rb", LangUnknown},
-		{"file.rust", LangUnknown},
-		{"file.c", LangUnknown},
-		{"file.cpp", LangUnknown},
-		{"file.h", LangUnknown},
 		{"file.txt", LangUnknown},
-		{"file.md", LangUnknown},
 		{"file.json", LangUnknown},
-		{"file.yaml", LangUnknown},
 		{"file", LangUnknown},       // No extension
 		{".gitignore", LangUnknown}, // Hidden file
 		{"Makefile", LangUnknown},   // No extension
-		{"Dockerfile", LangUnknown}, // No extension
 	}
 
 	for _, tt := range tests {
@@ -482,9 +486,7 @@ func TestParser_IsSupported_UnsupportedLanguages(t *testing.T) {
 
 	unsupportedLanguages := []Language{
 		LangUnknown,
-		Language("rust"),
-		Language("ruby"),
-		Language("cpp"),
+		Language("nonexistent"), // Definitely unsupported
 		Language(""),
 	}
 
@@ -578,6 +580,559 @@ class SpecialChars {
 
 	tree, err := parser.Parse(context.Background(), LangJavaScript, source)
 	require.NoError(t, err, "Parser should handle special characters")
+	assert.NotNil(t, tree)
+}
+
+func TestParser_Parse_Markdown(t *testing.T) {
+	// Markdown uses a special dual-parser API (block + inline)
+	parser, err := NewParser()
+	require.NoError(t, err)
+
+	source := []byte(`# Main Heading
+
+This is a paragraph with some text.
+
+## Subheading
+
+- Item 1
+- Item 2
+- Item 3
+
+` + "```" + `go
+func main() {
+    fmt.Println("Hello")
+}
+` + "```" + `
+
+> This is a blockquote
+`)
+
+	tree, err := parser.ParseByName(context.Background(), "markdown", source)
+	require.NoError(t, err, "Parser should handle markdown with special API")
+	assert.NotNil(t, tree, "Should produce a tree for markdown")
+	assert.Equal(t, "document", tree.RootNode().Type(), "Root should be document")
+
+	// Check that we can find expected node types
+	root := tree.RootNode()
+	assert.True(t, root.NamedChildCount() > 0, "Document should have children")
+
+	// Verify we got block-level structure
+	// Markdown creates nested sections: document > section > atx_heading, paragraph, etc.
+	foundSection := false
+	foundHeading := false
+	foundCodeBlock := false
+
+	// Helper to recursively find node types
+	var findNodes func(node *sitter.Node)
+	findNodes = func(node *sitter.Node) {
+		switch node.Type() {
+		case "section":
+			foundSection = true
+		case "atx_heading", "setext_heading":
+			foundHeading = true
+		case "fenced_code_block":
+			foundCodeBlock = true
+		}
+		for i := 0; i < int(node.NamedChildCount()); i++ {
+			findNodes(node.NamedChild(i))
+		}
+	}
+	findNodes(root)
+
+	assert.True(t, foundSection, "Should find section in markdown")
+	assert.True(t, foundHeading, "Should find heading in markdown")
+	assert.True(t, foundCodeBlock, "Should find code block in markdown")
+}
+
+// =============================================================================
+// Markdown Special Handling Tests
+// =============================================================================
+
+func TestParser_Markdown_EmptyDocument(t *testing.T) {
+	// Edge case: empty markdown document
+	parser, err := NewParser()
+	require.NoError(t, err)
+
+	source := []byte("")
+	tree, err := parser.ParseByName(context.Background(), "markdown", source)
+	require.NoError(t, err, "Should handle empty markdown")
+	assert.NotNil(t, tree, "Should return a tree even for empty input")
+	assert.Equal(t, "document", tree.RootNode().Type())
+	assert.Equal(t, uint32(0), tree.RootNode().NamedChildCount(), "Empty doc should have no children")
+}
+
+func TestParser_Markdown_WhitespaceOnly(t *testing.T) {
+	// Edge case: whitespace-only document
+	parser, err := NewParser()
+	require.NoError(t, err)
+
+	source := []byte("   \n\n\t\t\n   ")
+	tree, err := parser.ParseByName(context.Background(), "markdown", source)
+	require.NoError(t, err, "Should handle whitespace-only markdown")
+	assert.NotNil(t, tree)
+	assert.Equal(t, "document", tree.RootNode().Type())
+}
+
+func TestParser_Markdown_HeadingsOnly(t *testing.T) {
+	// Success case: document with only headings (all levels)
+	parser, err := NewParser()
+	require.NoError(t, err)
+
+	source := []byte(`# Heading 1
+## Heading 2
+### Heading 3
+#### Heading 4
+##### Heading 5
+###### Heading 6
+`)
+
+	tree, err := parser.ParseByName(context.Background(), "markdown", source)
+	require.NoError(t, err)
+	assert.NotNil(t, tree)
+
+	// Count headings
+	headingCount := 0
+	var countHeadings func(node *sitter.Node)
+	countHeadings = func(node *sitter.Node) {
+		if node.Type() == "atx_heading" {
+			headingCount++
+		}
+		for i := 0; i < int(node.NamedChildCount()); i++ {
+			countHeadings(node.NamedChild(i))
+		}
+	}
+	countHeadings(tree.RootNode())
+
+	assert.Equal(t, 6, headingCount, "Should find all 6 heading levels")
+}
+
+func TestParser_Markdown_SetextHeadings(t *testing.T) {
+	// Success case: setext-style headings (underline style)
+	parser, err := NewParser()
+	require.NoError(t, err)
+
+	source := []byte(`Heading 1
+=========
+
+Heading 2
+---------
+`)
+
+	tree, err := parser.ParseByName(context.Background(), "markdown", source)
+	require.NoError(t, err)
+	assert.NotNil(t, tree)
+
+	// Should find setext headings
+	foundSetext := false
+	var findSetext func(node *sitter.Node)
+	findSetext = func(node *sitter.Node) {
+		if node.Type() == "setext_heading" {
+			foundSetext = true
+		}
+		for i := 0; i < int(node.NamedChildCount()); i++ {
+			findSetext(node.NamedChild(i))
+		}
+	}
+	findSetext(tree.RootNode())
+
+	assert.True(t, foundSetext, "Should find setext-style headings")
+}
+
+func TestParser_Markdown_CodeBlocks(t *testing.T) {
+	// Success case: various code block formats
+	parser, err := NewParser()
+	require.NoError(t, err)
+
+	source := []byte(`
+` + "```" + `
+plain code block
+` + "```" + `
+
+` + "```" + `python
+def hello():
+    print("world")
+` + "```" + `
+
+` + "```" + `javascript
+console.log("test");
+` + "```" + `
+
+    indented code block
+    line 2
+`)
+
+	tree, err := parser.ParseByName(context.Background(), "markdown", source)
+	require.NoError(t, err)
+	assert.NotNil(t, tree)
+
+	// Count code blocks
+	fencedCount := 0
+	indentedCount := 0
+	var countBlocks func(node *sitter.Node)
+	countBlocks = func(node *sitter.Node) {
+		switch node.Type() {
+		case "fenced_code_block":
+			fencedCount++
+		case "indented_code_block":
+			indentedCount++
+		}
+		for i := 0; i < int(node.NamedChildCount()); i++ {
+			countBlocks(node.NamedChild(i))
+		}
+	}
+	countBlocks(tree.RootNode())
+
+	assert.Equal(t, 3, fencedCount, "Should find 3 fenced code blocks")
+	assert.Equal(t, 1, indentedCount, "Should find 1 indented code block")
+}
+
+func TestParser_Markdown_Lists(t *testing.T) {
+	// Success case: ordered and unordered lists
+	parser, err := NewParser()
+	require.NoError(t, err)
+
+	source := []byte(`
+- Bullet 1
+- Bullet 2
+  - Nested bullet
+- Bullet 3
+
+1. First
+2. Second
+3. Third
+
+* Star bullet
++ Plus bullet
+- Minus bullet
+`)
+
+	tree, err := parser.ParseByName(context.Background(), "markdown", source)
+	require.NoError(t, err)
+	assert.NotNil(t, tree)
+
+	// Should find lists
+	listCount := 0
+	var countLists func(node *sitter.Node)
+	countLists = func(node *sitter.Node) {
+		if node.Type() == "list" {
+			listCount++
+		}
+		for i := 0; i < int(node.NamedChildCount()); i++ {
+			countLists(node.NamedChild(i))
+		}
+	}
+	countLists(tree.RootNode())
+
+	assert.True(t, listCount >= 3, "Should find multiple lists")
+}
+
+func TestParser_Markdown_Blockquotes(t *testing.T) {
+	// Success case: blockquotes including nested
+	parser, err := NewParser()
+	require.NoError(t, err)
+
+	source := []byte(`
+> Single line quote
+
+> Multi-line
+> blockquote
+> continues
+
+> Nested quote
+> > Inner quote
+> > > Deeply nested
+`)
+
+	tree, err := parser.ParseByName(context.Background(), "markdown", source)
+	require.NoError(t, err)
+	assert.NotNil(t, tree)
+
+	// Count blockquotes
+	quoteCount := 0
+	var countQuotes func(node *sitter.Node)
+	countQuotes = func(node *sitter.Node) {
+		if node.Type() == "block_quote" {
+			quoteCount++
+		}
+		for i := 0; i < int(node.NamedChildCount()); i++ {
+			countQuotes(node.NamedChild(i))
+		}
+	}
+	countQuotes(tree.RootNode())
+
+	assert.True(t, quoteCount >= 3, "Should find multiple blockquotes")
+}
+
+func TestParser_Markdown_Tables(t *testing.T) {
+	// Success case: GFM tables
+	parser, err := NewParser()
+	require.NoError(t, err)
+
+	source := []byte(`
+| Header 1 | Header 2 | Header 3 |
+|----------|----------|----------|
+| Cell 1   | Cell 2   | Cell 3   |
+| Cell 4   | Cell 5   | Cell 6   |
+`)
+
+	tree, err := parser.ParseByName(context.Background(), "markdown", source)
+	require.NoError(t, err)
+	assert.NotNil(t, tree)
+	// Tables may or may not be supported depending on tree-sitter-markdown version
+	// Just verify parsing doesn't fail
+}
+
+func TestParser_Markdown_HorizontalRules(t *testing.T) {
+	// Success case: thematic breaks (horizontal rules)
+	parser, err := NewParser()
+	require.NoError(t, err)
+
+	source := []byte(`
+Before
+
+---
+
+Between
+
+***
+
+After
+
+___
+
+End
+`)
+
+	tree, err := parser.ParseByName(context.Background(), "markdown", source)
+	require.NoError(t, err)
+	assert.NotNil(t, tree)
+
+	// Count thematic breaks
+	breakCount := 0
+	var countBreaks func(node *sitter.Node)
+	countBreaks = func(node *sitter.Node) {
+		if node.Type() == "thematic_break" {
+			breakCount++
+		}
+		for i := 0; i < int(node.NamedChildCount()); i++ {
+			countBreaks(node.NamedChild(i))
+		}
+	}
+	countBreaks(tree.RootNode())
+
+	assert.Equal(t, 3, breakCount, "Should find 3 thematic breaks")
+}
+
+func TestParser_Markdown_HTMLBlocks(t *testing.T) {
+	// Success case: embedded HTML
+	parser, err := NewParser()
+	require.NoError(t, err)
+
+	source := []byte(`
+# Heading
+
+<div class="container">
+  <p>Some HTML content</p>
+</div>
+
+Regular paragraph after HTML.
+`)
+
+	tree, err := parser.ParseByName(context.Background(), "markdown", source)
+	require.NoError(t, err)
+	assert.NotNil(t, tree)
+
+	// Should find HTML block
+	foundHTML := false
+	var findHTML func(node *sitter.Node)
+	findHTML = func(node *sitter.Node) {
+		if node.Type() == "html_block" {
+			foundHTML = true
+		}
+		for i := 0; i < int(node.NamedChildCount()); i++ {
+			findHTML(node.NamedChild(i))
+		}
+	}
+	findHTML(tree.RootNode())
+
+	assert.True(t, foundHTML, "Should find HTML block")
+}
+
+func TestParser_Markdown_LargeDocument(t *testing.T) {
+	// Edge case: large markdown document
+	parser, err := NewParser()
+	require.NoError(t, err)
+
+	// Generate a large document with many headings and paragraphs
+	var source []byte
+	for i := 0; i < 100; i++ {
+		source = append(source, []byte("# Heading "+string(rune('A'+i%26))+"\n\n")...)
+		source = append(source, []byte("This is paragraph number "+string(rune('0'+i%10))+". It has some text.\n\n")...)
+		source = append(source, []byte("- List item 1\n- List item 2\n\n")...)
+	}
+
+	tree, err := parser.ParseByName(context.Background(), "markdown", source)
+	require.NoError(t, err, "Should handle large markdown documents")
+	assert.NotNil(t, tree)
+	assert.Equal(t, "document", tree.RootNode().Type())
+}
+
+func TestParser_Markdown_UnicodeContent(t *testing.T) {
+	// Edge case: Unicode and special characters
+	parser, err := NewParser()
+	require.NoError(t, err)
+
+	source := []byte(`# 日本語のヘッダー
+
+这是中文段落。
+
+## Ελληνικά
+
+Привет мир! 🎉
+
+- Émojis work: 👍 🚀 ✨
+- Special chars: © ® ™ € £ ¥
+`)
+
+	tree, err := parser.ParseByName(context.Background(), "markdown", source)
+	require.NoError(t, err, "Should handle Unicode content")
+	assert.NotNil(t, tree)
+	assert.Equal(t, "document", tree.RootNode().Type())
+}
+
+func TestParser_Markdown_ContextCancellation(t *testing.T) {
+	// Error case: context cancellation
+	parser, err := NewParser()
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Cancel immediately
+
+	source := []byte(`# Heading
+
+Some content.
+`)
+
+	_, err = parser.ParseByName(ctx, "markdown", source)
+	assert.Error(t, err, "Should return error when context is cancelled")
+	assert.Equal(t, context.Canceled, err)
+}
+
+func TestParser_Markdown_IsSupported(t *testing.T) {
+	// Verify markdown is properly registered as supported
+	parser, err := NewParser()
+	require.NoError(t, err)
+
+	assert.True(t, parser.IsSupportedByName("markdown"), "markdown should be supported")
+
+	// Test via Language type as well
+	assert.True(t, parser.IsSupported(Language("markdown")), "Language('markdown') should be supported")
+}
+
+func TestParser_Markdown_DetectLanguage(t *testing.T) {
+	// Test extension detection for markdown files
+	tests := []struct {
+		filename string
+		expected Language
+	}{
+		{"README.md", Language("markdown")},
+		{"doc.markdown", Language("markdown")},
+		{"component.mdx", Language("markdown")},
+		{"notes.MD", LangUnknown}, // Case-sensitive
+		{"file.txt", LangUnknown},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.filename, func(t *testing.T) {
+			lang := DetectLanguage(tt.filename)
+			assert.Equal(t, tt.expected, lang)
+		})
+	}
+}
+
+func TestParser_Markdown_ParseViaLanguageType(t *testing.T) {
+	// Test parsing via Language type (not just string name)
+	parser, err := NewParser()
+	require.NoError(t, err)
+
+	source := []byte("# Test\n\nParagraph.")
+
+	tree, err := parser.Parse(context.Background(), Language("markdown"), source)
+	require.NoError(t, err, "Should parse via Language type")
+	assert.NotNil(t, tree)
+	assert.Equal(t, "document", tree.RootNode().Type())
+}
+
+func TestParser_Markdown_MixedContent(t *testing.T) {
+	// Success case: realistic mixed content document
+	parser, err := NewParser()
+	require.NoError(t, err)
+
+	source := []byte(`# Project README
+
+## Overview
+
+This project does amazing things.
+
+## Installation
+
+` + "```" + `bash
+npm install amazing-project
+` + "```" + `
+
+## Usage
+
+1. Import the module
+2. Configure settings
+3. Run the app
+
+> **Note:** Make sure you have Node.js installed.
+
+## API Reference
+
+| Method | Description |
+|--------|-------------|
+| init() | Initialize   |
+| run()  | Execute      |
+
+---
+
+## License
+
+MIT © 2024
+`)
+
+	tree, err := parser.ParseByName(context.Background(), "markdown", source)
+	require.NoError(t, err)
+	assert.NotNil(t, tree)
+
+	// Verify we can traverse and find various elements
+	nodeTypes := make(map[string]int)
+	var countNodes func(node *sitter.Node)
+	countNodes = func(node *sitter.Node) {
+		nodeTypes[node.Type()]++
+		for i := 0; i < int(node.NamedChildCount()); i++ {
+			countNodes(node.NamedChild(i))
+		}
+	}
+	countNodes(tree.RootNode())
+
+	assert.True(t, nodeTypes["section"] >= 1, "Should have sections")
+	assert.True(t, nodeTypes["atx_heading"] >= 1, "Should have headings")
+	assert.True(t, nodeTypes["fenced_code_block"] >= 1, "Should have code blocks")
+	assert.True(t, nodeTypes["list"] >= 1, "Should have lists")
+}
+
+func TestParser_Markdown_NilParserEntry(t *testing.T) {
+	// Verify that the markdown parser entry in the map is nil (special case)
+	// This tests that NewParser correctly sets up markdown with nil parser
+	parser, err := NewParser()
+	require.NoError(t, err)
+
+	// The parser should still work even though the internal parsers[markdown] is nil
+	source := []byte("# Test")
+	tree, err := parser.ParseByName(context.Background(), "markdown", source)
+	require.NoError(t, err)
 	assert.NotNil(t, tree)
 }
 

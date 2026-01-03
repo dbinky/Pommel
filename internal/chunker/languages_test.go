@@ -107,26 +107,6 @@ func TestLanguageConfig_CSharp(t *testing.T) {
 	assert.Contains(t, cfg.ChunkMappings.Method, "method_declaration")
 }
 
-func TestLanguageConfig_Dart(t *testing.T) {
-	cfg := loadTestLanguageConfig(t, "dart.yaml")
-
-	// Validate common requirements
-	validateLanguageConfig(t, "dart", cfg)
-
-	// Validate specific expected values
-	assert.Equal(t, "dart", cfg.Language, "Language should be 'dart'")
-	assert.Equal(t, "Dart", cfg.DisplayName, "DisplayName should be 'Dart'")
-	assert.Contains(t, cfg.Extensions, ".dart", "Extensions should contain '.dart'")
-	assert.Equal(t, "dart", cfg.TreeSitter.Grammar, "Grammar should be 'dart'")
-
-	// Dart should have class mappings
-	assert.NotEmpty(t, cfg.ChunkMappings.Class, "Dart should have class mappings")
-	assert.Contains(t, cfg.ChunkMappings.Class, "class_definition")
-
-	// Dart should have method mappings
-	assert.NotEmpty(t, cfg.ChunkMappings.Method, "Dart should have method mappings")
-}
-
 func TestLanguageConfig_Elixir(t *testing.T) {
 	cfg := loadTestLanguageConfig(t, "elixir.yaml")
 
@@ -201,7 +181,6 @@ func TestLanguageConfig_JavaScript(t *testing.T) {
 	assert.Equal(t, "javascript", cfg.Language, "Language should be 'javascript'")
 	assert.Equal(t, "JavaScript", cfg.DisplayName, "DisplayName should be 'JavaScript'")
 	assert.Contains(t, cfg.Extensions, ".js", "Extensions should contain '.js'")
-	assert.Contains(t, cfg.Extensions, ".jsx", "Extensions should contain '.jsx'")
 	assert.Contains(t, cfg.Extensions, ".mjs", "Extensions should contain '.mjs'")
 	assert.Contains(t, cfg.Extensions, ".cjs", "Extensions should contain '.cjs'")
 	assert.Equal(t, "javascript", cfg.TreeSitter.Grammar, "Grammar should be 'javascript'")
@@ -315,30 +294,6 @@ func TestLanguageConfig_Rust(t *testing.T) {
 	assert.Contains(t, cfg.ChunkMappings.Method, "function_item")
 }
 
-func TestLanguageConfig_Solidity(t *testing.T) {
-	cfg := loadTestLanguageConfig(t, "solidity.yaml")
-
-	// Validate common requirements
-	validateLanguageConfig(t, "solidity", cfg)
-
-	// Validate specific expected values
-	assert.Equal(t, "solidity", cfg.Language, "Language should be 'solidity'")
-	assert.Equal(t, "Solidity", cfg.DisplayName, "DisplayName should be 'Solidity'")
-	assert.Contains(t, cfg.Extensions, ".sol", "Extensions should contain '.sol'")
-	assert.Equal(t, "solidity", cfg.TreeSitter.Grammar, "Grammar should be 'solidity'")
-
-	// Solidity should have class mappings for contract, interface, library
-	assert.NotEmpty(t, cfg.ChunkMappings.Class, "Solidity should have class mappings")
-	assert.Contains(t, cfg.ChunkMappings.Class, "contract_declaration")
-	assert.Contains(t, cfg.ChunkMappings.Class, "interface_declaration")
-	assert.Contains(t, cfg.ChunkMappings.Class, "library_declaration")
-
-	// Solidity should have method mappings
-	assert.NotEmpty(t, cfg.ChunkMappings.Method, "Solidity should have method mappings")
-	assert.Contains(t, cfg.ChunkMappings.Method, "function_definition")
-	assert.Contains(t, cfg.ChunkMappings.Method, "modifier_definition")
-}
-
 func TestLanguageConfig_Swift(t *testing.T) {
 	cfg := loadTestLanguageConfig(t, "swift.yaml")
 
@@ -374,7 +329,6 @@ func TestLanguageConfig_TypeScript(t *testing.T) {
 	assert.Equal(t, "typescript", cfg.Language, "Language should be 'typescript'")
 	assert.Equal(t, "TypeScript", cfg.DisplayName, "DisplayName should be 'TypeScript'")
 	assert.Contains(t, cfg.Extensions, ".ts", "Extensions should contain '.ts'")
-	assert.Contains(t, cfg.Extensions, ".tsx", "Extensions should contain '.tsx'")
 	assert.Contains(t, cfg.Extensions, ".mts", "Extensions should contain '.mts'")
 	assert.Contains(t, cfg.Extensions, ".cts", "Extensions should contain '.cts'")
 	assert.Equal(t, "typescript", cfg.TreeSitter.Grammar, "Grammar should be 'typescript'")
@@ -395,28 +349,48 @@ func TestLanguageConfig_TypeScript(t *testing.T) {
 // Aggregate Tests
 // =============================================================================
 
-// expectedLanguageConfigs defines all 13 language configs that should be shipped.
+// expectedLanguageConfigs defines all 33 language configs that should be shipped.
 var expectedLanguageConfigs = []struct {
 	filename string
 	language string
 }{
+	{"bash.yaml", "bash"},
+	{"c.yaml", "c"},
+	{"cpp.yaml", "cpp"},
 	{"csharp.yaml", "csharp"},
-	{"dart.yaml", "dart"},
+	{"css.yaml", "css"},
+	{"cue.yaml", "cue"},
+	{"dockerfile.yaml", "dockerfile"},
 	{"elixir.yaml", "elixir"},
+	{"elm.yaml", "elm"},
 	{"go.yaml", "go"},
+	{"groovy.yaml", "groovy"},
+	{"hcl.yaml", "hcl"},
+	{"html.yaml", "html"},
 	{"java.yaml", "java"},
 	{"javascript.yaml", "javascript"},
+	{"jsx.yaml", "jsx"},
 	{"kotlin.yaml", "kotlin"},
+	{"lua.yaml", "lua"},
+	{"markdown.yaml", "markdown"},
+	{"ocaml.yaml", "ocaml"},
 	{"php.yaml", "php"},
+	{"protobuf.yaml", "protobuf"},
 	{"python.yaml", "python"},
+	{"ruby.yaml", "ruby"},
 	{"rust.yaml", "rust"},
-	{"solidity.yaml", "solidity"},
+	{"scala.yaml", "scala"},
+	{"sql.yaml", "sql"},
+	{"svelte.yaml", "svelte"},
 	{"swift.yaml", "swift"},
+	{"toml.yaml", "toml"},
+	{"tsx.yaml", "tsx"},
 	{"typescript.yaml", "typescript"},
+	{"yaml.yaml", "yaml"},
 }
 
 func TestAllLanguageConfigs_Load(t *testing.T) {
-	// All 13 configs should load without error
+	// All 33 configs should load without error
 	languagesDir := getLanguagesDir(t)
 
 	for _, expected := range expectedLanguageConfigs {
@@ -452,8 +426,8 @@ func TestAllLanguageConfigs_UniqueLanguageIDs(t *testing.T) {
 		seenLanguages[cfg.Language] = expected.filename
 	}
 
-	// Verify we checked all 13 configs
-	assert.Len(t, seenLanguages, 13, "Should have 13 unique language identifiers")
+	// Verify we checked all 33 configs
+	assert.Len(t, seenLanguages, 33, "Should have 33 unique language identifiers")
 }
 
 func TestAllLanguageConfigs_UniqueExtensions(t *testing.T) {
@@ -562,7 +536,7 @@ func TestAllLanguageConfigs_HaveGrammar(t *testing.T) {
 }
 
 func TestAllLanguageConfigs_Count(t *testing.T) {
-	// Verify exactly 13 language configs exist in the languages directory
+	// Verify exactly 33 language configs exist in the languages directory
 	languagesDir := getLanguagesDir(t)
 
 	entries, err := os.ReadDir(languagesDir)
@@ -575,8 +549,8 @@ func TestAllLanguageConfigs_Count(t *testing.T) {
 		}
 	}
 
-	assert.Equal(t, 13, yamlCount,
-		"Languages directory should contain exactly 13 YAML config files")
+	assert.Equal(t, 33, yamlCount,
+		"Languages directory should contain exactly 33 YAML config files")
 }
 
 func TestAllLanguageConfigs_FilenameMatchesLanguage(t *testing.T) {

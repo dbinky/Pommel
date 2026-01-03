@@ -1,0 +1,25 @@
+# CSS language configuration for Pommel
+language: css
+display_name: CSS
+extensions:
+  - .css
+
+tree_sitter:
+  grammar: css
+
+chunk_mappings:
+  class:
+    - rule_set
+    - media_statement
+    - keyframes_statement
+
+  method: []
+
+  block:
+    - block
+
+extraction:
+  name_field: selectors
+  doc_comments:
+    - comment
+  doc_comment_position: preceding_siblings
