@@ -410,9 +410,9 @@ func TestChunkerRegistry_IsSupported_ReturnsFalse(t *testing.T) {
 
 	unsupportedLanguages := []Language{
 		LangUnknown,
-		Language("ruby"), // No ruby config yet
-		Language("cpp"),  // No cpp config yet
-		Language("dart"), // No dart config (removed - no tree-sitter grammar available)
+		Language("brainfuck"),  // No tree-sitter grammar available
+		Language("whitespace"), // No tree-sitter grammar available
+		Language("befunge"),    // No tree-sitter grammar available
 	}
 
 	for _, lang := range unsupportedLanguages {
@@ -462,20 +462,17 @@ func main() {
 	assert.Equal(t, "main", funcChunk.Name, "Function should be named 'main'")
 }
 
-func TestChunkerRegistry_FallbackForUnsupportedExtension_Ruby(t *testing.T) {
+func TestChunkerRegistry_FallbackForUnsupportedExtension(t *testing.T) {
 	reg, err := NewChunkerRegistry()
 	require.NoError(t, err)
 
-	source := `class Calculator
-  def add(a, b)
-    a + b
-  end
-end`
+	// Using a made-up language that has no tree-sitter grammar
+	source := `+++[>+++++<-]>.+++++++..+++.`
 
 	file := &models.SourceFile{
-		Path:         "src/calculator.rb",
+		Path:         "src/hello.bf",
 		Content:      []byte(source),
-		Language:     "ruby",
+		Language:     "brainfuck",
 		LastModified: time.Now(),
 	}
 
@@ -521,6 +518,112 @@ func TestChunkerRegistry_RustChunker(t *testing.T) {
 	assert.True(t, hasRust, "Chunks should have rust language")
 }
 
+func TestChunkerRegistry_RubyChunker(t *testing.T) {
+	reg, err := NewChunkerRegistry()
+	require.NoError(t, err)
+
+	source := `class Calculator
+  def add(a, b)
+    a + b
+  end
+
+  def subtract(a, b)
+    a - b
+  end
+end`
+
+	file := &models.SourceFile{
+		Path:         "src/calculator.rb",
+		Content:      []byte(source),
+		Language:     "ruby",
+		LastModified: time.Now(),
+	}
+
+	result, err := reg.Chunk(context.Background(), file)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+
+	// Ruby is now supported - should produce at least a file-level chunk
+	assert.GreaterOrEqual(t, len(result.Chunks), 1, "Ruby chunker should produce at least 1 chunk")
+
+	// Verify chunks have ruby language set
+	hasRuby := false
+	for _, chunk := range result.Chunks {
+		if chunk.Language == "ruby" {
+			hasRuby = true
+			break
+		}
+	}
+	assert.True(t, hasRuby, "Chunks should have ruby language")
+
+	// Verify we're not using fallback (content should be parsed, not raw file dump)
+	// The file chunk should exist
+	var fileChunk *models.Chunk
+	for _, chunk := range result.Chunks {
+		if chunk.Level == models.ChunkLevelFile {
+			fileChunk = chunk
+			break
+		}
+	}
+	require.NotNil(t, fileChunk, "Should have a file-level chunk")
+	assert.Equal(t, "ruby", fileChunk.Language, "File chunk should have ruby language")
+}
+
+func TestChunkerRegistry_CppChunker(t *testing.T) {
+	reg, err := NewChunkerRegistry()
+	require.NoError(t, err)
+
+	source := `#include <iostream>
+
+class Calculator {
+public:
+    int add(int a, int b) {
+        return a + b;
+    }
+};
+
+int main() {
+    Calculator calc;
+    std::cout << calc.add(2, 3) << std::endl;
+    return 0;
+}`
+
+	file := &models.SourceFile{
+		Path:         "src/main.cpp",
+		Content:      []byte(source),
+		Language:     "cpp",
+		LastModified: time.Now(),
+	}
+
+	result, err := reg.Chunk(context.Background(), file)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+
+	// C++ is now supported - should produce at least a file-level chunk
+	assert.GreaterOrEqual(t, len(result.Chunks), 1, "C++ chunker should produce at least 1 chunk")
+
+	// Verify chunks have cpp language set
+	hasCpp := false
+	for _, chunk := range result.Chunks {
+		if chunk.Language == "cpp" {
+			hasCpp = true
+			break
+		}
+	}
+	assert.True(t, hasCpp, "Chunks should have cpp language")
+
+	// Verify we're not using fallback (content should be parsed)
+	var fileChunk *models.Chunk
+	for _, chunk := range result.Chunks {
+		if chunk.Level == models.ChunkLevelFile {
+			fileChunk = chunk
+			break
+		}
+	}
+	require.NotNil(t, fileChunk, "Should have a file-level chunk")
+	assert.Equal(t, "cpp", fileChunk.Language, "File chunk should have cpp language")
+}
+
 func TestChunkerRegistry_FallbackForUnknownLanguage(t *testing.T) {
 	reg, err := NewChunkerRegistry()
 	require.NoError(t, err)
@@ -547,14 +650,14 @@ func TestChunkerRegistry_FallbackPreservesContent(t *testing.T) {
 	reg, err := NewChunkerRegistry()
 	require.NoError(t, err)
 
-	source := `def hello
-  puts "test"
-end`
+	// Using a made-up language (Brainfuck) that has no tree-sitter grammar
+	source := `++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>
+.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++.`
 
 	file := &models.SourceFile{
-		Path:         "test.rb",
+		Path:         "test.bf",
 		Content:      []byte(source),
-		Language:     "ruby",
+		Language:     "brainfuck",
 		LastModified: time.Now(),
 	}
 
