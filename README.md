@@ -459,6 +459,7 @@ Agent needs to understand authentication...
 | Java | `.java` | file, class/interface/enum, method |
 | JavaScript | `.js`, `.jsx`, `.mjs`, `.cjs` | file, class, function |
 | Kotlin | `.kt`, `.kts` | file, class/object, function |
+| Markdown | `.md`, `.markdown` | file, heading, code block/list |
 | PHP | `.php` | file, class/trait, method/function |
 | Python | `.py`, `.pyi` | file, class, method/function |
 | Rust | `.rs` | file, struct/enum/trait/impl, function |
