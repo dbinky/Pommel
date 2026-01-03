@@ -84,6 +84,10 @@ make build
 
 # Install to PATH (Unix)
 cp bin/pm bin/pommeld ~/.local/bin/
+
+# Install language configs (required)
+mkdir -p ~/.local/share/pommel/languages
+cp languages/*.yaml ~/.local/share/pommel/languages/
 ```
 
 ## Quick Start
