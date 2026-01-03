@@ -26,14 +26,18 @@ type InitFlags struct {
 	Start      bool
 	Monorepo   bool
 	NoMonorepo bool
+	BatchSize  int
+	CacheSize  int
 }
 
 var (
-	initAutoFlag     bool
-	initClaudeFlag   bool
-	initStartFlag    bool
-	initMonorepoFlag bool
-	initNoMonorepo   bool
+	initAutoFlag      bool
+	initClaudeFlag    bool
+	initStartFlag     bool
+	initMonorepoFlag  bool
+	initNoMonorepo    bool
+	initBatchSizeFlag int
+	initCacheSizeFlag int
 )
 
 var initCmd = &cobra.Command{
@@ -54,6 +58,8 @@ The init command will:
 			Start:      initStartFlag,
 			Monorepo:   initMonorepoFlag,
 			NoMonorepo: initNoMonorepo,
+			BatchSize:  initBatchSizeFlag,
+			CacheSize:  initCacheSizeFlag,
 		}
 		return runInitFull(GetProjectRoot(), nil, nil, IsJSONOutput(), flags)
 	},
@@ -66,6 +72,8 @@ func init() {
 	initCmd.Flags().BoolVar(&initStartFlag, "start", false, "Start daemon immediately after initialization")
 	initCmd.Flags().BoolVar(&initMonorepoFlag, "monorepo", false, "Initialize as monorepo without prompting")
 	initCmd.Flags().BoolVar(&initNoMonorepo, "no-monorepo", false, "Skip monorepo/sub-project detection")
+	initCmd.Flags().IntVar(&initBatchSizeFlag, "batch-size", 32, "Embedding batch size (default 32)")
+	initCmd.Flags().IntVar(&initCacheSizeFlag, "cache-size", 1000, "Embedding cache size (default 1000)")
 }
 
 // runInit performs the initialization logic with default flags
@@ -155,6 +163,15 @@ func runInitFull(projectRoot string, out, errOut *bytes.Buffer, jsonOutput bool,
 
 		// Create default config
 		cfg = config.Default()
+
+		// Apply custom embedding settings if provided
+		if flags.BatchSize > 0 {
+			cfg.Embedding.BatchSize = flags.BatchSize
+		}
+		if flags.CacheSize > 0 {
+			cfg.Embedding.CacheSize = flags.CacheSize
+		}
+
 		if err := loader.Save(cfg); err != nil {
 			return WrapError(err,
 				"Failed to create configuration file",
