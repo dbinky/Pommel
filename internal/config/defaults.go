@@ -33,9 +33,10 @@ func Default() *Config {
 			MaxFileSize: 1048576, // 1MB
 		},
 		Daemon: DaemonConfig{
-			Host:     "127.0.0.1",
-			Port:     nil, // nil = use hash-based port calculation
-			LogLevel: "info",
+			Host:                "127.0.0.1",
+			Port:                nil, // nil = use hash-based port calculation
+			LogLevel:            "info",
+			StatsUpdateInterval: 10, // Update stats every N files during indexing
 		},
 		Embedding: EmbeddingConfig{
 			Model:     "unclemusclez/jina-embeddings-v2-base-code",

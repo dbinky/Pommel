@@ -118,6 +118,7 @@ pm init --claude           # Also add usage instructions to CLAUDE.md
 pm init --start            # Initialize and start daemon immediately
 pm init --batch-size 8     # Custom embedding batch size (default 32)
 pm init --cache-size 500   # Custom embedding cache size (default 1000)
+pm init --stats-interval 5 # Stats update interval during indexing (default 10)
 ```
 
 ### `pm start` / `pm stop`

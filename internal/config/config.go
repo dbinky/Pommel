@@ -26,9 +26,10 @@ type WatcherConfig struct {
 
 // DaemonConfig contains daemon server settings
 type DaemonConfig struct {
-	Host     string `yaml:"host" json:"host" mapstructure:"host"`
-	Port     *int   `yaml:"port" json:"port,omitempty" mapstructure:"port"` // nil = use hash-based port
-	LogLevel string `yaml:"log_level" json:"log_level" mapstructure:"log_level"`
+	Host                string `yaml:"host" json:"host" mapstructure:"host"`
+	Port                *int   `yaml:"port" json:"port,omitempty" mapstructure:"port"` // nil = use hash-based port
+	LogLevel            string `yaml:"log_level" json:"log_level" mapstructure:"log_level"`
+	StatsUpdateInterval int    `yaml:"stats_update_interval" json:"stats_update_interval" mapstructure:"stats_update_interval"`
 }
 
 // EmbeddingConfig contains embedding model settings

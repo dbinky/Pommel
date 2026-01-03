@@ -21,23 +21,25 @@ import (
 
 // InitFlags holds the flags for the init command
 type InitFlags struct {
-	Auto       bool
-	Claude     bool
-	Start      bool
-	Monorepo   bool
-	NoMonorepo bool
-	BatchSize  int
-	CacheSize  int
+	Auto                bool
+	Claude              bool
+	Start               bool
+	Monorepo            bool
+	NoMonorepo          bool
+	BatchSize           int
+	CacheSize           int
+	StatsUpdateInterval int
 }
 
 var (
-	initAutoFlag      bool
-	initClaudeFlag    bool
-	initStartFlag     bool
-	initMonorepoFlag  bool
-	initNoMonorepo    bool
-	initBatchSizeFlag int
-	initCacheSizeFlag int
+	initAutoFlag                bool
+	initClaudeFlag              bool
+	initStartFlag               bool
+	initMonorepoFlag            bool
+	initNoMonorepo              bool
+	initBatchSizeFlag           int
+	initCacheSizeFlag           int
+	initStatsUpdateIntervalFlag int
 )
 
 var initCmd = &cobra.Command{
@@ -53,13 +55,14 @@ The init command will:
   - Check for required dependencies (Ollama)`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		flags := InitFlags{
-			Auto:       initAutoFlag,
-			Claude:     initClaudeFlag,
-			Start:      initStartFlag,
-			Monorepo:   initMonorepoFlag,
-			NoMonorepo: initNoMonorepo,
-			BatchSize:  initBatchSizeFlag,
-			CacheSize:  initCacheSizeFlag,
+			Auto:                initAutoFlag,
+			Claude:              initClaudeFlag,
+			Start:               initStartFlag,
+			Monorepo:            initMonorepoFlag,
+			NoMonorepo:          initNoMonorepo,
+			BatchSize:           initBatchSizeFlag,
+			CacheSize:           initCacheSizeFlag,
+			StatsUpdateInterval: initStatsUpdateIntervalFlag,
 		}
 		return runInitFull(GetProjectRoot(), nil, nil, IsJSONOutput(), flags)
 	},
@@ -74,6 +77,7 @@ func init() {
 	initCmd.Flags().BoolVar(&initNoMonorepo, "no-monorepo", false, "Skip monorepo/sub-project detection")
 	initCmd.Flags().IntVar(&initBatchSizeFlag, "batch-size", 32, "Embedding batch size (default 32)")
 	initCmd.Flags().IntVar(&initCacheSizeFlag, "cache-size", 1000, "Embedding cache size (default 1000)")
+	initCmd.Flags().IntVar(&initStatsUpdateIntervalFlag, "stats-interval", 10, "Stats update interval during indexing (default 10)")
 }
 
 // runInit performs the initialization logic with default flags
@@ -170,6 +174,9 @@ func runInitFull(projectRoot string, out, errOut *bytes.Buffer, jsonOutput bool,
 		}
 		if flags.CacheSize > 0 {
 			cfg.Embedding.CacheSize = flags.CacheSize
+		}
+		if flags.StatsUpdateInterval > 0 {
+			cfg.Daemon.StatsUpdateInterval = flags.StatsUpdateInterval
 		}
 
 		if err := loader.Save(cfg); err != nil {
