@@ -19,6 +19,8 @@ type daemonSearchResult struct {
 	FilePath  string  `json:"file_path"`
 	Content   string  `json:"content"`
 	Level     string  `json:"level"`
+	Language  string  `json:"language"`
+	Name      string  `json:"name"`
 	Score     float64 `json:"score"`
 	StartLine int     `json:"start_line"`
 	EndLine   int     `json:"end_line"`
@@ -142,6 +144,8 @@ func (c *Client) Search(req api.SearchRequest) (*api.SearchResponse, error) {
 			StartLine: r.StartLine,
 			EndLine:   r.EndLine,
 			Level:     r.Level,
+			Language:  r.Language,
+			Name:      r.Name,
 			Score:     float32(r.Score),
 			Content:   r.Content,
 		}
