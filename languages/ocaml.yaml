@@ -1,0 +1,34 @@
+# OCaml language configuration for Pommel
+language: ocaml
+display_name: OCaml
+extensions:
+  - .ml
+  - .mli
+
+tree_sitter:
+  grammar: ocaml
+
+chunk_mappings:
+  class:
+    - module_definition
+    - module_type_definition
+    - class_definition
+    - type_definition
+
+  method:
+    - value_definition
+    - method_definition
+    - external
+
+  block:
+    - if_expression
+    - match_expression
+    - while_expression
+    - for_expression
+    - try_expression
+
+extraction:
+  name_field: name
+  doc_comments:
+    - comment
+  doc_comment_position: preceding_siblings

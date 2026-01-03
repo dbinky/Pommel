@@ -1,0 +1,35 @@
+# Markdown language configuration for Pommel
+# Note: Uses special dual-parser API (block + inline) in treesitter.go
+language: markdown
+display_name: Markdown
+extensions:
+  - .md
+  - .markdown
+  - .mdx
+
+tree_sitter:
+  grammar: markdown
+
+chunk_mappings:
+  # Sections are headings with their content
+  class:
+    - section
+    - fenced_code_block
+    - html_block
+
+  # Headings are like method-level constructs
+  method:
+    - atx_heading
+    - setext_heading
+
+  # Block-level elements
+  block:
+    - list
+    - block_quote
+    - thematic_break
+    - table
+
+extraction:
+  name_field: heading_content
+  doc_comments: []
+  doc_comment_position: preceding_siblings

@@ -1,0 +1,35 @@
+# Groovy language configuration for Pommel
+language: groovy
+display_name: Groovy
+extensions:
+  - .groovy
+  - .gradle
+
+tree_sitter:
+  grammar: groovy
+
+chunk_mappings:
+  class:
+    - class_definition
+    - interface_definition
+    - enum_definition
+    - trait_definition
+
+  method:
+    - method_definition
+    - constructor_definition
+    - closure
+
+  block:
+    - if_statement
+    - switch_statement
+    - for_statement
+    - while_statement
+    - try_statement
+
+extraction:
+  name_field: name
+  doc_comments:
+    - comment
+    - groovydoc
+  doc_comment_position: preceding_siblings

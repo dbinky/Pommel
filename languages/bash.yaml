@@ -1,0 +1,30 @@
+# Bash language configuration for Pommel
+language: bash
+display_name: Bash
+extensions:
+  - .sh
+  - .bash
+  - .bashrc
+  - .zsh
+  - .zshrc
+
+tree_sitter:
+  grammar: bash
+
+chunk_mappings:
+  class: []
+
+  method:
+    - function_definition
+
+  block:
+    - if_statement
+    - for_statement
+    - while_statement
+    - case_statement
+
+extraction:
+  name_field: name
+  doc_comments:
+    - comment
+  doc_comment_position: preceding_siblings

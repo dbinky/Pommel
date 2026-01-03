@@ -68,7 +68,16 @@ func runStatus(cmd *cobra.Command, args []string) error {
 			fmt.Printf("  Last indexed: %s\n", status.Index.LastIndexedAt.Format(time.RFC3339))
 		}
 		if status.Index.IndexingActive {
-			fmt.Println("  Status:   Indexing in progress...")
+			if status.Index.Progress != nil {
+				// Show detailed progress
+				fmt.Printf("  Status:   Indexing... %.1f%% complete\n", status.Index.Progress.PercentComplete)
+				fmt.Printf("  Progress: %d/%d files\n", status.Index.Progress.FilesProcessed, status.Index.Progress.FilesToProcess)
+				if status.Index.Progress.ETASeconds > 0 {
+					fmt.Printf("  ETA:      %s remaining\n", formatETA(status.Index.Progress.ETASeconds))
+				}
+			} else {
+				fmt.Println("  Status:   Indexing in progress...")
+			}
 		} else {
 			fmt.Println("  Status:   Ready")
 		}
@@ -107,4 +116,23 @@ func boolToStatus(ok bool) string {
 		return "OK"
 	}
 	return "Not available"
+}
+
+// formatETA formats estimated time remaining in a human-readable format
+func formatETA(seconds float64) string {
+	if seconds < 1 {
+		return "< 1s"
+	}
+	d := time.Duration(seconds * float64(time.Second))
+	if d < time.Minute {
+		return fmt.Sprintf("%.0fs", seconds)
+	}
+	if d < time.Hour {
+		mins := int(d.Minutes())
+		secs := int(d.Seconds()) % 60
+		return fmt.Sprintf("%dm %ds", mins, secs)
+	}
+	hours := int(d.Hours())
+	mins := int(d.Minutes()) % 60
+	return fmt.Sprintf("%dh %dm", hours, mins)
 }

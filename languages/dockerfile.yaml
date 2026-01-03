@@ -1,0 +1,25 @@
+# Dockerfile language configuration for Pommel
+language: dockerfile
+display_name: Dockerfile
+extensions:
+  - .dockerfile
+
+tree_sitter:
+  grammar: dockerfile
+
+chunk_mappings:
+  class: []
+
+  method:
+    - from_instruction
+    - run_instruction
+    - cmd_instruction
+    - entrypoint_instruction
+
+  block: []
+
+extraction:
+  name_field: name
+  doc_comments:
+    - comment
+  doc_comment_position: preceding_siblings

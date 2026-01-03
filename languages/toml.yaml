@@ -1,0 +1,25 @@
+# TOML language configuration for Pommel
+language: toml
+display_name: TOML
+extensions:
+  - .toml
+
+tree_sitter:
+  grammar: toml
+
+chunk_mappings:
+  class:
+    - table
+    - inline_table
+    - table_array_element
+
+  method:
+    - pair
+
+  block: []
+
+extraction:
+  name_field: key
+  doc_comments:
+    - comment
+  doc_comment_position: preceding_siblings

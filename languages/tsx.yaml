@@ -1,18 +1,18 @@
-# JavaScript language configuration for Pommel
-language: javascript
-display_name: JavaScript
+# TSX (TypeScript with JSX) language configuration for Pommel
+language: tsx
+display_name: TSX
 extensions:
-  - .js
-  - .mjs
-  - .cjs
+  - .tsx
 
 tree_sitter:
-  grammar: javascript
+  grammar: tsx
 
 chunk_mappings:
   class:
     - class_declaration
     - class
+    - interface_declaration
+    - type_alias_declaration
 
   method:
     - function_declaration
