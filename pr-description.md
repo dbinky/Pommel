@@ -26,7 +26,9 @@ Relates to expanding language support for non-code files.
 - Bump version to 0.5.3
 - Add `scripts/test-markdown.sh` for testing on markdown-heavy codebases
 - Add `--batch-size` and `--cache-size` flags to `pm init` for embedding configuration
-- Update README with Markdown in supported languages
+- Add `--stats-interval` flag to `pm init` for stats update frequency during indexing
+- Fix status showing 0 files during active indexing (#31)
+- Update README with Markdown in supported languages and new init flags
 
 ## Testing
 
@@ -73,5 +75,10 @@ go build -tags "fts5" ./...
 
 **Recommended config for markdown-heavy projects:** Use `--batch-size 8` during init to avoid Ollama 500 errors during batch indexing:
 ```bash
-pm init --auto --batch-size 8 --start
+pm init --auto --batch-size 8 --stats-interval 5 --start
 ```
+
+**New pm init flags:**
+- `--batch-size` - Embedding batch size (default 32)
+- `--cache-size` - Embedding cache size (default 1000)
+- `--stats-interval` - Stats update interval during indexing (default 10)
