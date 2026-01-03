@@ -413,6 +413,103 @@ func TestGetChunksByIDs(t *testing.T) {
 	assert.False(t, chunkNames["beta"])
 }
 
+func TestGetChunkByID_IncludesLanguage(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := context.Background()
+
+	// Insert a file with language "python"
+	fileID, err := db.InsertFile(ctx, "src/script.py", "hash", "python", 1000, time.Now())
+	require.NoError(t, err)
+
+	original := &models.Chunk{
+		FilePath:  "src/script.py",
+		Level:     models.ChunkLevelMethod,
+		Name:      "greet",
+		Content:   "def greet():\n    print('hello')",
+		StartLine: 1,
+		EndLine:   2,
+	}
+	original.SetHashes()
+	err = db.InsertChunk(ctx, original, fileID)
+	require.NoError(t, err)
+
+	// Retrieve the chunk and verify language is included
+	retrieved, err := db.GetChunkByID(ctx, original.ID)
+	require.NoError(t, err)
+	require.NotNil(t, retrieved)
+
+	assert.Equal(t, "python", retrieved.Language, "Language should be populated from files table")
+	assert.Equal(t, "src/script.py", retrieved.FilePath)
+	assert.Equal(t, "greet", retrieved.Name)
+}
+
+func TestGetChunksByIDs_IncludesLanguage(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := context.Background()
+
+	// Insert files with different languages
+	pythonFileID, err := db.InsertFile(ctx, "src/app.py", "hash1", "python", 500, time.Now())
+	require.NoError(t, err)
+
+	goFileID, err := db.InsertFile(ctx, "src/app.go", "hash2", "go", 600, time.Now())
+	require.NoError(t, err)
+
+	mdFileID, err := db.InsertFile(ctx, "docs/README.md", "hash3", "markdown", 300, time.Now())
+	require.NoError(t, err)
+
+	// Insert chunks for each file
+	pyChunk := &models.Chunk{
+		FilePath:  "src/app.py",
+		Level:     models.ChunkLevelMethod,
+		Name:      "main",
+		Content:   "def main(): pass",
+		StartLine: 1,
+		EndLine:   1,
+	}
+	pyChunk.SetHashes()
+	err = db.InsertChunk(ctx, pyChunk, pythonFileID)
+	require.NoError(t, err)
+
+	goChunk := &models.Chunk{
+		FilePath:  "src/app.go",
+		Level:     models.ChunkLevelMethod,
+		Name:      "main",
+		Content:   "func main() {}",
+		StartLine: 1,
+		EndLine:   1,
+	}
+	goChunk.SetHashes()
+	err = db.InsertChunk(ctx, goChunk, goFileID)
+	require.NoError(t, err)
+
+	mdChunk := &models.Chunk{
+		FilePath:  "docs/README.md",
+		Level:     models.ChunkLevelClass,
+		Name:      "Introduction",
+		Content:   "# Introduction\n\nWelcome to the project.",
+		StartLine: 1,
+		EndLine:   3,
+	}
+	mdChunk.SetHashes()
+	err = db.InsertChunk(ctx, mdChunk, mdFileID)
+	require.NoError(t, err)
+
+	// Retrieve all chunks and verify languages
+	chunks, err := db.GetChunksByIDs(ctx, []string{pyChunk.ID, goChunk.ID, mdChunk.ID})
+	require.NoError(t, err)
+	assert.Len(t, chunks, 3)
+
+	// Build map of FilePath -> Language for easy assertions
+	langByPath := make(map[string]string)
+	for _, c := range chunks {
+		langByPath[c.FilePath] = c.Language
+	}
+
+	assert.Equal(t, "python", langByPath["src/app.py"], "Python file should have python language")
+	assert.Equal(t, "go", langByPath["src/app.go"], "Go file should have go language")
+	assert.Equal(t, "markdown", langByPath["docs/README.md"], "Markdown file should have markdown language")
+}
+
 func TestGetChunkByID_WithParentID(t *testing.T) {
 	db := setupTestDB(t)
 	ctx := context.Background()

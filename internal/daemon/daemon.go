@@ -40,6 +40,8 @@ type SearchResult struct {
 	FilePath  string  `json:"file_path"`
 	Content   string  `json:"content"`
 	Level     string  `json:"level"`
+	Language  string  `json:"language,omitempty"`
+	Name      string  `json:"name,omitempty"`
 	Score     float64 `json:"score"`
 	StartLine int     `json:"start_line,omitempty"`
 	EndLine   int     `json:"end_line,omitempty"`
@@ -559,6 +561,8 @@ func (d *Daemon) Search(ctx context.Context, req SearchRequest) (*SearchResponse
 			FilePath:  chunk.FilePath,
 			Content:   chunk.Content,
 			Level:     string(chunk.Level),
+			Language:  chunk.Language,
+			Name:      chunk.Name,
 			Score:     score,
 			StartLine: chunk.StartLine,
 			EndLine:   chunk.EndLine,

@@ -239,13 +239,14 @@ func (db *DB) GetChunkByID(ctx context.Context, id string) (*models.Chunk, error
 	var chunk models.Chunk
 	var parentID sql.NullString
 	var filePath string
+	var language string
 
 	err := db.QueryRow(ctx, `
-		SELECT c.id, f.path, c.start_line, c.end_line, c.level, c.name, c.content, c.content_hash, c.parent_id
+		SELECT c.id, f.path, f.language, c.start_line, c.end_line, c.level, c.name, c.content, c.content_hash, c.parent_id
 		FROM chunks c
 		JOIN files f ON c.file_id = f.id
 		WHERE c.id = ?
-	`, id).Scan(&chunk.ID, &filePath, &chunk.StartLine, &chunk.EndLine, &chunk.Level, &chunk.Name, &chunk.Content, &chunk.ContentHash, &parentID)
+	`, id).Scan(&chunk.ID, &filePath, &language, &chunk.StartLine, &chunk.EndLine, &chunk.Level, &chunk.Name, &chunk.Content, &chunk.ContentHash, &parentID)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -254,6 +255,7 @@ func (db *DB) GetChunkByID(ctx context.Context, id string) (*models.Chunk, error
 	}
 
 	chunk.FilePath = filePath
+	chunk.Language = language
 	if parentID.Valid {
 		chunk.ParentID = &parentID.String
 	}
@@ -276,7 +278,7 @@ func (db *DB) GetChunksByIDs(ctx context.Context, ids []string) ([]*models.Chunk
 	}
 
 	query := fmt.Sprintf(`
-		SELECT c.id, f.path, c.start_line, c.end_line, c.level, c.name, c.content, c.content_hash, c.parent_id
+		SELECT c.id, f.path, f.language, c.start_line, c.end_line, c.level, c.name, c.content, c.content_hash, c.parent_id
 		FROM chunks c
 		JOIN files f ON c.file_id = f.id
 		WHERE c.id IN (%s)
@@ -293,12 +295,14 @@ func (db *DB) GetChunksByIDs(ctx context.Context, ids []string) ([]*models.Chunk
 		var chunk models.Chunk
 		var parentID sql.NullString
 		var filePath string
+		var language string
 
-		if err := rows.Scan(&chunk.ID, &filePath, &chunk.StartLine, &chunk.EndLine, &chunk.Level, &chunk.Name, &chunk.Content, &chunk.ContentHash, &parentID); err != nil {
+		if err := rows.Scan(&chunk.ID, &filePath, &language, &chunk.StartLine, &chunk.EndLine, &chunk.Level, &chunk.Name, &chunk.Content, &chunk.ContentHash, &parentID); err != nil {
 			return nil, fmt.Errorf("failed to scan chunk: %w", err)
 		}
 
 		chunk.FilePath = filePath
+		chunk.Language = language
 		if parentID.Valid {
 			chunk.ParentID = &parentID.String
 		}

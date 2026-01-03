@@ -684,6 +684,77 @@ func TestGetChunk_Found_IncludesFilePath(t *testing.T) {
 	assert.Equal(t, "src/internal/db/sqlite.go", chunk.FilePath, "file path should be populated from join with files table")
 }
 
+func TestGetChunk_Found_IncludesLanguage(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := context.Background()
+
+	// Insert a file with language "python"
+	fileID, err := db.InsertFile(ctx, "src/app.py", "hash", "python", 1000, time.Now())
+	require.NoError(t, err)
+
+	chunk := &models.Chunk{
+		FilePath:  "src/app.py",
+		Level:     models.ChunkLevelMethod,
+		Name:      "main",
+		Content:   "def main():\n    pass",
+		StartLine: 1,
+		EndLine:   2,
+	}
+	chunk.SetHashes()
+	err = db.InsertChunk(ctx, chunk, fileID)
+	require.NoError(t, err)
+
+	// Retrieve the chunk and verify language is included
+	retrieved, err := db.GetChunk(ctx, chunk.ID)
+	require.NoError(t, err)
+	require.NotNil(t, retrieved)
+
+	assert.Equal(t, "python", retrieved.Language, "language should be populated from files table")
+	assert.Equal(t, "src/app.py", retrieved.FilePath)
+	assert.Equal(t, "main", retrieved.Name)
+}
+
+func TestGetChunk_Found_DifferentLanguages(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := context.Background()
+
+	// Test with different language types including markdown
+	testCases := []struct {
+		filePath string
+		language string
+	}{
+		{"src/main.go", "go"},
+		{"src/app.py", "python"},
+		{"docs/README.md", "markdown"},
+		{"src/index.js", "javascript"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.language, func(t *testing.T) {
+			fileID, err := db.InsertFile(ctx, tc.filePath, "hash-"+tc.filePath, tc.language, 500, time.Now())
+			require.NoError(t, err)
+
+			chunk := &models.Chunk{
+				FilePath:  tc.filePath,
+				Level:     models.ChunkLevelFile,
+				Name:      tc.filePath,
+				Content:   "content for " + tc.language,
+				StartLine: 1,
+				EndLine:   1,
+			}
+			chunk.SetHashes()
+			err = db.InsertChunk(ctx, chunk, fileID)
+			require.NoError(t, err)
+
+			retrieved, err := db.GetChunk(ctx, chunk.ID)
+			require.NoError(t, err)
+			require.NotNil(t, retrieved)
+
+			assert.Equal(t, tc.language, retrieved.Language, "language should match for "+tc.filePath)
+		})
+	}
+}
+
 // =============================================================================
 // TestGetChunk_NotFound - Returns error for missing chunk
 // =============================================================================

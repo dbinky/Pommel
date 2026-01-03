@@ -170,13 +170,14 @@ func (db *DB) GetChunk(ctx context.Context, id string) (*models.Chunk, error) {
 	var parentID sql.NullString
 	var filePath string
 	var level string
+	var language string
 
 	err := db.QueryRow(ctx, `
-		SELECT c.id, f.path, c.start_line, c.end_line, c.level, c.name, c.content, c.content_hash, c.parent_id
+		SELECT c.id, f.path, f.language, c.start_line, c.end_line, c.level, c.name, c.content, c.content_hash, c.parent_id
 		FROM chunks c
 		JOIN files f ON c.file_id = f.id
 		WHERE c.id = ?
-	`, id).Scan(&chunk.ID, &filePath, &chunk.StartLine, &chunk.EndLine, &level, &chunk.Name, &chunk.Content, &chunk.ContentHash, &parentID)
+	`, id).Scan(&chunk.ID, &filePath, &language, &chunk.StartLine, &chunk.EndLine, &level, &chunk.Name, &chunk.Content, &chunk.ContentHash, &parentID)
 
 	if err == sql.ErrNoRows {
 		return nil, ErrChunkNotFound
@@ -186,6 +187,7 @@ func (db *DB) GetChunk(ctx context.Context, id string) (*models.Chunk, error) {
 	}
 
 	chunk.FilePath = filePath
+	chunk.Language = language
 	chunk.Level = models.ChunkLevel(level)
 	if parentID.Valid {
 		chunk.ParentID = &parentID.String
