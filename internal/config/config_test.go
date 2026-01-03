@@ -685,7 +685,7 @@ func TestValidateOrError_Invalid(t *testing.T) {
 // ============================================================================
 
 func TestValidChunkLevels(t *testing.T) {
-	validLevels := []string{"file", "class", "method", "block", "line"}
+	validLevels := []string{"file", "class", "section", "method", "block", "line"}
 	for _, level := range validLevels {
 		t.Run(level, func(t *testing.T) {
 			cfg := Default()

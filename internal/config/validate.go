@@ -40,11 +40,12 @@ func (e ValidationErrors) HasErrors() bool {
 
 // validChunkLevels defines the allowed chunk level values
 var validChunkLevels = map[string]bool{
-	"file":   true,
-	"class":  true,
-	"method": true,
-	"block":  true,
-	"line":   true,
+	"file":    true,
+	"class":   true,
+	"section": true,
+	"method":  true,
+	"block":   true,
+	"line":    true,
 }
 
 // validLogLevels defines the allowed log level values
@@ -78,7 +79,7 @@ func Validate(cfg *Config) ValidationErrors {
 			if !validChunkLevels[level] {
 				errors = append(errors, ValidationError{
 					Field:   fmt.Sprintf("chunk_levels[%d]", i),
-					Message: fmt.Sprintf("invalid chunk level '%s'; valid values are: file, class, method, block, line", level),
+					Message: fmt.Sprintf("invalid chunk level '%s'; valid values are: file, class, section, method, block, line", level),
 				})
 			}
 		}
@@ -158,7 +159,7 @@ func Validate(cfg *Config) ValidationErrors {
 		if !validChunkLevels[level] {
 			errors = append(errors, ValidationError{
 				Field:   fmt.Sprintf("search.default_levels[%d]", i),
-				Message: fmt.Sprintf("invalid chunk level '%s'; valid values are: file, class, method, block, line", level),
+				Message: fmt.Sprintf("invalid chunk level '%s'; valid values are: file, class, section, method, block, line", level),
 			})
 		}
 	}
