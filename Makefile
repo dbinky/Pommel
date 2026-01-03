@@ -65,11 +65,14 @@ clean:
 	rm -f coverage.out coverage.html
 	$(GO) clean -cache -testcache
 
-# Install binaries to GOPATH/bin
+# Install binaries to GOPATH/bin and language configs
 .PHONY: install
 install:
 	$(GO) install -tags "$(TAGS)" ./cmd/pm
 	$(GO) install -tags "$(TAGS)" ./cmd/pommeld
+	@mkdir -p $(HOME)/.local/share/pommel/languages
+	@cp languages/*.yaml $(HOME)/.local/share/pommel/languages/
+	@echo "Installed language configs to ~/.local/share/pommel/languages/"
 
 # Run the CLI (for development)
 .PHONY: run-cli
