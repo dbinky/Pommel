@@ -341,11 +341,11 @@ func (d *Daemon) handleStatus(w http.ResponseWriter, r *http.Request) {
 		}
 
 		indexStatus["progress"] = map[string]interface{}{
-			"files_to_process":  stats.FilesToProcess,
-			"files_processed":   stats.FilesProcessed,
-			"percent_complete":  percentComplete,
-			"indexing_started":  stats.IndexingStarted,
-			"eta_seconds":       etaSeconds,
+			"files_to_process": stats.FilesToProcess,
+			"files_processed":  stats.FilesProcessed,
+			"percent_complete": percentComplete,
+			"indexing_started": stats.IndexingStarted,
+			"eta_seconds":      etaSeconds,
 		}
 	}
 

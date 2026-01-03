@@ -40,9 +40,9 @@ var grammarToImport = map[string]importInfo{
 	"javascript": {pkg: "javascript", path: "github.com/smacker/go-tree-sitter/javascript"},
 	"jsx":        {pkg: "javascript", path: "github.com/smacker/go-tree-sitter/javascript"}, // JSX uses JavaScript parser
 	"kotlin":     {pkg: "kotlin", path: "github.com/smacker/go-tree-sitter/kotlin"},
-	"lua":      {pkg: "lua", path: "github.com/smacker/go-tree-sitter/lua"},
-	"markdown": {pkg: "markdown", path: "github.com/smacker/go-tree-sitter/markdown", special: true}, // Custom parsing in treesitter.go
-	"ocaml":    {pkg: "ocaml", path: "github.com/smacker/go-tree-sitter/ocaml"},
+	"lua":        {pkg: "lua", path: "github.com/smacker/go-tree-sitter/lua"},
+	"markdown":   {pkg: "markdown", path: "github.com/smacker/go-tree-sitter/markdown", special: true}, // Custom parsing in treesitter.go
+	"ocaml":      {pkg: "ocaml", path: "github.com/smacker/go-tree-sitter/ocaml"},
 	"php":        {pkg: "php", path: "github.com/smacker/go-tree-sitter/php"},
 	"protobuf":   {pkg: "protobuf", path: "github.com/smacker/go-tree-sitter/protobuf"},
 	"python":     {pkg: "python", path: "github.com/smacker/go-tree-sitter/python"},
@@ -76,11 +76,11 @@ type LanguageConfig struct {
 
 // TemplateData holds data for the generated file template
 type TemplateData struct {
-	Imports             []ImportEntry
-	GrammarEntries      []GrammarEntry
-	ExtensionEntries    []ExtensionEntry
-	LanguageNames       []string
-	LanguageToGrammars  []LanguageGrammarEntry
+	Imports            []ImportEntry
+	GrammarEntries     []GrammarEntry
+	ExtensionEntries   []ExtensionEntry
+	LanguageNames      []string
+	LanguageToGrammars []LanguageGrammarEntry
 }
 
 type LanguageGrammarEntry struct {

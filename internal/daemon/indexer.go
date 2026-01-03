@@ -368,7 +368,7 @@ func (i *Indexer) ReindexAll(ctx context.Context) error {
 	i.stats.TotalChunks = chunkCount
 	i.stats.LastIndexedAt = time.Now()
 	i.stats.IndexingActive = false
-	i.stats.FilesToProcess = 0  // Reset progress fields
+	i.stats.FilesToProcess = 0 // Reset progress fields
 	i.stats.FilesProcessed = 0
 	i.stats.IndexingStarted = time.Time{}
 	i.statsMu.Unlock()
