@@ -1,0 +1,31 @@
+# Lua language configuration for Pommel
+language: lua
+display_name: Lua
+extensions:
+  - .lua
+
+tree_sitter:
+  grammar: lua
+
+chunk_mappings:
+  class:
+    - local_variable_declaration  # Lua uses tables for OOP
+    - variable_declaration
+
+  method:
+    - function_declaration
+    - local_function_declaration
+    - function_definition
+
+  block:
+    - if_statement
+    - for_statement
+    - while_statement
+    - repeat_statement
+    - do_statement
+
+extraction:
+  name_field: name
+  doc_comments:
+    - comment
+  doc_comment_position: preceding_siblings

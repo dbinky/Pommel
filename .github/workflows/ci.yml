@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, dev, dev-config-languages, dev-improved-results]
+    branches: [main, dev, dev-*]
   pull_request:
     branches: [main, dev]
   workflow_dispatch:

@@ -418,19 +418,12 @@ func TestDetectLanguage_Unknown(t *testing.T) {
 		filename string
 		expected Language
 	}{
-		{"file.rb", LangUnknown},
-		{"file.rust", LangUnknown},
-		{"file.c", LangUnknown},
-		{"file.cpp", LangUnknown},
-		{"file.h", LangUnknown},
 		{"file.txt", LangUnknown},
 		{"file.md", LangUnknown},
 		{"file.json", LangUnknown},
-		{"file.yaml", LangUnknown},
 		{"file", LangUnknown},       // No extension
 		{".gitignore", LangUnknown}, // Hidden file
 		{"Makefile", LangUnknown},   // No extension
-		{"Dockerfile", LangUnknown}, // No extension
 	}
 
 	for _, tt := range tests {
@@ -493,8 +486,6 @@ func TestParser_IsSupported_UnsupportedLanguages(t *testing.T) {
 
 	unsupportedLanguages := []Language{
 		LangUnknown,
-		Language("ruby"),       // No ruby config yet
-		Language("cpp"),        // No cpp config yet
 		Language("nonexistent"), // Definitely unsupported
 		Language(""),
 	}

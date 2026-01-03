@@ -41,7 +41,7 @@ var grammarToImport = map[string]importInfo{
 	"jsx":        {pkg: "javascript", path: "github.com/smacker/go-tree-sitter/javascript"}, // JSX uses JavaScript parser
 	"kotlin":     {pkg: "kotlin", path: "github.com/smacker/go-tree-sitter/kotlin"},
 	"lua":        {pkg: "lua", path: "github.com/smacker/go-tree-sitter/lua"},
-	"markdown":   {pkg: "markdown", path: "github.com/smacker/go-tree-sitter/markdown"},
+	// Note: markdown is excluded - it has a special API (MarkdownTree) that doesn't use simple GetLanguage()
 	"ocaml":      {pkg: "ocaml", path: "github.com/smacker/go-tree-sitter/ocaml"},
 	"php":        {pkg: "php", path: "github.com/smacker/go-tree-sitter/php"},
 	"protobuf":   {pkg: "protobuf", path: "github.com/smacker/go-tree-sitter/protobuf"},

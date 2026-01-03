@@ -99,7 +99,7 @@ All commands support `--json` for structured output and `-p/--project` to specif
 | CLI Framework | Cobra + Viper |
 | Vector Database | SQLite + sqlite-vec |
 | Embedding Model | jina-embeddings-v2-base-code (via Ollama) |
-| Code Parsing | Tree-sitter (Go, C#, Python, JavaScript, TypeScript, JSX, TSX, Java) |
+| Code Parsing | Tree-sitter (32 languages - see Supported Languages below) |
 | File Watching | fsnotify |
 | HTTP Server | go-chi |
 
@@ -197,6 +197,26 @@ SQLite database with sqlite-vec extension for vector storage. Handles chunk stor
 
 ### `internal/embedder`
 Embedding generation via Ollama's local API. Includes caching layer and mock implementation for testing.
+
+## Supported Languages
+
+Pommel provides AST-aware code chunking for 32 programming languages:
+
+**Systems Languages:** C, C++, Rust, Go
+**JVM Languages:** Java, Kotlin, Scala, Groovy
+**Web Languages:** JavaScript, TypeScript, JSX, TSX, HTML, CSS, Svelte
+**Scripting Languages:** Python, Ruby, Lua, Bash, Elixir, PHP
+**Functional Languages:** Elm, OCaml
+**Mobile Languages:** Swift, Kotlin
+**Infrastructure Languages:** HCL (Terraform), Dockerfile, SQL, Protocol Buffers, CUE, TOML, YAML
+
+Language configurations are stored in `languages/*.yaml` and define:
+- File extensions to detect
+- Tree-sitter grammar mapping
+- Chunk type mappings (class, method, block)
+- Documentation comment extraction rules
+
+To add a new language, create a YAML config and run `go run internal/chunker/generate/main.go`.
 
 ## Related System
 

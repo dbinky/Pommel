@@ -1,0 +1,28 @@
+# YAML language configuration for Pommel
+language: yaml
+display_name: YAML
+extensions:
+  - .yaml
+  - .yml
+
+tree_sitter:
+  grammar: yaml
+
+chunk_mappings:
+  class:
+    - block_mapping
+    - flow_mapping
+
+  method:
+    - block_mapping_pair
+    - flow_pair
+
+  block:
+    - block_sequence
+    - flow_sequence
+
+extraction:
+  name_field: key
+  doc_comments:
+    - comment
+  doc_comment_position: preceding_siblings

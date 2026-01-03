@@ -8,99 +8,214 @@ import (
 	"strings"
 
 	sitter "github.com/smacker/go-tree-sitter"
+	bash "github.com/smacker/go-tree-sitter/bash"
+	c "github.com/smacker/go-tree-sitter/c"
+	cpp "github.com/smacker/go-tree-sitter/cpp"
 	csharp "github.com/smacker/go-tree-sitter/csharp"
+	css "github.com/smacker/go-tree-sitter/css"
+	cue "github.com/smacker/go-tree-sitter/cue"
+	dockerfile "github.com/smacker/go-tree-sitter/dockerfile"
 	elixir "github.com/smacker/go-tree-sitter/elixir"
+	elm "github.com/smacker/go-tree-sitter/elm"
 	golang "github.com/smacker/go-tree-sitter/golang"
+	groovy "github.com/smacker/go-tree-sitter/groovy"
+	hcl "github.com/smacker/go-tree-sitter/hcl"
+	html "github.com/smacker/go-tree-sitter/html"
 	java "github.com/smacker/go-tree-sitter/java"
 	javascript "github.com/smacker/go-tree-sitter/javascript"
 	kotlin "github.com/smacker/go-tree-sitter/kotlin"
+	lua "github.com/smacker/go-tree-sitter/lua"
+	ocaml "github.com/smacker/go-tree-sitter/ocaml"
 	php "github.com/smacker/go-tree-sitter/php"
+	protobuf "github.com/smacker/go-tree-sitter/protobuf"
 	python "github.com/smacker/go-tree-sitter/python"
+	ruby "github.com/smacker/go-tree-sitter/ruby"
 	rust "github.com/smacker/go-tree-sitter/rust"
+	scala "github.com/smacker/go-tree-sitter/scala"
+	sql "github.com/smacker/go-tree-sitter/sql"
+	svelte "github.com/smacker/go-tree-sitter/svelte"
 	swift "github.com/smacker/go-tree-sitter/swift"
+	toml "github.com/smacker/go-tree-sitter/toml"
 	tsx "github.com/smacker/go-tree-sitter/typescript/tsx"
 	typescript "github.com/smacker/go-tree-sitter/typescript/typescript"
+	yaml "github.com/smacker/go-tree-sitter/yaml"
 )
 
 // grammarRegistry maps grammar names (from config) to tree-sitter language getters.
 var grammarRegistry = map[string]func() *sitter.Language{
+	"bash":       bash.GetLanguage,
+	"c":          c.GetLanguage,
 	"c_sharp":    csharp.GetLanguage,
+	"cpp":        cpp.GetLanguage,
+	"css":        css.GetLanguage,
+	"cue":        cue.GetLanguage,
+	"dockerfile": dockerfile.GetLanguage,
 	"elixir":     elixir.GetLanguage,
+	"elm":        elm.GetLanguage,
 	"go":         golang.GetLanguage,
+	"groovy":     groovy.GetLanguage,
+	"hcl":        hcl.GetLanguage,
+	"html":       html.GetLanguage,
 	"java":       java.GetLanguage,
 	"javascript": javascript.GetLanguage,
 	"jsx":        javascript.GetLanguage,
 	"kotlin":     kotlin.GetLanguage,
+	"lua":        lua.GetLanguage,
+	"ocaml":      ocaml.GetLanguage,
 	"php":        php.GetLanguage,
+	"protobuf":   protobuf.GetLanguage,
 	"python":     python.GetLanguage,
+	"ruby":       ruby.GetLanguage,
 	"rust":       rust.GetLanguage,
+	"scala":      scala.GetLanguage,
+	"sql":        sql.GetLanguage,
+	"svelte":     svelte.GetLanguage,
 	"swift":      swift.GetLanguage,
+	"toml":       toml.GetLanguage,
 	"tsx":        tsx.GetLanguage,
 	"typescript": typescript.GetLanguage,
+	"yaml":       yaml.GetLanguage,
 }
 
 // languageToGrammar maps user-friendly language names to grammar names.
 var languageToGrammar = map[string]string{
+	"bash":       "bash",
+	"c":          "c",
+	"cpp":        "cpp",
 	"csharp":     "c_sharp",
+	"css":        "css",
+	"cue":        "cue",
+	"dockerfile": "dockerfile",
 	"elixir":     "elixir",
+	"elm":        "elm",
 	"go":         "go",
+	"groovy":     "groovy",
+	"hcl":        "hcl",
+	"html":       "html",
 	"java":       "java",
 	"javascript": "javascript",
 	"jsx":        "jsx",
 	"kotlin":     "kotlin",
+	"lua":        "lua",
+	"ocaml":      "ocaml",
 	"php":        "php",
+	"protobuf":   "protobuf",
 	"python":     "python",
+	"ruby":       "ruby",
 	"rust":       "rust",
+	"scala":      "scala",
+	"sql":        "sql",
+	"svelte":     "svelte",
 	"swift":      "swift",
+	"toml":       "toml",
 	"tsx":        "tsx",
 	"typescript": "typescript",
+	"yaml":       "yaml",
 }
 
 // extensionToLanguage maps file extensions to user-friendly language names.
 var extensionToLanguage = map[string]string{
-	".cjs":   "javascript",
-	".cs":    "csharp",
-	".cts":   "typescript",
-	".ex":    "elixir",
-	".exs":   "elixir",
-	".go":    "go",
-	".java":  "java",
-	".js":    "javascript",
-	".jsx":   "jsx",
-	".kt":    "kotlin",
-	".kts":   "kotlin",
-	".mjs":   "javascript",
-	".mts":   "typescript",
-	".php":   "php",
-	".php3":  "php",
-	".php4":  "php",
-	".php5":  "php",
-	".phps":  "php",
-	".phtml": "php",
-	".py":    "python",
-	".pyi":   "python",
-	".pyw":   "python",
-	".rs":    "rust",
-	".swift": "swift",
-	".ts":    "typescript",
-	".tsx":   "tsx",
+	".bash":       "bash",
+	".bashrc":     "bash",
+	".c":          "c",
+	".cc":         "cpp",
+	".cjs":        "javascript",
+	".cpp":        "cpp",
+	".cs":         "csharp",
+	".css":        "css",
+	".cts":        "typescript",
+	".cue":        "cue",
+	".cxx":        "cpp",
+	".dockerfile": "dockerfile",
+	".elm":        "elm",
+	".ex":         "elixir",
+	".exs":        "elixir",
+	".gemspec":    "ruby",
+	".go":         "go",
+	".gradle":     "groovy",
+	".groovy":     "groovy",
+	".h":          "c",
+	".h++":        "cpp",
+	".hcl":        "hcl",
+	".hh":         "cpp",
+	".hpp":        "cpp",
+	".htm":        "html",
+	".html":       "html",
+	".hxx":        "cpp",
+	".java":       "java",
+	".js":         "javascript",
+	".jsx":        "jsx",
+	".kt":         "kotlin",
+	".kts":        "kotlin",
+	".lua":        "lua",
+	".mjs":        "javascript",
+	".ml":         "ocaml",
+	".mli":        "ocaml",
+	".mts":        "typescript",
+	".php":        "php",
+	".php3":       "php",
+	".php4":       "php",
+	".php5":       "php",
+	".phps":       "php",
+	".phtml":      "php",
+	".proto":      "protobuf",
+	".py":         "python",
+	".pyi":        "python",
+	".pyw":        "python",
+	".rake":       "ruby",
+	".rb":         "ruby",
+	".rs":         "rust",
+	".sc":         "scala",
+	".scala":      "scala",
+	".sh":         "bash",
+	".sql":        "sql",
+	".svelte":     "svelte",
+	".swift":      "swift",
+	".tf":         "hcl",
+	".tfvars":     "hcl",
+	".toml":       "toml",
+	".ts":         "typescript",
+	".tsx":        "tsx",
+	".yaml":       "yaml",
+	".yml":        "yaml",
+	".zsh":        "bash",
+	".zshrc":      "bash",
 }
 
 // supportedLanguages is the list of all supported language names.
 var supportedLanguages = []string{
+	"bash",
+	"c",
+	"cpp",
 	"csharp",
+	"css",
+	"cue",
+	"dockerfile",
 	"elixir",
+	"elm",
 	"go",
+	"groovy",
+	"hcl",
+	"html",
 	"java",
 	"javascript",
 	"jsx",
 	"kotlin",
+	"lua",
+	"ocaml",
 	"php",
+	"protobuf",
 	"python",
+	"ruby",
 	"rust",
+	"scala",
+	"sql",
+	"svelte",
 	"swift",
+	"toml",
 	"tsx",
 	"typescript",
+	"yaml",
 }
 
 // DetectLanguageByExtension returns the language name for a given filename.

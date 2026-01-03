@@ -1,0 +1,27 @@
+# CUE language configuration for Pommel
+language: cue
+display_name: CUE
+extensions:
+  - .cue
+
+tree_sitter:
+  grammar: cue
+
+chunk_mappings:
+  class:
+    - package_clause
+    - struct_lit
+
+  method:
+    - field
+
+  block:
+    - for_clause
+    - if_clause
+    - let_clause
+
+extraction:
+  name_field: name
+  doc_comments:
+    - comment
+  doc_comment_position: preceding_siblings

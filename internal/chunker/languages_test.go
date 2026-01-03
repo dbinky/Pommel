@@ -349,28 +349,47 @@ func TestLanguageConfig_TypeScript(t *testing.T) {
 // Aggregate Tests
 // =============================================================================
 
-// expectedLanguageConfigs defines all 13 language configs that should be shipped.
+// expectedLanguageConfigs defines all 32 language configs that should be shipped.
 var expectedLanguageConfigs = []struct {
 	filename string
 	language string
 }{
+	{"bash.yaml", "bash"},
+	{"c.yaml", "c"},
+	{"cpp.yaml", "cpp"},
 	{"csharp.yaml", "csharp"},
+	{"css.yaml", "css"},
+	{"cue.yaml", "cue"},
+	{"dockerfile.yaml", "dockerfile"},
 	{"elixir.yaml", "elixir"},
+	{"elm.yaml", "elm"},
 	{"go.yaml", "go"},
+	{"groovy.yaml", "groovy"},
+	{"hcl.yaml", "hcl"},
+	{"html.yaml", "html"},
 	{"java.yaml", "java"},
 	{"javascript.yaml", "javascript"},
 	{"jsx.yaml", "jsx"},
 	{"kotlin.yaml", "kotlin"},
+	{"lua.yaml", "lua"},
+	{"ocaml.yaml", "ocaml"},
 	{"php.yaml", "php"},
+	{"protobuf.yaml", "protobuf"},
 	{"python.yaml", "python"},
+	{"ruby.yaml", "ruby"},
 	{"rust.yaml", "rust"},
+	{"scala.yaml", "scala"},
+	{"sql.yaml", "sql"},
+	{"svelte.yaml", "svelte"},
 	{"swift.yaml", "swift"},
+	{"toml.yaml", "toml"},
 	{"tsx.yaml", "tsx"},
 	{"typescript.yaml", "typescript"},
+	{"yaml.yaml", "yaml"},
 }
 
 func TestAllLanguageConfigs_Load(t *testing.T) {
-	// All 13 configs should load without error
+	// All 32 configs should load without error
 	languagesDir := getLanguagesDir(t)
 
 	for _, expected := range expectedLanguageConfigs {
@@ -406,8 +425,8 @@ func TestAllLanguageConfigs_UniqueLanguageIDs(t *testing.T) {
 		seenLanguages[cfg.Language] = expected.filename
 	}
 
-	// Verify we checked all 13 configs
-	assert.Len(t, seenLanguages, 13, "Should have 13 unique language identifiers")
+	// Verify we checked all 32 configs
+	assert.Len(t, seenLanguages, 32, "Should have 32 unique language identifiers")
 }
 
 func TestAllLanguageConfigs_UniqueExtensions(t *testing.T) {
@@ -516,7 +535,7 @@ func TestAllLanguageConfigs_HaveGrammar(t *testing.T) {
 }
 
 func TestAllLanguageConfigs_Count(t *testing.T) {
-	// Verify exactly 13 language configs exist in the languages directory
+	// Verify exactly 32 language configs exist in the languages directory
 	languagesDir := getLanguagesDir(t)
 
 	entries, err := os.ReadDir(languagesDir)
@@ -529,8 +548,8 @@ func TestAllLanguageConfigs_Count(t *testing.T) {
 		}
 	}
 
-	assert.Equal(t, 13, yamlCount,
-		"Languages directory should contain exactly 13 YAML config files")
+	assert.Equal(t, 32, yamlCount,
+		"Languages directory should contain exactly 32 YAML config files")
 }
 
 func TestAllLanguageConfigs_FilenameMatchesLanguage(t *testing.T) {

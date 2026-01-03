@@ -1,0 +1,27 @@
+# Svelte language configuration for Pommel
+language: svelte
+display_name: Svelte
+extensions:
+  - .svelte
+
+tree_sitter:
+  grammar: svelte
+
+chunk_mappings:
+  class:
+    - script_element
+    - style_element
+
+  method:
+    - element
+
+  block:
+    - if_statement
+    - each_statement
+    - await_statement
+
+extraction:
+  name_field: tag_name
+  doc_comments:
+    - comment
+  doc_comment_position: preceding_siblings

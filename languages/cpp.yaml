@@ -1,0 +1,39 @@
+# C++ language configuration for Pommel
+language: cpp
+display_name: C++
+extensions:
+  - .cpp
+  - .cc
+  - .cxx
+  - .hpp
+  - .hh
+  - .hxx
+  - .h++
+
+tree_sitter:
+  grammar: cpp
+
+chunk_mappings:
+  class:
+    - class_specifier
+    - struct_specifier
+    - union_specifier
+    - enum_specifier
+    - namespace_definition
+
+  method:
+    - function_definition
+    - template_declaration
+
+  block:
+    - if_statement
+    - for_statement
+    - while_statement
+    - switch_statement
+    - try_statement
+
+extraction:
+  name_field: declarator
+  doc_comments:
+    - comment
+  doc_comment_position: preceding_siblings

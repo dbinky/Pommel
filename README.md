@@ -450,23 +450,48 @@ Agent needs to understand authentication...
 
 ## Supported Languages
 
+Pommel supports 32 programming languages with AST-aware chunking via Tree-sitter:
+
 | Language | Extensions | Chunk Levels |
 |----------|------------|--------------|
+| Bash | `.sh`, `.bash`, `.bashrc`, `.zsh`, `.zshrc` | file, function |
+| C | `.c`, `.h` | file, struct, function |
+| C++ | `.cpp`, `.cc`, `.cxx`, `.hpp`, `.hh`, `.hxx`, `.h++` | file, class/struct, function/method |
 | C# | `.cs` | file, class/struct/interface, method/property |
-| Dart | `.dart` | file, class/mixin, method/function |
+| CSS | `.css` | file, rule_set/media/keyframes |
+| CUE | `.cue` | file, struct, field |
+| Dockerfile | `.dockerfile` | file, instruction |
 | Elixir | `.ex`, `.exs` | file, module, function |
+| Elm | `.elm` | file, module/type, function |
 | Go | `.go` | file, struct/interface, function/method |
+| Groovy | `.groovy`, `.gradle` | file, class/interface, method |
+| HCL | `.hcl`, `.tf`, `.tfvars` | file, block, attribute |
+| HTML | `.html`, `.htm` | file, element |
 | Java | `.java` | file, class/interface/enum, method |
-| JavaScript | `.js`, `.jsx`, `.mjs`, `.cjs` | file, class, function |
+| JavaScript | `.js`, `.mjs`, `.cjs` | file, class, function |
+| JSX | `.jsx` | file, class, function |
 | Kotlin | `.kt`, `.kts` | file, class/object, function |
-| PHP | `.php` | file, class/trait, method/function |
-| Python | `.py`, `.pyi` | file, class, method/function |
+| Lua | `.lua` | file, function |
+| OCaml | `.ml`, `.mli` | file, module/class, function |
+| PHP | `.php`, `.php3`, `.php4`, `.php5`, `.phps`, `.phtml` | file, class/trait, method/function |
+| Protocol Buffers | `.proto` | file, message/enum/service, field/rpc |
+| Python | `.py`, `.pyi`, `.pyw` | file, class, method/function |
+| Ruby | `.rb`, `.rake`, `.gemspec` | file, class/module, method |
 | Rust | `.rs` | file, struct/enum/trait/impl, function |
-| Solidity | `.sol` | file, contract/interface, function |
+| Scala | `.scala`, `.sc` | file, class/object/trait, function |
+| SQL | `.sql` | file, table/view, function/procedure |
+| Svelte | `.svelte` | file, script/style, element |
 | Swift | `.swift` | file, class/struct/protocol, function |
-| TypeScript | `.ts`, `.tsx`, `.mts`, `.cts` | file, class/interface, function |
+| TOML | `.toml` | file, table |
+| TSX | `.tsx` | file, class/interface, function |
+| TypeScript | `.ts`, `.mts`, `.cts` | file, class/interface, function |
+| YAML | `.yaml`, `.yml` | file, mapping |
 
 Other file types are indexed at file-level only (fallback chunking).
+
+**Note:** Markdown support is planned but requires special Tree-sitter integration.
+
+**macOS Build Note:** Building YAML support requires C++ headers. Set `CGO_CXXFLAGS="-I$(xcrun --show-sdk-path)/usr/include/c++/v1"` if you encounter C++ header errors.
 
 ## Platform Notes
 

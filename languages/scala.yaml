@@ -1,0 +1,35 @@
+# Scala language configuration for Pommel
+language: scala
+display_name: Scala
+extensions:
+  - .scala
+  - .sc
+
+tree_sitter:
+  grammar: scala
+
+chunk_mappings:
+  class:
+    - class_definition
+    - object_definition
+    - trait_definition
+    - enum_definition
+
+  method:
+    - function_definition
+    - val_definition
+    - var_definition
+
+  block:
+    - if_expression
+    - match_expression
+    - for_expression
+    - while_expression
+    - try_expression
+
+extraction:
+  name_field: name
+  doc_comments:
+    - comment
+    - block_comment
+  doc_comment_position: preceding_siblings

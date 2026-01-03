@@ -1,0 +1,30 @@
+# Elm language configuration for Pommel
+language: elm
+display_name: Elm
+extensions:
+  - .elm
+
+tree_sitter:
+  grammar: elm
+
+chunk_mappings:
+  class:
+    - module_declaration
+    - type_declaration
+    - type_alias_declaration
+
+  method:
+    - function_declaration_left
+    - value_declaration
+
+  block:
+    - case_of_expr
+    - if_else_expr
+    - let_in_expr
+
+extraction:
+  name_field: name
+  doc_comments:
+    - block_comment
+    - line_comment
+  doc_comment_position: preceding_siblings

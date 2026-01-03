@@ -1,0 +1,32 @@
+# SQL language configuration for Pommel
+language: sql
+display_name: SQL
+extensions:
+  - .sql
+
+tree_sitter:
+  grammar: sql
+
+chunk_mappings:
+  class:
+    - create_table_statement
+    - create_view_statement
+    - create_index_statement
+
+  method:
+    - create_function_statement
+    - create_procedure_statement
+
+  block:
+    - select_statement
+    - insert_statement
+    - update_statement
+    - delete_statement
+    - cte
+
+extraction:
+  name_field: name
+  doc_comments:
+    - comment
+    - marginalia
+  doc_comment_position: preceding_siblings
