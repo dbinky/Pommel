@@ -12,6 +12,7 @@ import (
 	"github.com/smacker/go-tree-sitter/golang"
 	"github.com/smacker/go-tree-sitter/java"
 	"github.com/smacker/go-tree-sitter/javascript"
+	"github.com/smacker/go-tree-sitter/lua"
 	"github.com/smacker/go-tree-sitter/python"
 	"github.com/smacker/go-tree-sitter/typescript/tsx"
 	"github.com/smacker/go-tree-sitter/typescript/typescript"
@@ -25,6 +26,7 @@ var grammarRegistry = map[string]func() *sitter.Language{
 	"java":       java.GetLanguage,
 	"csharp":     csharp.GetLanguage,
 	"c_sharp":    csharp.GetLanguage, // alias for csharp
+	"lua":        lua.GetLanguage,
 	"python":     python.GetLanguage,
 	"javascript": javascript.GetLanguage,
 	"typescript": typescript.GetLanguage,
@@ -63,6 +65,7 @@ const (
 	LangGo         Language = "go"
 	LangJava       Language = "java"
 	LangCSharp     Language = "csharp"
+	LangLua        Language = "lua"
 	LangPython     Language = "python"
 	LangJavaScript Language = "javascript"
 	LangTypeScript Language = "typescript"
@@ -121,6 +124,11 @@ func NewParser() (*Parser, error) {
 	jsxParser := sitter.NewParser()
 	jsxParser.SetLanguage(javascript.GetLanguage())
 	parsers[LangJSX] = jsxParser
+
+	// Initialize Lua parser
+	luaParser := sitter.NewParser()
+	luaParser.SetLanguage(lua.GetLanguage())
+	parsers[LangLua] = luaParser
 
 	return &Parser{
 		parsers: parsers,
@@ -187,6 +195,8 @@ func DetectLanguage(filename string) Language {
 		return LangJava
 	case ".cs":
 		return LangCSharp
+	case ".lua":
+		return LangLua
 	case ".py":
 		return LangPython
 	case ".js":

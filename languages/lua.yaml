@@ -1,0 +1,28 @@
+# Lua language configuration for Pommel
+language: lua
+display_name: Lua
+extensions:
+  - .lua
+
+tree_sitter:
+  grammar: lua
+
+chunk_mappings:
+  # Lua doesn't have classes (uses table-based OOP patterns)
+  class: []
+
+  method:
+    - function_statement
+    - function
+
+  block:
+    - if_statement
+    - for_statement
+    - while_statement
+    - repeat_statement
+
+extraction:
+  name_field: name
+  doc_comments:
+    - comment
+  doc_comment_position: preceding_siblings
