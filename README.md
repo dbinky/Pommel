@@ -116,6 +116,8 @@ pm init                    # Initialize with defaults
 pm init --auto             # Auto-detect languages and configure
 pm init --claude           # Also add usage instructions to CLAUDE.md
 pm init --start            # Initialize and start daemon immediately
+pm init --batch-size 8     # Custom embedding batch size (default 32)
+pm init --cache-size 500   # Custom embedding cache size (default 1000)
 ```
 
 ### `pm start` / `pm stop`
