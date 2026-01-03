@@ -1,13 +1,11 @@
-# JavaScript language configuration for Pommel
-language: javascript
-display_name: JavaScript
+# JSX (JavaScript with JSX) language configuration for Pommel
+language: jsx
+display_name: JSX
 extensions:
-  - .js
-  - .mjs
-  - .cjs
+  - .jsx
 
 tree_sitter:
-  grammar: javascript
+  grammar: jsx
 
 chunk_mappings:
   class:

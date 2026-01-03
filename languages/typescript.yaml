@@ -3,7 +3,6 @@ language: typescript
 display_name: TypeScript
 extensions:
   - .ts
-  - .tsx
   - .mts
   - .cts
 

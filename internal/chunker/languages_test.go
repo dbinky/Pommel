@@ -107,26 +107,6 @@ func TestLanguageConfig_CSharp(t *testing.T) {
 	assert.Contains(t, cfg.ChunkMappings.Method, "method_declaration")
 }
 
-func TestLanguageConfig_Dart(t *testing.T) {
-	cfg := loadTestLanguageConfig(t, "dart.yaml")
-
-	// Validate common requirements
-	validateLanguageConfig(t, "dart", cfg)
-
-	// Validate specific expected values
-	assert.Equal(t, "dart", cfg.Language, "Language should be 'dart'")
-	assert.Equal(t, "Dart", cfg.DisplayName, "DisplayName should be 'Dart'")
-	assert.Contains(t, cfg.Extensions, ".dart", "Extensions should contain '.dart'")
-	assert.Equal(t, "dart", cfg.TreeSitter.Grammar, "Grammar should be 'dart'")
-
-	// Dart should have class mappings
-	assert.NotEmpty(t, cfg.ChunkMappings.Class, "Dart should have class mappings")
-	assert.Contains(t, cfg.ChunkMappings.Class, "class_definition")
-
-	// Dart should have method mappings
-	assert.NotEmpty(t, cfg.ChunkMappings.Method, "Dart should have method mappings")
-}
-
 func TestLanguageConfig_Elixir(t *testing.T) {
 	cfg := loadTestLanguageConfig(t, "elixir.yaml")
 
@@ -201,7 +181,6 @@ func TestLanguageConfig_JavaScript(t *testing.T) {
 	assert.Equal(t, "javascript", cfg.Language, "Language should be 'javascript'")
 	assert.Equal(t, "JavaScript", cfg.DisplayName, "DisplayName should be 'JavaScript'")
 	assert.Contains(t, cfg.Extensions, ".js", "Extensions should contain '.js'")
-	assert.Contains(t, cfg.Extensions, ".jsx", "Extensions should contain '.jsx'")
 	assert.Contains(t, cfg.Extensions, ".mjs", "Extensions should contain '.mjs'")
 	assert.Contains(t, cfg.Extensions, ".cjs", "Extensions should contain '.cjs'")
 	assert.Equal(t, "javascript", cfg.TreeSitter.Grammar, "Grammar should be 'javascript'")
@@ -315,30 +294,6 @@ func TestLanguageConfig_Rust(t *testing.T) {
 	assert.Contains(t, cfg.ChunkMappings.Method, "function_item")
 }
 
-func TestLanguageConfig_Solidity(t *testing.T) {
-	cfg := loadTestLanguageConfig(t, "solidity.yaml")
-
-	// Validate common requirements
-	validateLanguageConfig(t, "solidity", cfg)
-
-	// Validate specific expected values
-	assert.Equal(t, "solidity", cfg.Language, "Language should be 'solidity'")
-	assert.Equal(t, "Solidity", cfg.DisplayName, "DisplayName should be 'Solidity'")
-	assert.Contains(t, cfg.Extensions, ".sol", "Extensions should contain '.sol'")
-	assert.Equal(t, "solidity", cfg.TreeSitter.Grammar, "Grammar should be 'solidity'")
-
-	// Solidity should have class mappings for contract, interface, library
-	assert.NotEmpty(t, cfg.ChunkMappings.Class, "Solidity should have class mappings")
-	assert.Contains(t, cfg.ChunkMappings.Class, "contract_declaration")
-	assert.Contains(t, cfg.ChunkMappings.Class, "interface_declaration")
-	assert.Contains(t, cfg.ChunkMappings.Class, "library_declaration")
-
-	// Solidity should have method mappings
-	assert.NotEmpty(t, cfg.ChunkMappings.Method, "Solidity should have method mappings")
-	assert.Contains(t, cfg.ChunkMappings.Method, "function_definition")
-	assert.Contains(t, cfg.ChunkMappings.Method, "modifier_definition")
-}
-
 func TestLanguageConfig_Swift(t *testing.T) {
 	cfg := loadTestLanguageConfig(t, "swift.yaml")
 
@@ -374,7 +329,6 @@ func TestLanguageConfig_TypeScript(t *testing.T) {
 	assert.Equal(t, "typescript", cfg.Language, "Language should be 'typescript'")
 	assert.Equal(t, "TypeScript", cfg.DisplayName, "DisplayName should be 'TypeScript'")
 	assert.Contains(t, cfg.Extensions, ".ts", "Extensions should contain '.ts'")
-	assert.Contains(t, cfg.Extensions, ".tsx", "Extensions should contain '.tsx'")
 	assert.Contains(t, cfg.Extensions, ".mts", "Extensions should contain '.mts'")
 	assert.Contains(t, cfg.Extensions, ".cts", "Extensions should contain '.cts'")
 	assert.Equal(t, "typescript", cfg.TreeSitter.Grammar, "Grammar should be 'typescript'")
@@ -401,17 +355,17 @@ var expectedLanguageConfigs = []struct {
 	language string
 }{
 	{"csharp.yaml", "csharp"},
-	{"dart.yaml", "dart"},
 	{"elixir.yaml", "elixir"},
 	{"go.yaml", "go"},
 	{"java.yaml", "java"},
 	{"javascript.yaml", "javascript"},
+	{"jsx.yaml", "jsx"},
 	{"kotlin.yaml", "kotlin"},
 	{"php.yaml", "php"},
 	{"python.yaml", "python"},
 	{"rust.yaml", "rust"},
-	{"solidity.yaml", "solidity"},
 	{"swift.yaml", "swift"},
+	{"tsx.yaml", "tsx"},
 	{"typescript.yaml", "typescript"},
 }
 

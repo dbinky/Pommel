@@ -41,8 +41,8 @@ func TestCSharpChunker_Available(t *testing.T) {
 
 func TestCSharpChunker_Language(t *testing.T) {
 	chunker := getCSharpChunker(t)
-	// C# chunker uses c_sharp grammar name
-	assert.Equal(t, Language("c_sharp"), chunker.Language(), "CSharpChunker should return c_sharp grammar")
+	// C# chunker uses user-friendly "csharp" language name
+	assert.Equal(t, LangCSharp, chunker.Language(), "CSharpChunker should return csharp language")
 }
 
 // =============================================================================

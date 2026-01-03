@@ -22,37 +22,48 @@ func TestNewParser_SupportsAllExpectedLanguages(t *testing.T) {
 	parser, err := NewParser()
 	require.NoError(t, err)
 
-	expectedLanguages := []Language{
-		LangGo,
-		LangJava,
-		LangCSharp,
-		LangPython,
-		LangJavaScript,
-		LangTypeScript,
-		LangTSX,
-		LangJSX,
+	// Test that parser supports the languages from YAML configs
+	// Note: JSX/TSX now have their own configs
+	expectedLanguages := []string{
+		"go",
+		"java",
+		"csharp", // User-friendly name, not grammar name
+		"python",
+		"javascript",
+		"typescript",
+		"rust", // Now supported
+		"jsx",
+		"tsx",
 	}
 
 	for _, lang := range expectedLanguages {
-		t.Run(string(lang), func(t *testing.T) {
-			assert.True(t, parser.IsSupported(lang), "Parser should support %s", lang)
+		t.Run(lang, func(t *testing.T) {
+			assert.True(t, parser.IsSupportedByName(lang), "Parser should support %s", lang)
 		})
 	}
 }
 
 func TestParser_SupportedLanguages(t *testing.T) {
+	// Test package-level SupportedLanguages function
+	langs := SupportedLanguages()
+	assert.NotEmpty(t, langs, "SupportedLanguages should return at least one language")
+
+	// Test that parser supports the expected core languages
 	parser, err := NewParser()
 	require.NoError(t, err)
 
-	langs := parser.SupportedLanguages()
-	assert.Contains(t, langs, LangGo, "SupportedLanguages should include Go")
-	assert.Contains(t, langs, LangJava, "SupportedLanguages should include Java")
-	assert.Contains(t, langs, LangCSharp, "SupportedLanguages should include C#")
-	assert.Contains(t, langs, LangPython, "SupportedLanguages should include Python")
-	assert.Contains(t, langs, LangJavaScript, "SupportedLanguages should include JavaScript")
-	assert.Contains(t, langs, LangTypeScript, "SupportedLanguages should include TypeScript")
-	assert.Contains(t, langs, LangTSX, "SupportedLanguages should include TSX")
-	assert.Contains(t, langs, LangJSX, "SupportedLanguages should include JSX")
+	expectedLanguages := []string{
+		"go",
+		"java",
+		"csharp", // User-friendly name
+		"python",
+		"javascript",
+		"typescript",
+	}
+
+	for _, lang := range expectedLanguages {
+		assert.True(t, parser.IsSupportedByName(lang), "Parser should support %s", lang)
+	}
 }
 
 // =============================================================================
@@ -482,9 +493,9 @@ func TestParser_IsSupported_UnsupportedLanguages(t *testing.T) {
 
 	unsupportedLanguages := []Language{
 		LangUnknown,
-		Language("rust"),
-		Language("ruby"),
-		Language("cpp"),
+		Language("ruby"),       // No ruby config yet
+		Language("cpp"),        // No cpp config yet
+		Language("nonexistent"), // Definitely unsupported
 		Language(""),
 	}
 
