@@ -273,6 +273,7 @@ func (i *Indexer) ReindexAll(ctx context.Context) error {
 	// Walk the project directory and index matching files
 	var filesIndexed int64
 	var totalChunks int64
+	const statsUpdateInterval = 10 // Update stats every N files
 
 	err := filepath.Walk(i.projectRoot, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -314,6 +315,19 @@ func (i *Indexer) ReindexAll(ctx context.Context) error {
 		}
 
 		filesIndexed++
+
+		// Periodically update stats during indexing so status shows progress
+		if filesIndexed%statsUpdateInterval == 0 {
+			if fc, err := i.db.FileCount(ctx); err == nil {
+				if cc, err := i.db.ChunkCount(ctx); err == nil {
+					i.statsMu.Lock()
+					i.stats.TotalFiles = fc
+					i.stats.TotalChunks = cc
+					i.statsMu.Unlock()
+				}
+			}
+		}
+
 		return nil
 	})
 
