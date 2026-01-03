@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -253,6 +254,50 @@ class Calculator {
         return a - b;
     }
 }
+`
+
+var markdownTestFile = `# Project README
+
+This is the introduction paragraph with some context about the project.
+
+## Installation
+
+Install the package using npm:
+
+` + "```" + `bash
+npm install my-package
+` + "```" + `
+
+Or using yarn:
+
+` + "```" + `bash
+yarn add my-package
+` + "```" + `
+
+## Usage
+
+Here is a basic usage example:
+
+` + "```" + `python
+import mypackage
+
+def main():
+    mypackage.run()
+
+if __name__ == "__main__":
+    main()
+` + "```" + `
+
+## API Reference
+
+### Core Functions
+
+- ` + "`init()`" + ` - Initialize the package
+- ` + "`run()`" + ` - Run the main process
+
+## Contributing
+
+Please read CONTRIBUTING.md for details on our code of conduct and the process for submitting pull requests.
 `
 
 // =============================================================================
@@ -506,6 +551,191 @@ func TestIntegration_JavaScriptFileChunking(t *testing.T) {
 }
 
 // =============================================================================
+// Integration Tests: Markdown File Chunking
+// =============================================================================
+
+func TestIntegration_MarkdownFileChunking(t *testing.T) {
+	langDir := integrationGetLanguagesDir(t)
+	registry, err := NewRegistryFromConfig(langDir)
+	require.NoError(t, err)
+
+	file := &models.SourceFile{
+		Path:         "/test/README.md",
+		Content:      []byte(markdownTestFile),
+		Language:     "markdown",
+		LastModified: time.Now(),
+	}
+
+	result, err := registry.Chunk(context.Background(), file)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+
+	counts := integrationCountChunksByLevel(result.Chunks)
+
+	// Should have:
+	// - 1 file chunk
+	// - Multiple class chunks (headings: Project README, Installation, Usage, API Reference, Core Functions, Contributing)
+	// - Multiple method chunks (code blocks: 3 fenced code blocks, plus lists)
+	assert.Equal(t, 1, counts[models.ChunkLevelFile], "Should have 1 file chunk")
+	assert.GreaterOrEqual(t, counts[models.ChunkLevelClass], 4, "Should have at least 4 heading chunks")
+	assert.GreaterOrEqual(t, counts[models.ChunkLevelMethod], 3, "Should have at least 3 code block/list chunks")
+
+	// Verify file chunk
+	fileChunk := integrationFindChunkByLevel(result.Chunks, models.ChunkLevelFile)
+	require.NotNil(t, fileChunk)
+	assert.Equal(t, "/test/README.md", fileChunk.FilePath)
+
+	// Verify all chunks are valid
+	for _, chunk := range result.Chunks {
+		err := chunk.IsValid()
+		assert.NoError(t, err, "Chunk %s should be valid", chunk.Name)
+		assert.NotEmpty(t, chunk.ID, "Chunk should have an ID")
+	}
+}
+
+func TestIntegration_MarkdownWithCodeBlocks(t *testing.T) {
+	langDir := integrationGetLanguagesDir(t)
+	registry, err := NewRegistryFromConfig(langDir)
+	require.NoError(t, err)
+
+	source := []byte(`# Examples
+
+` + "```" + `python
+def hello():
+    print("Hello, World!")
+` + "```" + `
+
+` + "```" + `go
+func main() {
+    fmt.Println("Hello, World!")
+}
+` + "```" + `
+`)
+
+	file := &models.SourceFile{
+		Path:         "/test/examples.md",
+		Content:      source,
+		Language:     "markdown",
+		LastModified: time.Now(),
+	}
+
+	result, err := registry.Chunk(context.Background(), file)
+	require.NoError(t, err)
+
+	// Should have code blocks as method-level chunks
+	methodChunks := integrationFindAllChunksByLevel(result.Chunks, models.ChunkLevelMethod)
+	assert.GreaterOrEqual(t, len(methodChunks), 2, "Should have at least 2 code block chunks")
+
+	// Verify code blocks contain the expected content
+	foundPython := false
+	foundGo := false
+	for _, chunk := range methodChunks {
+		if strings.Contains(chunk.Content, "def hello") {
+			foundPython = true
+		}
+		if strings.Contains(chunk.Content, "func main") {
+			foundGo = true
+		}
+	}
+	assert.True(t, foundPython, "Should have Python code block")
+	assert.True(t, foundGo, "Should have Go code block")
+}
+
+func TestIntegration_MarkdownHeadings(t *testing.T) {
+	langDir := integrationGetLanguagesDir(t)
+	registry, err := NewRegistryFromConfig(langDir)
+	require.NoError(t, err)
+
+	source := []byte(`# Main Title
+
+Introduction paragraph.
+
+## Section One
+
+Content for section one.
+
+### Subsection A
+
+Details about subsection A.
+
+## Section Two
+
+Content for section two.
+`)
+
+	file := &models.SourceFile{
+		Path:         "/test/headings.md",
+		Content:      source,
+		Language:     "markdown",
+		LastModified: time.Now(),
+	}
+
+	result, err := registry.Chunk(context.Background(), file)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+
+	// Should have heading chunks (class level)
+	classChunks := integrationFindAllChunksByLevel(result.Chunks, models.ChunkLevelClass)
+	assert.GreaterOrEqual(t, len(classChunks), 4, "Should have at least 4 heading chunks")
+
+	// Verify line numbers are valid
+	for _, chunk := range classChunks {
+		assert.True(t, chunk.StartLine >= 1, "Heading should have valid start line")
+		assert.True(t, chunk.EndLine >= chunk.StartLine, "End line should be >= start line")
+	}
+}
+
+func TestIntegration_MarkdownEmptyFile(t *testing.T) {
+	langDir := integrationGetLanguagesDir(t)
+	registry, err := NewRegistryFromConfig(langDir)
+	require.NoError(t, err)
+
+	file := &models.SourceFile{
+		Path:         "/test/empty.md",
+		Content:      []byte(""),
+		Language:     "markdown",
+		LastModified: time.Now(),
+	}
+
+	result, err := registry.Chunk(context.Background(), file)
+	require.NoError(t, err)
+	assert.Empty(t, result.Errors, "Should have no errors for empty file")
+}
+
+func TestIntegration_MarkdownDeterministicIDs(t *testing.T) {
+	langDir := integrationGetLanguagesDir(t)
+	registry, err := NewRegistryFromConfig(langDir)
+	require.NoError(t, err)
+
+	source := []byte(`# Title
+
+` + "```" + `go
+func main() {}
+` + "```" + `
+`)
+
+	file := &models.SourceFile{
+		Path:         "/test/deterministic.md",
+		Content:      source,
+		Language:     "markdown",
+		LastModified: time.Now(),
+	}
+
+	result1, err := registry.Chunk(context.Background(), file)
+	require.NoError(t, err)
+
+	result2, err := registry.Chunk(context.Background(), file)
+	require.NoError(t, err)
+
+	require.Equal(t, len(result1.Chunks), len(result2.Chunks), "Should have same number of chunks")
+
+	// IDs should be deterministic
+	for i := range result1.Chunks {
+		assert.Equal(t, result1.Chunks[i].ID, result2.Chunks[i].ID, "Chunk IDs should be deterministic")
+	}
+}
+
+// =============================================================================
 // Integration Tests: All Languages Sample
 // =============================================================================
 
@@ -558,6 +788,13 @@ func TestIntegration_AllLanguagesSample(t *testing.T) {
 			content:    javaScriptTestFile,
 			minClasses: 1,
 			minMethods: 0, // Method detection varies
+		},
+		{
+			name:       "Markdown",
+			ext:        ".md",
+			content:    markdownTestFile,
+			minClasses: 4, // Headings
+			minMethods: 3, // Code blocks and lists
 		},
 	}
 
@@ -1084,6 +1321,8 @@ func TestIntegration_RegistryExtensionMapping(t *testing.T) {
 		{".ts", true},
 		{".js", true},
 		{".cs", true},
+		{".md", true},
+		{".markdown", true},
 		{".unknown", false},
 		{".txt", false},
 	}

@@ -222,6 +222,11 @@ func (c *GenericChunker) extractChunk(node *sitter.Node, file *models.SourceFile
 
 // extractName extracts the identifier name from a node using the configured name_field.
 func (c *GenericChunker) extractName(node *sitter.Node, source []byte) string {
+	// Handle markdown nodes specially since they don't have a "name" field
+	if c.config.Language == "markdown" {
+		return c.extractMarkdownName(node, source)
+	}
+
 	nameField := c.config.Extraction.NameField
 	if nameField == "" {
 		nameField = "name" // Default
@@ -232,6 +237,96 @@ func (c *GenericChunker) extractName(node *sitter.Node, source []byte) string {
 		return ""
 	}
 	return nameNode.Content(source)
+}
+
+// extractMarkdownName extracts a name from markdown nodes like headings and code blocks.
+func (c *GenericChunker) extractMarkdownName(node *sitter.Node, source []byte) string {
+	nodeType := node.Type()
+
+	switch nodeType {
+	case "atx_heading", "setext_heading":
+		// Look for inline child which contains the heading text
+		for i := 0; i < int(node.ChildCount()); i++ {
+			child := node.Child(i)
+			if child.Type() == "inline" {
+				text := strings.TrimSpace(child.Content(source))
+				if len(text) > 80 {
+					text = text[:77] + "..."
+				}
+				return text
+			}
+		}
+		// Fallback: extract first line and strip # markers
+		content := node.Content(source)
+		lines := strings.Split(content, "\n")
+		if len(lines) > 0 {
+			text := strings.TrimLeft(lines[0], "# ")
+			text = strings.TrimSpace(text)
+			if len(text) > 80 {
+				text = text[:77] + "..."
+			}
+			return text
+		}
+		return "heading"
+
+	case "fenced_code_block":
+		// Look for info_string/language to get the code block language
+		for i := 0; i < int(node.ChildCount()); i++ {
+			child := node.Child(i)
+			if child.Type() == "info_string" {
+				// Look for language child
+				for j := 0; j < int(child.ChildCount()); j++ {
+					langChild := child.Child(j)
+					if langChild.Type() == "language" {
+						lang := strings.TrimSpace(langChild.Content(source))
+						if lang != "" {
+							line := node.StartPoint().Row + 1
+							return fmt.Sprintf("code_%s_L%d", lang, line)
+						}
+					}
+				}
+				// Fallback: use info_string content directly
+				lang := strings.TrimSpace(child.Content(source))
+				if lang != "" {
+					line := node.StartPoint().Row + 1
+					return fmt.Sprintf("code_%s_L%d", lang, line)
+				}
+			}
+		}
+		// No language specified
+		line := node.StartPoint().Row + 1
+		return fmt.Sprintf("code_L%d", line)
+
+	case "indented_code_block":
+		line := node.StartPoint().Row + 1
+		return fmt.Sprintf("code_indented_L%d", line)
+
+	case "list":
+		line := node.StartPoint().Row + 1
+		return fmt.Sprintf("list_L%d", line)
+
+	case "list_item":
+		// Get first text content from the list item
+		for i := 0; i < int(node.ChildCount()); i++ {
+			child := node.Child(i)
+			if child.Type() == "paragraph" {
+				for j := 0; j < int(child.ChildCount()); j++ {
+					inlineChild := child.Child(j)
+					if inlineChild.Type() == "inline" {
+						text := strings.TrimSpace(inlineChild.Content(source))
+						if len(text) > 50 {
+							text = text[:47] + "..."
+						}
+						return text
+					}
+				}
+			}
+		}
+		line := node.StartPoint().Row + 1
+		return fmt.Sprintf("list_item_L%d", line)
+	}
+
+	return ""
 }
 
 // extractNameFromTypeSpec extracts name from a Go type_spec node.
