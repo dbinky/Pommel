@@ -99,6 +99,18 @@ type IndexStatus struct {
 	LastIndexedAt  time.Time `json:"last_indexed_at,omitempty"`
 	IndexingActive bool      `json:"indexing_active"`
 	PendingChanges int       `json:"pending_changes"`
+
+	// Progress tracking (only populated when indexing is active)
+	Progress *IndexProgress `json:"progress,omitempty"`
+}
+
+// IndexProgress contains progress information for ongoing indexing
+type IndexProgress struct {
+	FilesToProcess  int64     `json:"files_to_process"`
+	FilesProcessed  int64     `json:"files_processed"`
+	PercentComplete float64   `json:"percent_complete"`
+	IndexingStarted time.Time `json:"indexing_started"`
+	ETASeconds      float64   `json:"eta_seconds,omitempty"` // Estimated seconds remaining
 }
 
 // DependenciesStatus contains information about external dependencies

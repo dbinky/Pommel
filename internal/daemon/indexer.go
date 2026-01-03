@@ -27,6 +27,11 @@ type IndexStats struct {
 	LastIndexedAt  time.Time
 	PendingFiles   int64
 	IndexingActive bool
+
+	// Progress tracking for ongoing indexing operations
+	FilesToProcess  int64     // Total files discovered during scan
+	FilesProcessed  int64     // Files completed so far
+	IndexingStarted time.Time // When current indexing operation began
 }
 
 // Indexer manages the indexing of source files
@@ -265,15 +270,8 @@ func (i *Indexer) ReindexAll(ctx context.Context) error {
 		return fmt.Errorf("failed to clear database: %w", err)
 	}
 
-	// Reset stats
-	i.statsMu.Lock()
-	i.stats = IndexStats{IndexingActive: true}
-	i.statsMu.Unlock()
-
-	// Walk the project directory and index matching files
-	var filesIndexed int64
-	var totalChunks int64
-
+	// Phase 1: Discovery - count files to process
+	var filesToProcess []string
 	err := filepath.Walk(i.projectRoot, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			i.logger.Warn("error accessing path", "path", path, "error", err)
@@ -303,46 +301,86 @@ func (i *Indexer) ReindexAll(ctx context.Context) error {
 		}
 
 		// Check if file matches patterns
-		if !i.MatchesPatterns(relPath) {
-			return nil
+		if i.MatchesPatterns(relPath) {
+			filesToProcess = append(filesToProcess, path)
 		}
 
-		// Index the file (without recursive indexing flag since we're doing full reindex)
-		if err := i.indexFileInternal(ctx, path, info); err != nil {
-			i.logger.Warn("failed to index file", "path", path, "error", err)
-			return nil // Continue with other files
-		}
-
-		filesIndexed++
 		return nil
 	})
 
 	if err != nil {
-		return fmt.Errorf("failed to walk directory: %w", err)
+		return fmt.Errorf("failed to discover files: %w", err)
+	}
+
+	// Initialize progress stats
+	startTime := time.Now()
+	i.statsMu.Lock()
+	i.stats = IndexStats{
+		IndexingActive:  true,
+		FilesToProcess:  int64(len(filesToProcess)),
+		FilesProcessed:  0,
+		IndexingStarted: startTime,
+	}
+	i.statsMu.Unlock()
+
+	// Phase 2: Index each file with progress tracking
+	for _, path := range filesToProcess {
+		// Check context
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		// Get file info
+		info, err := os.Stat(path)
+		if err != nil {
+			i.logger.Warn("failed to stat file", "path", path, "error", err)
+			// Still increment processed count
+			i.incrementProcessed()
+			continue
+		}
+
+		// Index the file
+		if err := i.indexFileInternal(ctx, path, info); err != nil {
+			i.logger.Warn("failed to index file", "path", path, "error", err)
+		}
+
+		// Update progress
+		i.incrementProcessed()
 	}
 
 	// Get final counts from database
 	fileCount, err := i.db.FileCount(ctx)
 	if err != nil {
 		i.logger.Warn("failed to get file count", "error", err)
-		fileCount = filesIndexed
+		fileCount = int64(len(filesToProcess))
 	}
 
 	chunkCount, err := i.db.ChunkCount(ctx)
 	if err != nil {
 		i.logger.Warn("failed to get chunk count", "error", err)
-		chunkCount = totalChunks
 	}
 
-	// Update stats
+	// Update final stats
 	i.statsMu.Lock()
 	i.stats.TotalFiles = fileCount
 	i.stats.TotalChunks = chunkCount
 	i.stats.LastIndexedAt = time.Now()
 	i.stats.IndexingActive = false
+	i.stats.FilesToProcess = 0  // Reset progress fields
+	i.stats.FilesProcessed = 0
+	i.stats.IndexingStarted = time.Time{}
 	i.statsMu.Unlock()
 
 	return nil
+}
+
+// incrementProcessed safely increments the files processed counter
+func (i *Indexer) incrementProcessed() {
+	i.statsMu.Lock()
+	i.stats.FilesProcessed++
+	i.statsMu.Unlock()
 }
 
 // indexFileInternal is the internal implementation of IndexFile for use during ReindexAll
