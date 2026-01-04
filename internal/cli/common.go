@@ -31,16 +31,16 @@ func CheckProviderConfigured(cfg *config.Config) error {
 	switch cfg.Embedding.Provider {
 	case "openai":
 		if cfg.Embedding.GetOpenAIAPIKey() == "" {
-			return fmt.Errorf("OpenAI provider requires API key. Set embedding.openai.api_key in config or OPENAI_API_KEY environment variable")
+			return fmt.Errorf("openai provider requires API key: set embedding.openai.api_key in config or OPENAI_API_KEY environment variable")
 		}
 	case "voyage":
 		if cfg.Embedding.GetVoyageAPIKey() == "" {
-			return fmt.Errorf("Voyage provider requires API key. Set embedding.voyage.api_key in config or VOYAGE_API_KEY environment variable")
+			return fmt.Errorf("voyage provider requires API key: set embedding.voyage.api_key in config or VOYAGE_API_KEY environment variable")
 		}
 	case "ollama-remote":
 		url := cfg.Embedding.GetOllamaURL()
 		if url == "" || url == "http://localhost:11434" {
-			return fmt.Errorf("Remote Ollama provider requires URL. Set embedding.ollama.url in config")
+			return fmt.Errorf("ollama-remote provider requires URL: set embedding.ollama.url in config")
 		}
 	case "ollama":
 		// Local ollama can use defaults, no required fields
