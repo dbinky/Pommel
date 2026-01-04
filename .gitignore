@@ -31,8 +31,10 @@ build/
 # Pommel project data (user-specific, not committed)
 .pommel/
 
-# Beads issue tracking (user-specific)
-.beads/
+# Beads issue tracking (database is local, but issues.jsonl is shared)
+.beads/*
+!.beads/issues.jsonl
+!.beads/config.yaml
 
 # IDE
 .idea/
