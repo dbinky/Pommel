@@ -32,10 +32,15 @@ func TestGlobalConfigPath_Default(t *testing.T) {
 }
 
 func TestGlobalConfigPath_XDGConfigHome(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("XDG_CONFIG_HOME is not standard on Windows")
+	}
+
 	t.Setenv("XDG_CONFIG_HOME", "/custom/config")
 
 	path := GlobalConfigPath()
-	assert.Equal(t, "/custom/config/pommel/config.yaml", path)
+	expected := filepath.Join("/custom/config", "pommel", "config.yaml")
+	assert.Equal(t, expected, path)
 }
 
 func TestGlobalConfigDir(t *testing.T) {

@@ -68,7 +68,7 @@ func TestMigrateLegacyConfig_NilConfig(t *testing.T) {
 
 func TestMigrateLegacyConfig_PreservesOtherSettings(t *testing.T) {
 	oldCfg := &Config{
-		Version: 1,
+		Version:     1,
 		ChunkLevels: []string{"method", "class"},
 		Embedding: EmbeddingConfig{
 			Model:     "jina-code",
