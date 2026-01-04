@@ -900,3 +900,199 @@ search:
 
 	assert.False(t, cfg.Search.Reranker.Enabled)
 }
+
+// ============================================================================
+// Embedding provider config tests
+// ============================================================================
+
+func TestEmbeddingConfig_Provider_Defaults(t *testing.T) {
+	cfg := Default()
+	assert.Equal(t, "ollama", cfg.Embedding.Provider)
+	assert.Equal(t, "http://localhost:11434", cfg.Embedding.Ollama.URL)
+}
+
+func TestEmbeddingConfig_OpenAIProvider(t *testing.T) {
+	tmpDir := t.TempDir()
+	pommelDir := filepath.Join(tmpDir, ".pommel")
+	require.NoError(t, os.MkdirAll(pommelDir, 0755))
+
+	configContent := `
+version: 1
+chunk_levels:
+  - method
+include_patterns:
+  - "**/*.go"
+embedding:
+  provider: openai
+  batch_size: 32
+  openai:
+    api_key: sk-test-key
+    model: text-embedding-3-small
+`
+	configPath := filepath.Join(pommelDir, "config.yaml")
+	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0644))
+
+	loader := NewLoader(tmpDir)
+	cfg, err := loader.Load()
+	require.NoError(t, err)
+
+	assert.Equal(t, "openai", cfg.Embedding.Provider)
+	assert.Equal(t, "sk-test-key", cfg.Embedding.OpenAI.APIKey)
+	assert.Equal(t, "text-embedding-3-small", cfg.Embedding.OpenAI.Model)
+}
+
+func TestEmbeddingConfig_VoyageProvider(t *testing.T) {
+	tmpDir := t.TempDir()
+	pommelDir := filepath.Join(tmpDir, ".pommel")
+	require.NoError(t, os.MkdirAll(pommelDir, 0755))
+
+	configContent := `
+version: 1
+chunk_levels:
+  - method
+include_patterns:
+  - "**/*.go"
+embedding:
+  provider: voyage
+  batch_size: 32
+  voyage:
+    api_key: pa-test-key
+    model: voyage-code-3
+`
+	configPath := filepath.Join(pommelDir, "config.yaml")
+	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0644))
+
+	loader := NewLoader(tmpDir)
+	cfg, err := loader.Load()
+	require.NoError(t, err)
+
+	assert.Equal(t, "voyage", cfg.Embedding.Provider)
+	assert.Equal(t, "pa-test-key", cfg.Embedding.Voyage.APIKey)
+	assert.Equal(t, "voyage-code-3", cfg.Embedding.Voyage.Model)
+}
+
+func TestEmbeddingConfig_OllamaRemoteProvider(t *testing.T) {
+	tmpDir := t.TempDir()
+	pommelDir := filepath.Join(tmpDir, ".pommel")
+	require.NoError(t, os.MkdirAll(pommelDir, 0755))
+
+	configContent := `
+version: 1
+chunk_levels:
+  - method
+include_patterns:
+  - "**/*.go"
+embedding:
+  provider: ollama-remote
+  batch_size: 32
+  ollama:
+    url: http://remote-ollama:11434
+    model: custom-model
+`
+	configPath := filepath.Join(pommelDir, "config.yaml")
+	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0644))
+
+	loader := NewLoader(tmpDir)
+	cfg, err := loader.Load()
+	require.NoError(t, err)
+
+	assert.Equal(t, "ollama-remote", cfg.Embedding.Provider)
+	assert.Equal(t, "http://remote-ollama:11434", cfg.Embedding.Ollama.URL)
+	assert.Equal(t, "custom-model", cfg.Embedding.Ollama.Model)
+}
+
+func TestEmbeddingConfig_OpenAI_APIKeyFromEnv(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "sk-from-env")
+
+	cfg := &EmbeddingConfig{
+		Provider: "openai",
+		OpenAI:   OpenAIProviderConfig{}, // No API key in config
+	}
+
+	apiKey := cfg.GetOpenAIAPIKey()
+	assert.Equal(t, "sk-from-env", apiKey)
+}
+
+func TestEmbeddingConfig_Voyage_APIKeyFromEnv(t *testing.T) {
+	t.Setenv("VOYAGE_API_KEY", "pa-from-env")
+
+	cfg := &EmbeddingConfig{
+		Provider: "voyage",
+		Voyage:   VoyageProviderConfig{}, // No API key in config
+	}
+
+	apiKey := cfg.GetVoyageAPIKey()
+	assert.Equal(t, "pa-from-env", apiKey)
+}
+
+func TestEmbeddingConfig_Ollama_URLFromEnv(t *testing.T) {
+	t.Setenv("OLLAMA_HOST", "http://env-ollama:11434")
+
+	cfg := &EmbeddingConfig{
+		Provider: "ollama",
+		Ollama:   OllamaProviderConfig{}, // No URL in config
+	}
+
+	url := cfg.GetOllamaURL()
+	assert.Equal(t, "http://env-ollama:11434", url)
+}
+
+func TestEmbeddingConfig_ConfigOverridesEnv(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "sk-from-env")
+
+	cfg := &EmbeddingConfig{
+		Provider: "openai",
+		OpenAI:   OpenAIProviderConfig{APIKey: "sk-from-config"},
+	}
+
+	apiKey := cfg.GetOpenAIAPIKey()
+	assert.Equal(t, "sk-from-config", apiKey)
+}
+
+func TestEmbeddingConfig_LegacyOllamaURL(t *testing.T) {
+	// Support legacy ollama_url field for backwards compatibility
+	tmpDir := t.TempDir()
+	pommelDir := filepath.Join(tmpDir, ".pommel")
+	require.NoError(t, os.MkdirAll(pommelDir, 0755))
+
+	configContent := `
+version: 1
+chunk_levels:
+  - method
+include_patterns:
+  - "**/*.go"
+embedding:
+  model: jina-embeddings-v2-base-code
+  ollama_url: http://legacy-ollama:11434
+  batch_size: 32
+`
+	configPath := filepath.Join(pommelDir, "config.yaml")
+	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0644))
+
+	loader := NewLoader(tmpDir)
+	cfg, err := loader.Load()
+	require.NoError(t, err)
+
+	// Legacy config should still work - GetOllamaURL should return legacy URL
+	url := cfg.Embedding.GetOllamaURL()
+	assert.Equal(t, "http://legacy-ollama:11434", url)
+}
+
+func TestEmbeddingConfig_ProviderDimensions(t *testing.T) {
+	tests := []struct {
+		provider   string
+		dimensions int
+	}{
+		{"ollama", 768},
+		{"ollama-remote", 768},
+		{"openai", 1536},
+		{"voyage", 1024},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.provider, func(t *testing.T) {
+			cfg := &EmbeddingConfig{Provider: tt.provider}
+			assert.Equal(t, tt.dimensions, cfg.DefaultDimensions())
+		})
+	}
+}
