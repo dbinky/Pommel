@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -1095,4 +1096,117 @@ func TestEmbeddingConfig_ProviderDimensions(t *testing.T) {
 			assert.Equal(t, tt.dimensions, cfg.DefaultDimensions())
 		})
 	}
+}
+
+// ============================================================================
+// Provider validation tests
+// ============================================================================
+
+func TestValidateProvider_EmptyIsValid(t *testing.T) {
+	// Empty provider is valid (not configured yet)
+	cfg := Default()
+	cfg.Embedding.Provider = ""
+	cfg.Embedding.Model = "" // Also clear model since we're testing provider-only
+
+	errors := ValidateProvider(&cfg.Embedding)
+	assert.False(t, errors.HasErrors())
+}
+
+func TestValidateProvider_OllamaValid(t *testing.T) {
+	cfg := &EmbeddingConfig{
+		Provider: "ollama",
+		Ollama: OllamaProviderConfig{
+			URL:   "http://localhost:11434",
+			Model: "jina-code",
+		},
+	}
+	errors := ValidateProvider(cfg)
+	assert.False(t, errors.HasErrors())
+}
+
+func TestValidateProvider_OllamaRemoteNoURL(t *testing.T) {
+	cfg := &EmbeddingConfig{
+		Provider: "ollama-remote",
+		Ollama:   OllamaProviderConfig{},
+	}
+	errors := ValidateProvider(cfg)
+	assert.True(t, errors.HasErrors())
+	found := false
+	for _, e := range errors {
+		if strings.Contains(e.Message, "URL") {
+			found = true
+		}
+	}
+	assert.True(t, found, "should have URL error")
+}
+
+func TestValidateProvider_OpenAIValid(t *testing.T) {
+	cfg := &EmbeddingConfig{
+		Provider: "openai",
+		OpenAI: OpenAIProviderConfig{
+			APIKey: "sk-test",
+			Model:  "text-embedding-3-small",
+		},
+	}
+	errors := ValidateProvider(cfg)
+	assert.False(t, errors.HasErrors())
+}
+
+func TestValidateProvider_OpenAINoAPIKey(t *testing.T) {
+	cfg := &EmbeddingConfig{
+		Provider: "openai",
+		OpenAI:   OpenAIProviderConfig{},
+	}
+	errors := ValidateProvider(cfg)
+	assert.True(t, errors.HasErrors())
+}
+
+func TestValidateProvider_OpenAIAPIKeyFromEnv(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "sk-from-env")
+
+	cfg := &EmbeddingConfig{
+		Provider: "openai",
+		OpenAI:   OpenAIProviderConfig{},
+	}
+	errors := ValidateProvider(cfg)
+	assert.False(t, errors.HasErrors())
+}
+
+func TestValidateProvider_VoyageValid(t *testing.T) {
+	cfg := &EmbeddingConfig{
+		Provider: "voyage",
+		Voyage: VoyageProviderConfig{
+			APIKey: "pa-test",
+		},
+	}
+	errors := ValidateProvider(cfg)
+	assert.False(t, errors.HasErrors())
+}
+
+func TestValidateProvider_VoyageNoAPIKey(t *testing.T) {
+	cfg := &EmbeddingConfig{
+		Provider: "voyage",
+		Voyage:   VoyageProviderConfig{},
+	}
+	errors := ValidateProvider(cfg)
+	assert.True(t, errors.HasErrors())
+}
+
+func TestValidateProvider_VoyageAPIKeyFromEnv(t *testing.T) {
+	t.Setenv("VOYAGE_API_KEY", "pa-from-env")
+
+	cfg := &EmbeddingConfig{
+		Provider: "voyage",
+		Voyage:   VoyageProviderConfig{},
+	}
+	errors := ValidateProvider(cfg)
+	assert.False(t, errors.HasErrors())
+}
+
+func TestValidateProvider_InvalidProvider(t *testing.T) {
+	cfg := &EmbeddingConfig{
+		Provider: "invalid-provider",
+	}
+	errors := ValidateProvider(cfg)
+	assert.True(t, errors.HasErrors())
 }
