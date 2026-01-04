@@ -10,17 +10,85 @@
 #
 set -e
 
+# Source-only mode for testing
+if [[ "$1" == "--source-only" ]]; then
+    return 0 2>/dev/null || exit 0
+fi
+
+# Repository info
+REPO="dbinky/Pommel"
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
 info() { echo -e "${BLUE}[INFO]${NC} $1"; }
 success() { echo -e "${GREEN}[OK]${NC} $1"; }
 warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
 error() { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
+step() { echo -e "${CYAN}$1${NC}"; }
+
+# Global variables
+VERSION=""
+IS_UPGRADE=false
+CURRENT_VERSION=""
+SELECTED_PROVIDER=""
+OLLAMA_REMOTE_URL=""
+OPENAI_API_KEY=""
+VOYAGE_API_KEY=""
+OLLAMA_INSTALLED=false
+INSTALL_DIR=""
+OS=""
+ARCH=""
+
+# Get latest version from GitHub
+get_latest_version() {
+    local api_url="https://api.github.com/repos/$REPO/releases/latest"
+    local response
+
+    response=$(curl -s "$api_url" 2>/dev/null) || {
+        # Fall back to getting version from git tags
+        VERSION="latest"
+        return
+    }
+
+    VERSION=$(echo "$response" | grep -o '"tag_name": *"[^"]*"' | cut -d'"' -f4)
+    VERSION=${VERSION:-"latest"}
+}
+
+# Detect existing installation
+detect_existing_install() {
+    IS_UPGRADE=false
+    CURRENT_VERSION=""
+
+    if command -v pm &> /dev/null; then
+        CURRENT_VERSION=$(pm version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1) || true
+        if [[ -n "$CURRENT_VERSION" ]]; then
+            IS_UPGRADE=true
+        fi
+    fi
+}
+
+# Check if global config exists with a provider
+has_existing_provider_config() {
+    local config_dir
+    if [[ -n "$XDG_CONFIG_HOME" ]]; then
+        config_dir="$XDG_CONFIG_HOME/pommel"
+    else
+        config_dir="$HOME/.config/pommel"
+    fi
+
+    if [[ -f "$config_dir/config.yaml" ]]; then
+        if grep -q "provider:" "$config_dir/config.yaml" 2>/dev/null; then
+            return 0
+        fi
+    fi
+    return 1
+}
 
 # Detect OS and architecture
 detect_platform() {
@@ -43,7 +111,8 @@ detect_platform() {
 
 # Check for required dependencies
 check_dependencies() {
-    info "Checking dependencies..."
+    step "[1/5] Checking dependencies..."
+    echo ""
 
     # Check for Go
     if ! command -v go &> /dev/null; then
@@ -51,23 +120,222 @@ check_dependencies() {
     fi
     GO_VERSION=$(go version | grep -oE 'go[0-9]+\.[0-9]+' | sed 's/go//')
     success "Go ${GO_VERSION} found"
+}
+
+# Provider selection
+select_provider() {
+    echo ""
+    step "[2/5] Configure embedding provider"
+    echo ""
+    echo "  How would you like to generate embeddings?"
+    echo ""
+    echo "  1) Local Ollama    - Free, runs on this machine (~300MB model)"
+    echo "  2) Remote Ollama   - Free, connect to Ollama on another machine"
+    echo "  3) OpenAI API      - Paid, no local setup required"
+    echo "  4) Voyage AI       - Paid, optimized for code search"
+    echo ""
+    read -p "  Choice [1]: " choice
+    choice=${choice:-1}
+
+    case $choice in
+        1) setup_local_ollama ;;
+        2) setup_remote_ollama ;;
+        3) setup_openai ;;
+        4) setup_voyage ;;
+        *)
+            warn "Invalid choice. Please enter 1-4."
+            select_provider
+            ;;
+    esac
+}
+
+setup_local_ollama() {
+    SELECTED_PROVIDER="ollama"
+    success "Selected: Local Ollama"
 
     # Check for Ollama
     if ! command -v ollama &> /dev/null; then
-        warn "Ollama not found. Pommel requires Ollama for embeddings."
+        warn "Ollama not found on this machine."
         echo ""
         echo "  Install Ollama from: https://ollama.ai/download"
         echo ""
-        read -p "Continue without Ollama? (y/N) " -n 1 -r
+        read -p "  Continue anyway? (y/N) " -n 1 -r
         echo
         if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            exit 1
+            select_provider
+            return
         fi
         OLLAMA_INSTALLED=false
     else
         success "Ollama found"
         OLLAMA_INSTALLED=true
     fi
+}
+
+setup_remote_ollama() {
+    SELECTED_PROVIDER="ollama-remote"
+    echo ""
+    read -p "  Enter Ollama server URL (e.g., http://192.168.1.100:11434): " url
+
+    if [[ -z "$url" ]]; then
+        warn "URL is required for remote Ollama"
+        setup_remote_ollama
+        return
+    fi
+
+    OLLAMA_REMOTE_URL="$url"
+    success "Selected: Remote Ollama at $url"
+}
+
+setup_openai() {
+    SELECTED_PROVIDER="openai"
+    echo ""
+    read -p "  Enter your OpenAI API key (leave blank to configure later): " key
+
+    if [[ -n "$key" ]]; then
+        info "Validating API key..."
+        if validate_openai_key "$key"; then
+            OPENAI_API_KEY="$key"
+            success "API key validated"
+        else
+            warn "Invalid API key. Run 'pm config provider' later to configure."
+            OPENAI_API_KEY=""
+        fi
+    else
+        OPENAI_API_KEY=""
+        info "Skipped. Run 'pm config provider' to add your API key later."
+    fi
+}
+
+setup_voyage() {
+    SELECTED_PROVIDER="voyage"
+    echo ""
+    read -p "  Enter your Voyage AI API key (leave blank to configure later): " key
+
+    if [[ -n "$key" ]]; then
+        info "Validating API key..."
+        if validate_voyage_key "$key"; then
+            VOYAGE_API_KEY="$key"
+            success "API key validated"
+        else
+            warn "Invalid API key. Run 'pm config provider' later to configure."
+            VOYAGE_API_KEY=""
+        fi
+    else
+        VOYAGE_API_KEY=""
+        info "Skipped. Run 'pm config provider' to add your API key later."
+    fi
+}
+
+validate_openai_key() {
+    local key="$1"
+    local response
+    local http_code
+
+    response=$(curl -s -w "\n%{http_code}" \
+        -H "Authorization: Bearer $key" \
+        -H "Content-Type: application/json" \
+        -d '{"model": "text-embedding-3-small", "input": "test"}' \
+        "https://api.openai.com/v1/embeddings" 2>/dev/null) || return 1
+
+    http_code=$(echo "$response" | tail -1)
+
+    if [[ "$http_code" == "200" ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+validate_voyage_key() {
+    local key="$1"
+    local response
+    local http_code
+
+    response=$(curl -s -w "\n%{http_code}" \
+        -H "Authorization: Bearer $key" \
+        -H "Content-Type: application/json" \
+        -d '{"model": "voyage-code-3", "input": ["test"]}' \
+        "https://api.voyageai.com/v1/embeddings" 2>/dev/null) || return 1
+
+    http_code=$(echo "$response" | tail -1)
+
+    if [[ "$http_code" == "200" ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Write global configuration
+write_global_config() {
+    local config_dir
+    if [[ -n "$XDG_CONFIG_HOME" ]]; then
+        config_dir="$XDG_CONFIG_HOME/pommel"
+    else
+        config_dir="$HOME/.config/pommel"
+    fi
+
+    mkdir -p "$config_dir"
+
+    local config_file="$config_dir/config.yaml"
+
+    cat > "$config_file" << EOF
+# Pommel global configuration
+# Generated by install script
+
+embedding:
+  provider: $SELECTED_PROVIDER
+EOF
+
+    case $SELECTED_PROVIDER in
+        ollama)
+            cat >> "$config_file" << EOF
+  ollama:
+    url: "http://localhost:11434"
+    model: "unclemusclez/jina-embeddings-v2-base-code"
+EOF
+            ;;
+        ollama-remote)
+            cat >> "$config_file" << EOF
+  ollama:
+    url: "$OLLAMA_REMOTE_URL"
+    model: "unclemusclez/jina-embeddings-v2-base-code"
+EOF
+            ;;
+        openai)
+            if [[ -n "$OPENAI_API_KEY" ]]; then
+                cat >> "$config_file" << EOF
+  openai:
+    api_key: "$OPENAI_API_KEY"
+    model: "text-embedding-3-small"
+EOF
+            else
+                cat >> "$config_file" << EOF
+  openai:
+    # api_key: "" # Set via OPENAI_API_KEY environment variable or run 'pm config provider'
+    model: "text-embedding-3-small"
+EOF
+            fi
+            ;;
+        voyage)
+            if [[ -n "$VOYAGE_API_KEY" ]]; then
+                cat >> "$config_file" << EOF
+  voyage:
+    api_key: "$VOYAGE_API_KEY"
+    model: "voyage-code-3"
+EOF
+            else
+                cat >> "$config_file" << EOF
+  voyage:
+    # api_key: "" # Set via VOYAGE_API_KEY environment variable or run 'pm config provider'
+    model: "voyage-code-3"
+EOF
+            fi
+            ;;
+    esac
+
+    success "Configuration saved to $config_file"
 }
 
 # Determine install directory
@@ -85,7 +353,8 @@ get_install_dir() {
 
 # Build and install Pommel
 install_pommel() {
-    info "Installing Pommel..."
+    step "[3/5] Installing Pommel..."
+    echo ""
 
     # Create temp directory for build
     TEMP_DIR=$(mktemp -d)
@@ -93,7 +362,7 @@ install_pommel() {
 
     # Clone repository
     info "Cloning Pommel repository..."
-    git clone --depth 1 https://github.com/dbinky/Pommel.git "$TEMP_DIR/pommel"
+    git clone --depth 1 https://github.com/$REPO.git "$TEMP_DIR/pommel"
 
     cd "$TEMP_DIR/pommel"
 
@@ -120,7 +389,8 @@ install_pommel() {
 
 # Install language configuration files
 install_language_configs() {
-    info "Installing language configuration files..."
+    step "[4/5] Installing language configurations..."
+    echo ""
 
     LANG_CONFIG_DIR="$HOME/.local/share/pommel/languages"
 
@@ -143,8 +413,6 @@ install_language_configs() {
         warn "No language configuration files found in repository"
         return 1
     fi
-
-    info "Found $lang_count language configuration files"
 
     # Copy all .yaml files from languages/ to the config directory
     local copied=0
@@ -170,12 +438,14 @@ install_language_configs() {
     return 0
 }
 
-# Pull the embedding model
+# Pull the embedding model for local Ollama
 setup_embedding_model() {
-    if [[ "$OLLAMA_INSTALLED" != "true" ]]; then
-        warn "Skipping embedding model setup (Ollama not installed)"
+    if [[ "$SELECTED_PROVIDER" != "ollama" ]] || [[ "$OLLAMA_INSTALLED" != "true" ]]; then
         return
     fi
+
+    step "[5/5] Setting up embedding model..."
+    echo ""
 
     MODEL="unclemusclez/jina-embeddings-v2-base-code"
 
@@ -307,9 +577,14 @@ print_usage() {
     echo ""
     echo "    pm search \"authentication middleware\" --json"
     echo ""
+    echo "  Change provider later:"
+    echo ""
+    echo "    pm config provider"
+    echo ""
     echo "  Installed locations:"
     echo ""
     echo "    Binaries:          $INSTALL_DIR/pm, $INSTALL_DIR/pommeld"
+    echo "    Global config:     ~/.config/pommel/config.yaml"
     echo "    Language configs:  ~/.local/share/pommel/languages/"
     echo ""
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -325,9 +600,31 @@ main() {
     echo "╚═══════════════════════════════════════════════════════════════════╝"
     echo ""
 
+    # Get version info
+    get_latest_version
+
+    # Check for existing install
+    detect_existing_install
+
+    if [[ "$IS_UPGRADE" == "true" ]]; then
+        info "Previous install detected (v${CURRENT_VERSION}) - upgrading to ${VERSION}"
+    else
+        info "Installing Pommel ${VERSION}"
+    fi
+    echo ""
+
     detect_platform
     check_dependencies
     get_install_dir
+
+    # Provider selection (skip on upgrade if config exists)
+    if [[ "$IS_UPGRADE" == "true" ]] && has_existing_provider_config; then
+        info "Using existing provider configuration"
+    else
+        select_provider
+        write_global_config
+    fi
+
     install_pommel
     install_language_configs
     setup_embedding_model

@@ -6,7 +6,8 @@
 
 .DESCRIPTION
     Downloads and installs pm.exe and pommeld.exe from GitHub releases,
-    configures PATH, installs Ollama if needed, and pulls the embedding model.
+    configures the embedding provider, installs language configs,
+    and optionally sets up Ollama with the embedding model.
 
 .PARAMETER SkipOllama
     Skip Ollama installation.
@@ -32,8 +33,14 @@
 param(
     [switch]$SkipOllama,
     [switch]$SkipModel,
+    [switch]$SourceOnly,
     [string]$InstallDir = "$env:LOCALAPPDATA\Pommel"
 )
+
+# Source-only mode for testing
+if ($SourceOnly) {
+    return
+}
 
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"  # Speed up downloads
@@ -41,6 +48,14 @@ $ProgressPreference = "SilentlyContinue"  # Speed up downloads
 # Configuration
 $script:Repo = "dbinky/Pommel"
 $script:OllamaModel = "unclemusclez/jina-embeddings-v2-base-code"
+
+# Global state
+$script:SelectedProvider = ""
+$script:OllamaRemoteUrl = ""
+$script:OpenAIApiKey = ""
+$script:VoyageApiKey = ""
+$script:IsUpgrade = $false
+$script:CurrentVersion = ""
 
 #region Output Functions
 function Write-Step {
@@ -64,12 +79,38 @@ function Write-Failure {
 }
 #endregion
 
+#region Version and Upgrade Detection
+function Test-ExistingInstall {
+    $script:IsUpgrade = $false
+    $script:CurrentVersion = ""
+
+    try {
+        $pmCmd = Get-Command pm -ErrorAction Stop
+        $versionOutput = & pm version 2>&1
+        if ($versionOutput -match '(\d+\.\d+\.\d+)') {
+            $script:IsUpgrade = $true
+            $script:CurrentVersion = $Matches[1]
+        }
+    }
+    catch {
+        # Not installed
+    }
+}
+
+function Test-ExistingProviderConfig {
+    $configPath = Join-Path $env:APPDATA "pommel\config.yaml"
+    if (Test-Path $configPath) {
+        $content = Get-Content $configPath -Raw
+        if ($content -match 'provider:') {
+            return $true
+        }
+    }
+    return $false
+}
+#endregion
+
 #region Architecture Detection
 function Get-Architecture {
-    <#
-    .SYNOPSIS
-        Detects CPU architecture for binary download.
-    #>
     $arch = $env:PROCESSOR_ARCHITECTURE
 
     switch ($arch) {
@@ -83,10 +124,6 @@ function Get-Architecture {
 
 #region GitHub Release Functions
 function Get-LatestRelease {
-    <#
-    .SYNOPSIS
-        Gets the latest release version from GitHub.
-    #>
     $apiUrl = "https://api.github.com/repos/$script:Repo/releases/latest"
 
     try {
@@ -109,6 +146,219 @@ function Get-ArchiveUrl {
 
     $fileName = "pommel-${Version}-windows-${Arch}.zip"
     return "https://github.com/$script:Repo/releases/download/$Version/$fileName"
+}
+#endregion
+
+#region Provider Selection
+function Select-Provider {
+    Write-Host ""
+    Write-Host "[2/5] Configure embedding provider" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "  How would you like to generate embeddings?"
+    Write-Host ""
+    Write-Host "  1) Local Ollama    - Free, runs on this machine (~300MB model)"
+    Write-Host "  2) Remote Ollama   - Free, connect to Ollama on another machine"
+    Write-Host "  3) OpenAI API      - Paid, no local setup required"
+    Write-Host "  4) Voyage AI       - Paid, optimized for code search"
+    Write-Host ""
+
+    $choice = Read-Host "  Choice [1]"
+    if ([string]::IsNullOrEmpty($choice)) { $choice = "1" }
+
+    switch ($choice) {
+        "1" { Setup-LocalOllama }
+        "2" { Setup-RemoteOllama }
+        "3" { Setup-OpenAI }
+        "4" { Setup-Voyage }
+        default {
+            Write-Warn "Invalid choice. Please enter 1-4."
+            Select-Provider
+        }
+    }
+}
+
+function Setup-LocalOllama {
+    $script:SelectedProvider = "ollama"
+    Write-Success "Selected: Local Ollama"
+}
+
+function Setup-RemoteOllama {
+    $script:SelectedProvider = "ollama-remote"
+    Write-Host ""
+    $url = Read-Host "  Enter Ollama server URL (e.g., http://192.168.1.100:11434)"
+
+    if ([string]::IsNullOrEmpty($url)) {
+        Write-Warn "URL is required for remote Ollama"
+        Setup-RemoteOllama
+        return
+    }
+
+    $script:OllamaRemoteUrl = $url
+    Write-Success "Selected: Remote Ollama at $url"
+}
+
+function Setup-OpenAI {
+    $script:SelectedProvider = "openai"
+    Write-Host ""
+    $key = Read-Host "  Enter your OpenAI API key (leave blank to configure later)"
+
+    if (-not [string]::IsNullOrEmpty($key)) {
+        Write-Step "Validating API key..."
+        if (Test-OpenAIKey $key) {
+            $script:OpenAIApiKey = $key
+            Write-Success "API key validated"
+        }
+        else {
+            Write-Warn "Invalid API key. Run 'pm config provider' later to configure."
+            $script:OpenAIApiKey = ""
+        }
+    }
+    else {
+        $script:OpenAIApiKey = ""
+        Write-Step "Skipped. Run 'pm config provider' to add your API key later."
+    }
+}
+
+function Setup-Voyage {
+    $script:SelectedProvider = "voyage"
+    Write-Host ""
+    $key = Read-Host "  Enter your Voyage AI API key (leave blank to configure later)"
+
+    if (-not [string]::IsNullOrEmpty($key)) {
+        Write-Step "Validating API key..."
+        if (Test-VoyageKey $key) {
+            $script:VoyageApiKey = $key
+            Write-Success "API key validated"
+        }
+        else {
+            Write-Warn "Invalid API key. Run 'pm config provider' later to configure."
+            $script:VoyageApiKey = ""
+        }
+    }
+    else {
+        $script:VoyageApiKey = ""
+        Write-Step "Skipped. Run 'pm config provider' to add your API key later."
+    }
+}
+
+function Test-OpenAIKey {
+    param([string]$Key)
+
+    try {
+        $body = @{
+            model = "text-embedding-3-small"
+            input = "test"
+        } | ConvertTo-Json
+
+        $response = Invoke-RestMethod -Uri "https://api.openai.com/v1/embeddings" `
+            -Method Post `
+            -Headers @{ "Authorization" = "Bearer $Key"; "Content-Type" = "application/json" } `
+            -Body $body `
+            -ErrorAction Stop
+
+        return $true
+    }
+    catch {
+        return $false
+    }
+}
+
+function Test-VoyageKey {
+    param([string]$Key)
+
+    try {
+        $body = @{
+            model = "voyage-code-3"
+            input = @("test")
+        } | ConvertTo-Json
+
+        $response = Invoke-RestMethod -Uri "https://api.voyageai.com/v1/embeddings" `
+            -Method Post `
+            -Headers @{ "Authorization" = "Bearer $Key"; "Content-Type" = "application/json" } `
+            -Body $body `
+            -ErrorAction Stop
+
+        return $true
+    }
+    catch {
+        return $false
+    }
+}
+
+function Write-GlobalConfig {
+    $configDir = Join-Path $env:APPDATA "pommel"
+    if (-not (Test-Path $configDir)) {
+        New-Item -ItemType Directory -Path $configDir -Force | Out-Null
+    }
+
+    $configPath = Join-Path $configDir "config.yaml"
+
+    $yaml = @"
+# Pommel global configuration
+# Generated by install script
+
+embedding:
+  provider: $($script:SelectedProvider)
+"@
+
+    switch ($script:SelectedProvider) {
+        "ollama" {
+            $yaml += @"
+
+  ollama:
+    url: "http://localhost:11434"
+    model: "unclemusclez/jina-embeddings-v2-base-code"
+"@
+        }
+        "ollama-remote" {
+            $yaml += @"
+
+  ollama:
+    url: "$($script:OllamaRemoteUrl)"
+    model: "unclemusclez/jina-embeddings-v2-base-code"
+"@
+        }
+        "openai" {
+            if (-not [string]::IsNullOrEmpty($script:OpenAIApiKey)) {
+                $yaml += @"
+
+  openai:
+    api_key: "$($script:OpenAIApiKey)"
+    model: "text-embedding-3-small"
+"@
+            }
+            else {
+                $yaml += @"
+
+  openai:
+    # api_key: "" # Set via OPENAI_API_KEY environment variable or run 'pm config provider'
+    model: "text-embedding-3-small"
+"@
+            }
+        }
+        "voyage" {
+            if (-not [string]::IsNullOrEmpty($script:VoyageApiKey)) {
+                $yaml += @"
+
+  voyage:
+    api_key: "$($script:VoyageApiKey)"
+    model: "voyage-code-3"
+"@
+            }
+            else {
+                $yaml += @"
+
+  voyage:
+    # api_key: "" # Set via VOYAGE_API_KEY environment variable or run 'pm config provider'
+    model: "voyage-code-3"
+"@
+            }
+        }
+    }
+
+    $yaml | Out-File -FilePath $configPath -Encoding utf8
+
+    Write-Success "Configuration saved to $configPath"
 }
 #endregion
 
@@ -178,10 +428,6 @@ function Install-PommelBinaries {
 
 #region Language Configuration Installation
 function Get-LanguageFileList {
-    <#
-    .SYNOPSIS
-        Discovers language config files from GitHub API.
-    #>
     $apiUrl = "https://api.github.com/repos/$script:Repo/contents/languages"
 
     try {
@@ -473,13 +719,35 @@ function Main {
     Write-Host ""
 
     try {
+        # Check for existing install
+        Test-ExistingInstall
+
         # Detect architecture
         $arch = Get-Architecture
         Write-Step "Detected architecture: $arch"
 
         # Get latest version
         $version = Get-LatestRelease
-        Write-Step "Latest version: $version"
+
+        if ($script:IsUpgrade) {
+            Write-Step "Previous install detected (v$($script:CurrentVersion)) - upgrading to $version"
+        }
+        else {
+            Write-Step "Installing Pommel $version"
+        }
+
+        Write-Host ""
+        Write-Host "[1/5] Checking dependencies..." -ForegroundColor Cyan
+        Write-Host ""
+
+        # Provider selection (skip on upgrade if config exists)
+        if ($script:IsUpgrade -and (Test-ExistingProviderConfig)) {
+            Write-Step "Using existing provider configuration"
+        }
+        else {
+            Select-Provider
+            Write-GlobalConfig
+        }
 
         # Download binaries
         $binDir = Install-PommelBinaries -Version $version -Arch $arch -InstallPath $InstallDir
@@ -490,9 +758,9 @@ function Main {
         # Add to PATH
         Add-ToPath -Directory $binDir
 
-        # Install Ollama (unless skipped)
+        # Install Ollama (only if local Ollama selected and not skipped)
         $ollamaOk = $false
-        if (-not $SkipOllama) {
+        if ($script:SelectedProvider -eq "ollama" -and -not $SkipOllama) {
             $ollamaOk = Install-Ollama
 
             # Pull model (unless skipped)
@@ -500,8 +768,8 @@ function Main {
                 Install-EmbeddingModel | Out-Null
             }
         }
-        else {
-            Write-Step "Skipping Ollama installation (use -SkipOllama:$false to install)"
+        elseif ($script:SelectedProvider -eq "ollama" -and $SkipOllama) {
+            Write-Step "Skipping Ollama installation (use -SkipOllama:`$false to install)"
         }
 
         # Verify
@@ -521,6 +789,14 @@ function Main {
             Write-Host ""
             Write-Host "For AI agents (Claude Code, etc.):"
             Write-Host "  pm search ""authentication middleware"" --json"
+            Write-Host ""
+            Write-Host "Change provider later:"
+            Write-Host "  pm config provider"
+            Write-Host ""
+            Write-Host "Installed locations:" -ForegroundColor Cyan
+            Write-Host "  Binaries:       $binDir"
+            Write-Host "  Global config:  $env:APPDATA\pommel\config.yaml"
+            Write-Host "  Languages:      $InstallDir\languages"
             Write-Host ""
         }
         else {
