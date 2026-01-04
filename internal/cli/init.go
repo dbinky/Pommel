@@ -280,15 +280,20 @@ coverage/
 		}
 	}
 
+	// Check if embedding provider is configured
+	mergedCfg, _ := LoadMergedConfig(projectRoot)
+	providerConfigured := mergedCfg != nil && mergedCfg.Embedding.Provider != ""
+
 	// Output success
 	if jsonOutput {
 		result := InitResult{
-			Success:       true,
-			ProjectRoot:   projectRoot,
-			ConfigPath:    configPath,
-			DatabasePath:  dbPath,
-			DaemonStarted: daemonStarted,
-			Message:       "Initialized Pommel successfully",
+			Success:            true,
+			ProjectRoot:        projectRoot,
+			ConfigPath:         configPath,
+			DatabasePath:       dbPath,
+			DaemonStarted:      daemonStarted,
+			ProviderConfigured: providerConfigured,
+			Message:            "Initialized Pommel successfully",
 		}
 		enc := json.NewEncoder(stdout)
 		enc.SetIndent("", "  ")
@@ -296,18 +301,28 @@ coverage/
 	}
 
 	fmt.Fprintf(stdout, "Initialized Pommel in %s\n", pommelDir)
+
+	// Show provider warning if not configured
+	if !providerConfigured {
+		fmt.Fprintln(stdout)
+		fmt.Fprintln(stdout, "⚠️  No embedding provider configured")
+		fmt.Fprintln(stdout, "   Run 'pm config provider' to set up embeddings.")
+		fmt.Fprintln(stdout, "   Without a provider, 'pm start' will not work.")
+	}
+
 	return nil
 }
 
 // InitResult represents the result of an init operation for JSON output
 type InitResult struct {
-	Success       bool   `json:"success"`
-	ProjectRoot   string `json:"project_root"`
-	ConfigPath    string `json:"config_path"`
-	DatabasePath  string `json:"database_path"`
-	DaemonStarted bool   `json:"daemon_started,omitempty"`
-	Message       string `json:"message,omitempty"`
-	Error         string `json:"error,omitempty"`
+	Success            bool   `json:"success"`
+	ProjectRoot        string `json:"project_root"`
+	ConfigPath         string `json:"config_path"`
+	DatabasePath       string `json:"database_path"`
+	DaemonStarted      bool   `json:"daemon_started,omitempty"`
+	ProviderConfigured bool   `json:"provider_configured"`
+	Message            string `json:"message,omitempty"`
+	Error              string `json:"error,omitempty"`
 }
 
 // Language extension mappings - maps file extension to glob pattern

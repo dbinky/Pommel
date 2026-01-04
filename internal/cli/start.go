@@ -46,10 +46,15 @@ func runStart(cmd *cobra.Command, args []string) error {
 		return ErrDaemonAlreadyRunning(pid)
 	}
 
-	// Load config
-	cfg, err := loader.Load()
+	// Load merged config (global + project)
+	cfg, err := LoadMergedConfig(projectRoot)
 	if err != nil {
 		return ErrConfigInvalid(err)
+	}
+
+	// Check provider is configured
+	if err := CheckProviderConfigured(cfg); err != nil {
+		return err
 	}
 
 	// Handle foreground mode

@@ -56,6 +56,15 @@ func init() {
 func runSearch(cmd *cobra.Command, args []string) error {
 	query := args[0]
 
+	// Check provider is configured before connecting to daemon
+	cfg, err := LoadMergedConfig(GetProjectRoot())
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+	if err := CheckProviderConfigured(cfg); err != nil {
+		return err
+	}
+
 	client, err := NewClientFromProjectRoot(GetProjectRoot())
 	if err != nil {
 		return fmt.Errorf("failed to create client: %w", err)
