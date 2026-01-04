@@ -546,3 +546,34 @@ Automatically interpreted as `provider: ollama` with those settings.
 - Rate limit handling with automatic retry
 - Migration prompts for existing users
 - Documentation updates (README, CLAUDE.md)
+
+---
+
+## Testing Requirements
+
+**All implementation must follow strict Test-Driven Development (TDD):**
+
+1. Write tests first, before any implementation code
+2. Tests must fail initially (red phase)
+3. Write minimal code to make tests pass (green phase)
+4. Refactor while keeping tests passing (refactor phase)
+5. Repeat for each piece of functionality
+
+**Test Coverage Categories:**
+
+Each component must include tests covering:
+
+- **Happy Path Scenarios** - Standard successful operations with valid inputs
+- **Success Scenarios** - Variations of successful operations (different valid inputs, configurations)
+- **Failure Scenarios** - Expected failures that are handled gracefully (invalid API keys, network timeouts)
+- **Error Scenarios** - Unexpected errors and edge cases in error handling itself
+- **Edge Case Scenarios** - Boundary conditions, empty inputs, nil values, concurrent access, large payloads
+
+**Test Organization:**
+
+- Unit tests for each provider client (`openai_test.go`, `voyage_test.go`)
+- Integration tests for provider factory and config loading
+- Mock-based tests for API interactions (no real API calls in unit tests)
+- End-to-end tests for CLI commands where feasible
+
+See detailed phase plans for specific test cases per component.
