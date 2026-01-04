@@ -336,6 +336,72 @@ reranker:
   candidates: 50             # Number of candidates to re-rank
 ```
 
+## Embedding Providers
+
+Pommel supports multiple embedding providers for flexibility:
+
+| Provider | Type | Cost | Best For |
+|----------|------|------|----------|
+| Local Ollama | Local | Free | Default, privacy-focused |
+| Remote Ollama | Remote | Free | Offload to server/NAS |
+| OpenAI | API | $0.02/1M tokens | Easy setup, existing key |
+| Voyage AI | API | $0.06/1M tokens | Code-specialized |
+
+### Quick Configuration
+
+```bash
+# Interactive setup (recommended)
+pm config provider
+
+# Or set directly
+pm config provider ollama                          # Local Ollama (default)
+pm config provider ollama-remote --url http://192.168.1.100:11434
+pm config provider openai --api-key sk-your-key
+pm config provider voyage --api-key pa-your-key
+```
+
+### Environment Variables
+
+API keys can also be set via environment variables:
+
+```bash
+export OPENAI_API_KEY=sk-your-key
+export VOYAGE_API_KEY=pa-your-key
+export OLLAMA_HOST=http://192.168.1.100:11434  # For remote Ollama
+```
+
+### Global vs Project Configuration
+
+- **Global config** (`~/.config/pommel/config.yaml`): Default provider for all projects
+- **Project config** (`.pommel/config.yaml`): Project-specific overrides
+
+```bash
+# Set global default
+pm config provider openai --api-key sk-...
+
+# Override for specific project
+cd my-project
+pm config set embedding.provider ollama
+```
+
+### Switching Providers
+
+When you switch providers, Pommel will prompt to reindex since embedding dimensions differ:
+
+```
+⚠ Embedding provider changed (ollama → openai)
+  Existing index has 847 chunks with incompatible dimensions.
+  Reindex now? (Y/n)
+```
+
+### Vector Dimensions by Provider
+
+| Provider | Model | Dimensions |
+|----------|-------|------------|
+| Ollama | jina-embeddings-v2-base-code | 768 |
+| OpenAI | text-embedding-3-small | 1536 |
+| Voyage | voyage-code-2 | 1024 |
+
 ## Ignoring Files
 
 Create `.pommelignore` in your project root using gitignore syntax:

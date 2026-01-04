@@ -256,3 +256,56 @@ pm search "function implementations" --level function
 - Use natural language queries - Pommel understands semantic meaning
 - Keep the daemon running (`pm start`) for always-current search results
 - Use `--json` flag when you need structured output for processing
+
+## Embedding Provider Configuration
+
+Pommel supports multiple embedding providers. Check configuration status:
+
+```bash
+pm status
+```
+
+If embeddings are not configured, you'll see:
+```
+⚠️  No embedding provider configured
+   Run 'pm config provider' to set up embeddings.
+```
+
+### Quick Setup
+
+```bash
+# Interactive setup (recommended)
+pm config provider
+
+# Or set directly
+pm config provider ollama                          # Local Ollama (default)
+pm config provider openai --api-key sk-your-key    # OpenAI API
+pm config provider voyage --api-key pa-your-key    # Voyage AI (code-specialized)
+pm config provider ollama-remote --url http://host:11434  # Remote Ollama
+```
+
+### Provider-Specific Notes
+
+| Provider | Requirements | Notes |
+|----------|-------------|-------|
+| Local Ollama | `ollama serve` running | Default, free, private |
+| Remote Ollama | Accessible URL | Offload to server/NAS |
+| OpenAI | Valid API key | `OPENAI_API_KEY` env var supported |
+| Voyage AI | Valid API key | `VOYAGE_API_KEY` env var supported |
+
+### Troubleshooting
+
+**"No embedding provider configured"**
+```bash
+pm config provider   # Run interactive setup
+```
+
+**"Cannot connect to Ollama"**
+```bash
+ollama serve         # Start Ollama if not running
+```
+
+**"Invalid API key"**
+- Verify key is correct and active
+- Check for typos or trailing whitespace
+- Ensure billing is enabled (for paid APIs)
