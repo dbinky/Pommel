@@ -619,6 +619,20 @@ cat .pommel/daemon.log
 pm start --foreground
 ```
 
+### Ollama shows warning messages during indexing
+
+**Symptom:** You see repeated messages like:
+```
+init: embeddings required but some input tokens were not marked as outputs -> overriding
+```
+
+**Explanation:** These are informational messages from Ollama's Jina embedding model, not errors. The embeddings are generated successfully (you'll see `200` status codes in the Ollama logs). These warnings can be safely ignored.
+
+**Solutions to reduce log noise:**
+- Set `OLLAMA_DEBUG=false` environment variable before starting Ollama
+- Run Ollama as a background service (logs go to system logs instead of terminal)
+- On macOS/Linux: `brew services start ollama` or use systemd
+
 ### Slow initial indexing
 
 **Symptom:** First-time indexing takes very long.
