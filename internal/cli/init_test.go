@@ -1229,3 +1229,97 @@ API documentation.
 	assert.Contains(t, contentStr, "pm search", "Should have new instructions")
 	assert.Contains(t, contentStr, "backend", "Should mention subproject name")
 }
+
+// =============================================================================
+// Tests for provider warning
+// =============================================================================
+
+func TestInitCmd_DefaultProviderConfigured(t *testing.T) {
+	// Default config includes ollama provider, so no warning should be shown
+	tmpDir, err := os.MkdirTemp("", "pommel-init-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	// Clear any global config
+	globalDir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", globalDir)
+
+	var outBuf, errBuf bytes.Buffer
+	err = runInitCmd(tmpDir, &outBuf, &errBuf)
+	require.NoError(t, err)
+
+	// No warning because default config includes ollama provider
+	out := outBuf.String()
+	assert.NotContains(t, out, "No embedding provider configured")
+}
+
+func TestInitCmd_NoWarningWithProvider(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "pommel-init-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	globalDir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", globalDir)
+
+	// Pre-configure provider in global config
+	pommelDir := filepath.Join(globalDir, "pommel")
+	require.NoError(t, os.MkdirAll(pommelDir, 0755))
+	cfg := `embedding:
+  provider: ollama
+`
+	require.NoError(t, os.WriteFile(filepath.Join(pommelDir, "config.yaml"), []byte(cfg), 0644))
+
+	var outBuf, errBuf bytes.Buffer
+	err = runInitCmd(tmpDir, &outBuf, &errBuf)
+	require.NoError(t, err)
+
+	// No warning
+	out := outBuf.String()
+	assert.NotContains(t, out, "No embedding provider configured")
+}
+
+func TestInitCmd_JSONOutput_IncludesProviderConfigured(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "pommel-init-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	// Clear any global config
+	globalDir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", globalDir)
+
+	var outBuf, errBuf bytes.Buffer
+	err = runInitCmdJSON(tmpDir, &outBuf, &errBuf)
+	require.NoError(t, err)
+
+	// JSON output should include provider_configured field
+	// With default config, provider is ollama so it should be true
+	out := outBuf.String()
+	assert.Contains(t, out, "\"provider_configured\"")
+	assert.Contains(t, out, "\"provider_configured\": true", "Should be true with default ollama provider")
+}
+
+func TestInitCmd_JSONOutput_ProviderConfiguredTrue(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "pommel-init-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	globalDir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", globalDir)
+
+	// Pre-configure provider
+	pommelDir := filepath.Join(globalDir, "pommel")
+	require.NoError(t, os.MkdirAll(pommelDir, 0755))
+	cfg := `embedding:
+  provider: openai
+  openai:
+    api_key: sk-test
+`
+	require.NoError(t, os.WriteFile(filepath.Join(pommelDir, "config.yaml"), []byte(cfg), 0644))
+
+	var outBuf, errBuf bytes.Buffer
+	err = runInitCmdJSON(tmpDir, &outBuf, &errBuf)
+	require.NoError(t, err)
+
+	out := outBuf.String()
+	assert.Contains(t, out, "\"provider_configured\": true", "Should indicate provider is configured")
+}

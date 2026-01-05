@@ -38,10 +38,21 @@ func Default() *Config {
 			LogLevel: "info",
 		},
 		Embedding: EmbeddingConfig{
-			Model:     "unclemusclez/jina-embeddings-v2-base-code",
-			OllamaURL: "http://localhost:11434",
+			Provider:  "ollama",
+			Model:     "unclemusclez/jina-embeddings-v2-base-code", // Legacy: kept for backwards compatibility
+			OllamaURL: "http://localhost:11434",                    // Legacy: kept for backwards compatibility
 			BatchSize: 32,
 			CacheSize: 1000,
+			Ollama: OllamaProviderConfig{
+				URL:   "http://localhost:11434",
+				Model: "unclemusclez/jina-embeddings-v2-base-code",
+			},
+			OpenAI: OpenAIProviderConfig{
+				Model: "text-embedding-3-small",
+			},
+			Voyage: VoyageProviderConfig{
+				Model: "voyage-code-3",
+			},
 		},
 		Search: SearchConfig{
 			DefaultLimit: 10,

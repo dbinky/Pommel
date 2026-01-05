@@ -26,8 +26,9 @@ type mockOllamaResponse struct {
 
 // mockOllamaRequest represents the request to Ollama's /api/embed endpoint.
 type mockOllamaRequest struct {
-	Model string `json:"model"`
-	Input any    `json:"input"`
+	Model   string                 `json:"model"`
+	Input   any                    `json:"input"`
+	Options map[string]interface{} `json:"options,omitempty"`
 }
 
 // generate768DimEmbedding creates a mock 768-dimensional embedding.
@@ -572,4 +573,48 @@ func TestDefaultOllamaConfig(t *testing.T) {
 		"Default Model should be Jina Code embeddings")
 	assert.Equal(t, 30*time.Second, cfg.Timeout,
 		"Default Timeout should be 30 seconds")
+}
+
+func TestOllamaClient_SetsNumCtxOption(t *testing.T) {
+	var receivedOptions map[string]interface{}
+
+	server := createMockOllamaServer(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/embed" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+
+		var req mockOllamaRequest
+		err := json.NewDecoder(r.Body).Decode(&req)
+		require.NoError(t, err)
+
+		// Capture the options for verification
+		receivedOptions = req.Options
+
+		resp := mockOllamaResponse{
+			Embeddings: [][]float32{generate768DimEmbedding()},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	})
+	defer server.Close()
+
+	client := NewOllamaClient(OllamaConfig{
+		BaseURL: server.URL,
+		Model:   "test-model",
+		Timeout: 5 * time.Second,
+	})
+
+	_, err := client.EmbedSingle(context.Background(), "test code")
+	require.NoError(t, err)
+
+	// Verify num_ctx was sent
+	require.NotNil(t, receivedOptions, "Options should be sent in request")
+	numCtx, ok := receivedOptions["num_ctx"]
+	require.True(t, ok, "num_ctx should be present in options")
+
+	// JSON numbers decode as float64
+	numCtxFloat, ok := numCtx.(float64)
+	require.True(t, ok, "num_ctx should be a number")
+	assert.Equal(t, float64(8192), numCtxFloat, "num_ctx should be 8192 for full Jina context")
 }

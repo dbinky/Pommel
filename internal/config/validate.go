@@ -175,3 +175,66 @@ func ValidateOrError(cfg *Config) error {
 	}
 	return nil
 }
+
+// validProviders defines the allowed embedding provider values
+var validProviders = map[string]bool{
+	"":              true, // Empty is valid (not configured)
+	"ollama":        true,
+	"ollama-remote": true,
+	"openai":        true,
+	"voyage":        true,
+}
+
+// ValidateProvider validates provider-specific configuration.
+// Returns validation errors if the provider configuration is invalid.
+func ValidateProvider(cfg *EmbeddingConfig) ValidationErrors {
+	var errors ValidationErrors
+
+	// Empty provider is valid (not configured yet)
+	if cfg.Provider == "" {
+		return errors
+	}
+
+	// Check for valid provider type
+	if !validProviders[cfg.Provider] {
+		errors = append(errors, ValidationError{
+			Field:   "embedding.provider",
+			Message: fmt.Sprintf("unknown provider '%s'; valid values are: ollama, ollama-remote, openai, voyage", cfg.Provider),
+		})
+		return errors
+	}
+
+	switch cfg.Provider {
+	case "ollama":
+		// Local ollama can use defaults, no required fields
+
+	case "ollama-remote":
+		// Remote ollama requires a URL
+		if cfg.GetOllamaURL() == "" || cfg.GetOllamaURL() == "http://localhost:11434" {
+			errors = append(errors, ValidationError{
+				Field:   "embedding.ollama.url",
+				Message: "remote Ollama URL is required for ollama-remote provider",
+			})
+		}
+
+	case "openai":
+		// OpenAI requires an API key (from config or env)
+		if cfg.GetOpenAIAPIKey() == "" {
+			errors = append(errors, ValidationError{
+				Field:   "embedding.openai.api_key",
+				Message: "OpenAI API key is required; set in config or OPENAI_API_KEY environment variable",
+			})
+		}
+
+	case "voyage":
+		// Voyage requires an API key (from config or env)
+		if cfg.GetVoyageAPIKey() == "" {
+			errors = append(errors, ValidationError{
+				Field:   "embedding.voyage.api_key",
+				Message: "Voyage API key is required; set in config or VOYAGE_API_KEY environment variable",
+			})
+		}
+	}
+
+	return errors
+}

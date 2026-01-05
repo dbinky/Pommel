@@ -52,9 +52,15 @@ type OllamaConfig struct {
 
 // ollamaEmbedRequest represents the request to Ollama's /api/embed endpoint.
 type ollamaEmbedRequest struct {
-	Model string `json:"model"`
-	Input any    `json:"input"`
+	Model   string                 `json:"model"`
+	Input   any                    `json:"input"`
+	Options map[string]interface{} `json:"options,omitempty"`
 }
+
+// JinaContextSize is the full context window for Jina embeddings v2.
+// By default, Ollama may use a smaller context (4096), so we explicitly
+// request the full 8192 to avoid "input length exceeds context length" errors.
+const JinaContextSize = 8192
 
 // ollamaEmbedResponse represents the response from Ollama's /api/embed endpoint.
 type ollamaEmbedResponse struct {
@@ -150,6 +156,9 @@ func (c *OllamaClient) embed(ctx context.Context, input any) ([][]float32, error
 	reqBody := ollamaEmbedRequest{
 		Model: c.model,
 		Input: input,
+		Options: map[string]interface{}{
+			"num_ctx": JinaContextSize,
+		},
 	}
 
 	jsonBody, err := json.Marshal(reqBody)

@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-const SchemaVersion = 3
+const SchemaVersion = 4
 
 // Migrate runs database migrations to ensure schema is up to date.
 func (db *DB) Migrate(ctx context.Context) error {
@@ -34,6 +34,12 @@ func (db *DB) Migrate(ctx context.Context) error {
 	if currentVersion < 3 {
 		if err := db.migrateV3(ctx); err != nil {
 			return fmt.Errorf("failed to run v3 migration: %w", err)
+		}
+	}
+
+	if currentVersion < 4 {
+		if err := db.migrateV4(ctx); err != nil {
+			return fmt.Errorf("failed to run v4 migration: %w", err)
 		}
 	}
 
@@ -286,6 +292,52 @@ func (db *DB) migrateV3(ctx context.Context) error {
 
 	// Update schema version
 	if err := db.setSchemaVersion(ctx, 3); err != nil {
+		return fmt.Errorf("failed to set schema version: %w", err)
+	}
+
+	return nil
+}
+
+// migrateV4 adds chunk splitting support.
+// Adds columns for tracking split chunks and their relationships.
+func (db *DB) migrateV4(ctx context.Context) error {
+	// Add parent_chunk_id column for tracking split relationships
+	// Different from parent_id which tracks AST hierarchy
+	if !db.columnExists(ctx, "chunks", "parent_chunk_id") {
+		if _, err := db.Exec(ctx, `
+			ALTER TABLE chunks ADD COLUMN parent_chunk_id TEXT
+		`); err != nil {
+			return fmt.Errorf("failed to add parent_chunk_id column: %w", err)
+		}
+	}
+
+	// Add chunk_index for ordering split pieces
+	if !db.columnExists(ctx, "chunks", "chunk_index") {
+		if _, err := db.Exec(ctx, `
+			ALTER TABLE chunks ADD COLUMN chunk_index INTEGER DEFAULT 0
+		`); err != nil {
+			return fmt.Errorf("failed to add chunk_index column: %w", err)
+		}
+	}
+
+	// Add is_partial flag to indicate truncated/split chunks
+	if !db.columnExists(ctx, "chunks", "is_partial") {
+		if _, err := db.Exec(ctx, `
+			ALTER TABLE chunks ADD COLUMN is_partial INTEGER DEFAULT 0
+		`); err != nil {
+			return fmt.Errorf("failed to add is_partial column: %w", err)
+		}
+	}
+
+	// Create index on parent_chunk_id for efficient split queries
+	if _, err := db.Exec(ctx, `
+		CREATE INDEX IF NOT EXISTS idx_chunks_parent_chunk_id ON chunks(parent_chunk_id)
+	`); err != nil {
+		return fmt.Errorf("failed to create parent_chunk_id index: %w", err)
+	}
+
+	// Update schema version
+	if err := db.setSchemaVersion(ctx, 4); err != nil {
 		return fmt.Errorf("failed to set schema version: %w", err)
 	}
 

@@ -185,15 +185,16 @@ func (a *SearchServiceAdapter) Search(ctx context.Context, req SearchRequest) (*
 	results := make([]SearchResult, 0, len(resp.Results))
 	for _, r := range resp.Results {
 		result := SearchResult{
-			ID:        r.Chunk.ID,
-			File:      r.Chunk.FilePath,
-			StartLine: r.Chunk.StartLine,
-			EndLine:   r.Chunk.EndLine,
-			Level:     string(r.Chunk.Level),
-			Language:  r.Chunk.Language,
-			Name:      r.Chunk.Name,
-			Score:     r.Score,
-			Content:   r.Chunk.Content,
+			ID:            r.Chunk.ID,
+			File:          r.Chunk.FilePath,
+			StartLine:     r.Chunk.StartLine,
+			EndLine:       r.Chunk.EndLine,
+			Level:         string(r.Chunk.Level),
+			Language:      r.Chunk.Language,
+			Name:          r.Chunk.Name,
+			Score:         r.Score,
+			Content:       r.Chunk.Content,
+			MatchedSplits: r.MatchedSplits,
 		}
 
 		// Convert parent info if present

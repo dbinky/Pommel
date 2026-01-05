@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"os"
 	"time"
 )
 
@@ -33,10 +34,80 @@ type DaemonConfig struct {
 
 // EmbeddingConfig contains embedding model settings
 type EmbeddingConfig struct {
-	Model     string `yaml:"model" json:"model" mapstructure:"model"`
-	OllamaURL string `yaml:"ollama_url" json:"ollama_url" mapstructure:"ollama_url"`
+	Provider  string `yaml:"provider" json:"provider" mapstructure:"provider"`
+	Model     string `yaml:"model" json:"model" mapstructure:"model"`                // Legacy: used with Ollama
+	OllamaURL string `yaml:"ollama_url" json:"ollama_url" mapstructure:"ollama_url"` // Legacy: use Ollama.URL instead
 	BatchSize int    `yaml:"batch_size" json:"batch_size" mapstructure:"batch_size"`
 	CacheSize int    `yaml:"cache_size" json:"cache_size" mapstructure:"cache_size"`
+
+	// Provider-specific configurations
+	Ollama OllamaProviderConfig `yaml:"ollama" json:"ollama" mapstructure:"ollama"`
+	OpenAI OpenAIProviderConfig `yaml:"openai" json:"openai" mapstructure:"openai"`
+	Voyage VoyageProviderConfig `yaml:"voyage" json:"voyage" mapstructure:"voyage"`
+}
+
+// OllamaProviderConfig contains Ollama-specific settings
+type OllamaProviderConfig struct {
+	URL   string `yaml:"url" json:"url" mapstructure:"url"`
+	Model string `yaml:"model" json:"model" mapstructure:"model"`
+}
+
+// OpenAIProviderConfig contains OpenAI-specific settings
+type OpenAIProviderConfig struct {
+	APIKey string `yaml:"api_key" json:"api_key" mapstructure:"api_key"`
+	Model  string `yaml:"model" json:"model" mapstructure:"model"`
+}
+
+// VoyageProviderConfig contains Voyage AI-specific settings
+type VoyageProviderConfig struct {
+	APIKey string `yaml:"api_key" json:"api_key" mapstructure:"api_key"`
+	Model  string `yaml:"model" json:"model" mapstructure:"model"`
+}
+
+// GetOllamaURL returns the Ollama URL from config or environment variable.
+// Supports legacy OllamaURL field for backwards compatibility.
+func (e *EmbeddingConfig) GetOllamaURL() string {
+	// First check new config structure
+	if e.Ollama.URL != "" {
+		return e.Ollama.URL
+	}
+	// Check legacy field
+	if e.OllamaURL != "" {
+		return e.OllamaURL
+	}
+	// Check environment variable
+	if url := os.Getenv("OLLAMA_HOST"); url != "" {
+		return url
+	}
+	return "http://localhost:11434"
+}
+
+// GetOpenAIAPIKey returns the OpenAI API key from config or environment variable.
+func (e *EmbeddingConfig) GetOpenAIAPIKey() string {
+	if e.OpenAI.APIKey != "" {
+		return e.OpenAI.APIKey
+	}
+	return os.Getenv("OPENAI_API_KEY")
+}
+
+// GetVoyageAPIKey returns the Voyage API key from config or environment variable.
+func (e *EmbeddingConfig) GetVoyageAPIKey() string {
+	if e.Voyage.APIKey != "" {
+		return e.Voyage.APIKey
+	}
+	return os.Getenv("VOYAGE_API_KEY")
+}
+
+// DefaultDimensions returns the default embedding dimensions for the configured provider.
+func (e *EmbeddingConfig) DefaultDimensions() int {
+	switch e.Provider {
+	case "openai":
+		return 1536 // text-embedding-3-small
+	case "voyage":
+		return 1024 // voyage-code-3
+	default:
+		return 768 // Jina Code embeddings via Ollama
+	}
 }
 
 // SearchConfig contains search default settings
