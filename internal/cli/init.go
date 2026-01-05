@@ -440,6 +440,11 @@ pm search "authentication" --metrics
 - ` + "`--limit N`" + `: Limit number of results (default: 10)
 - ` + "`--verbose`" + `: Display match reasoning
 - ` + "`--json`" + `: Structured output format
+
+### Other Commands
+
+- ` + "`pm status`" + `: Check daemon status and index statistics
+- ` + "`pm reindex`" + `: Force a full reindex of the codebase
 `
 
 // pommelClaudeMarker is used to identify Pommel sections in CLAUDE.md
