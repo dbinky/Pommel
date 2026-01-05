@@ -375,6 +375,14 @@ install_pommel() {
     DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
     LDFLAGS="-s -w -X main.version=${VERSION} -X main.commit=${COMMIT} -X main.date=${DATE}"
 
+    # On macOS, set C++ include path for tree-sitter YAML parser
+    if [[ "$OS" == "darwin" ]]; then
+        SDK_PATH=$(xcrun --show-sdk-path 2>/dev/null)
+        if [[ -n "$SDK_PATH" ]]; then
+            export CGO_CXXFLAGS="-isystem ${SDK_PATH}/usr/include/c++/v1"
+        fi
+    fi
+
     go build -tags fts5 -trimpath -ldflags "$LDFLAGS" -o pm ./cmd/pm
     go build -tags fts5 -trimpath -ldflags "$LDFLAGS" -o pommeld ./cmd/pommeld
 
