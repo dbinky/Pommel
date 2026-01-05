@@ -76,12 +76,18 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: 1
           CGO_CFLAGS: ${{ runner.os == 'Windows' && '-I/c/sqlite' || '' }}
-          CGO_LDFLAGS: ${{ runner.os == 'Windows' && '-L/c/sqlite' || '' }}
+          CGO_LDFLAGS: ${{ runner.os == 'Windows' && '-L/c/sqlite -static' || '' }}
         run: |
           VERSION=${{ steps.version.outputs.VERSION }}
           mkdir -p dist
-          go build -tags fts5 -ldflags "-X main.version=$VERSION" -o dist/pm-${{ matrix.suffix }}${{ matrix.binary_ext }} ./cmd/pm
-          go build -tags fts5 -ldflags "-X main.version=$VERSION" -o dist/pommeld-${{ matrix.suffix }}${{ matrix.binary_ext }} ./cmd/pommeld
+          # Use static linking on Windows to avoid VC++ runtime dependency
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            LDFLAGS="-X main.version=$VERSION -extldflags=-static"
+          else
+            LDFLAGS="-X main.version=$VERSION"
+          fi
+          go build -tags fts5 -ldflags "$LDFLAGS" -o dist/pm-${{ matrix.suffix }}${{ matrix.binary_ext }} ./cmd/pm
+          go build -tags fts5 -ldflags "$LDFLAGS" -o dist/pommeld-${{ matrix.suffix }}${{ matrix.binary_ext }} ./cmd/pommeld
         shell: bash
 
       - name: Copy language configs
