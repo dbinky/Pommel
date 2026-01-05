@@ -134,7 +134,7 @@ select_provider() {
     echo "  3) OpenAI API      - Paid, no local setup required"
     echo "  4) Voyage AI       - Paid, optimized for code search"
     echo ""
-    read -p "  Choice [1]: " choice
+    read -p "  Choice [1]: " choice < /dev/tty
     choice=${choice:-1}
 
     case $choice in
@@ -159,7 +159,7 @@ setup_local_ollama() {
         echo ""
         echo "  Install Ollama from: https://ollama.ai/download"
         echo ""
-        read -p "  Continue anyway? (y/N) " -n 1 -r
+        read -p "  Continue anyway? (y/N) " -n 1 -r < /dev/tty
         echo
         if [[ ! $REPLY =~ ^[Yy]$ ]]; then
             select_provider
@@ -175,7 +175,7 @@ setup_local_ollama() {
 setup_remote_ollama() {
     SELECTED_PROVIDER="ollama-remote"
     echo ""
-    read -p "  Enter Ollama server URL (e.g., http://192.168.1.100:11434): " url
+    read -p "  Enter Ollama server URL (e.g., http://192.168.1.100:11434): " url < /dev/tty
 
     if [[ -z "$url" ]]; then
         warn "URL is required for remote Ollama"
@@ -190,7 +190,7 @@ setup_remote_ollama() {
 setup_openai() {
     SELECTED_PROVIDER="openai"
     echo ""
-    read -p "  Enter your OpenAI API key (leave blank to configure later): " key
+    read -p "  Enter your OpenAI API key (leave blank to configure later): " key < /dev/tty
 
     if [[ -n "$key" ]]; then
         info "Validating API key..."
@@ -210,7 +210,7 @@ setup_openai() {
 setup_voyage() {
     SELECTED_PROVIDER="voyage"
     echo ""
-    read -p "  Enter your Voyage AI API key (leave blank to configure later): " key
+    read -p "  Enter your Voyage AI API key (leave blank to configure later): " key < /dev/tty
 
     if [[ -n "$key" ]]; then
         info "Validating API key..."
@@ -533,7 +533,7 @@ check_path() {
         echo ""
         warn "$INSTALL_DIR is not in your PATH"
         echo ""
-        read -p "Would you like to add it to your shell config automatically? (Y/n) " -n 1 -r
+        read -p "Would you like to add it to your shell config automatically? (Y/n) " -n 1 -r < /dev/tty
         echo
         if [[ -z "$REPLY" || $REPLY =~ ^[Yy]$ ]]; then
             add_to_path
