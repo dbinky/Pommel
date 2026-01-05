@@ -34,6 +34,9 @@ type Result struct {
 	Score float32
 	// Parent contains info about the parent chunk, if any.
 	Parent *ParentInfo
+	// MatchedSplits is the number of splits that matched for this chunk.
+	// Only set when multiple splits of the same original chunk matched.
+	MatchedSplits int
 }
 
 // ParentInfo contains information about a chunk's parent.
@@ -136,6 +139,14 @@ func (s *Service) Search(ctx context.Context, query Query) (*Response, error) {
 		}
 
 		results = append(results, result)
+	}
+
+	// Deduplicate split chunks and boost scores for multiple matches
+	results = DeduplicateSplitResults(results)
+
+	// Ensure we don't exceed the requested limit after deduplication
+	if len(results) > limit {
+		results = results[:limit]
 	}
 
 	elapsed := time.Since(start)
