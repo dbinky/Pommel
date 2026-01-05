@@ -363,6 +363,16 @@ embedding:
 #endregion
 
 #region Binary Installation
+function Test-GoInstalled {
+    try {
+        $null = Get-Command go -ErrorAction Stop
+        return $true
+    }
+    catch {
+        return $false
+    }
+}
+
 function Install-PommelBinaries {
     param(
         [string]$Version,
@@ -377,49 +387,59 @@ function Install-PommelBinaries {
         New-Item -ItemType Directory -Path $binDir -Force | Out-Null
     }
 
-    # Download archive
-    Write-Step "Downloading Pommel archive..."
-    $archiveUrl = Get-ArchiveUrl -Version $Version -Arch $Arch
-    $tempZip = Join-Path $env:TEMP "pommel-$Version-windows-$Arch.zip"
+    # Check for Go
+    if (-not (Test-GoInstalled)) {
+        throw "Go is required but not installed. Install from https://go.dev/dl/"
+    }
+
+    $goVersion = (go version) -replace 'go version go', '' -replace ' .*', ''
+    Write-Success "Go $goVersion found"
+
+    # Clone and build from source
+    Write-Step "Cloning Pommel repository..."
+    $tempDir = Join-Path $env:TEMP "pommel-build-$([System.Guid]::NewGuid().ToString('N'))"
+
     try {
-        Invoke-WebRequest -Uri $archiveUrl -OutFile $tempZip -UseBasicParsing
-        Write-Success "Downloaded archive"
-    }
-    catch {
-        throw "Failed to download archive from $archiveUrl : $_"
-    }
-
-    # Extract binaries
-    Write-Step "Extracting binaries..."
-    try {
-        $tempExtract = Join-Path $env:TEMP "pommel-extract-$([System.Guid]::NewGuid().ToString('N'))"
-        Expand-Archive -Path $tempZip -DestinationPath $tempExtract -Force
-
-        # Find and copy the binaries (they have platform suffix in the archive)
-        $pmSource = Join-Path $tempExtract "pm-windows-$Arch.exe"
-        $daemonSource = Join-Path $tempExtract "pommeld-windows-$Arch.exe"
-
-        if (-not (Test-Path $pmSource)) {
-            throw "pm-windows-$Arch.exe not found in archive"
+        git clone --depth 1 "https://github.com/$script:Repo.git" $tempDir 2>&1 | Out-Null
+        if ($LASTEXITCODE -ne 0) {
+            throw "git clone failed"
         }
-        if (-not (Test-Path $daemonSource)) {
-            throw "pommeld-windows-$Arch.exe not found in archive"
+        Write-Success "Cloned repository"
+
+        Push-Location $tempDir
+
+        # Get version info from git
+        $gitVersion = git describe --tags 2>$null
+        if (-not $gitVersion) { $gitVersion = git rev-parse --short HEAD }
+        $gitCommit = git rev-parse --short HEAD
+        $buildDate = (Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ")
+
+        $ldflags = "-s -w -X main.version=$gitVersion -X main.commit=$gitCommit -X main.date=$buildDate"
+
+        Write-Step "Building binaries..."
+
+        # Build pm.exe
+        $env:CGO_ENABLED = "1"
+        go build -trimpath -tags fts5 -ldflags $ldflags -o (Join-Path $binDir "pm.exe") ./cmd/pm 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            throw "Failed to build pm.exe"
         }
 
-        # Copy to bin directory with simple names
-        Copy-Item $pmSource (Join-Path $binDir "pm.exe") -Force
-        Copy-Item $daemonSource (Join-Path $binDir "pommeld.exe") -Force
+        # Build pommeld.exe
+        go build -trimpath -tags fts5 -ldflags $ldflags -o (Join-Path $binDir "pommeld.exe") ./cmd/pommeld 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            throw "Failed to build pommeld.exe"
+        }
 
-        Write-Success "Extracted pm.exe and pommeld.exe"
+        Write-Success "Built pm.exe and pommeld.exe"
 
-        # Cleanup temp files
-        Remove-Item $tempZip -Force -ErrorAction SilentlyContinue
-        Remove-Item $tempExtract -Recurse -Force -ErrorAction SilentlyContinue
+        Pop-Location
     }
-    catch {
-        # Cleanup on failure
-        Remove-Item $tempZip -Force -ErrorAction SilentlyContinue
-        throw "Failed to extract binaries: $_"
+    finally {
+        # Cleanup
+        if (Test-Path $tempDir) {
+            Remove-Item $tempDir -Recurse -Force -ErrorAction SilentlyContinue
+        }
     }
 
     return $binDir
@@ -636,7 +656,8 @@ function Install-EmbeddingModel {
             Write-Step "Starting Ollama service..."
             # Start ollama serve as a background job to avoid launching the desktop GUI
             $ollamaExe = if ($ollamaCmd -is [System.Management.Automation.CommandInfo]) { $ollamaCmd.Source } else { $ollamaCmd }
-            Start-Process -FilePath $ollamaExe -ArgumentList "serve" -WindowStyle Hidden -RedirectStandardOutput "NUL" -RedirectStandardError "NUL"
+            # Start Ollama serve in background without redirecting output (which causes issues with same target)
+            Start-Process -FilePath $ollamaExe -ArgumentList "serve" -WindowStyle Hidden
 
             # Wait for API to become available
             $attempts = 0
