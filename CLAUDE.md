@@ -138,17 +138,29 @@ pommel/
 
 ### Building
 
+**Important:** Always include `-tags fts5` to enable FTS5 full-text search support.
+
 ```bash
-go build -o pm ./cmd/pm
-go build -o pommeld ./cmd/pommeld
+# Using make (recommended - includes all required tags)
+make build
+
+# Or manually with required tags
+go build -tags fts5 -o pm ./cmd/pm
+go build -tags fts5 -o pommeld ./cmd/pommeld
 ```
 
 ### Testing
 
+**Important:** Always include `-tags fts5` to enable FTS5 support in tests.
+
 ```bash
-go test ./...                    # Run all tests
-go test ./internal/cli/...       # Run CLI tests
-go test -v -run TestInitCmd      # Run specific test
+# Using make (recommended)
+make test
+
+# Or manually with required tags
+go test -tags fts5 ./...                    # Run all tests
+go test -tags fts5 ./internal/cli/...       # Run CLI tests
+go test -tags fts5 -v -run TestInitCmd      # Run specific test
 ```
 
 ### Installation

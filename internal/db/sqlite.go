@@ -51,6 +51,11 @@ func Open(projectRoot string) (*DB, error) {
 		return nil, fmt.Errorf("sqlite-vec not available: %w", err)
 	}
 
+	if err := db.verifyFTS5(); err != nil {
+		conn.Close()
+		return nil, err
+	}
+
 	return db, nil
 }
 
@@ -60,6 +65,19 @@ func (db *DB) verifySqliteVec() error {
 	if err != nil {
 		return fmt.Errorf("vec_version() failed: %w", err)
 	}
+	return nil
+}
+
+// verifyFTS5 checks if FTS5 is available in the SQLite build.
+// FTS5 is required for hybrid search functionality.
+func (db *DB) verifyFTS5() error {
+	// Try to create a temporary FTS5 table
+	_, err := db.conn.Exec("CREATE VIRTUAL TABLE IF NOT EXISTS _fts5_check USING fts5(content)")
+	if err != nil {
+		return fmt.Errorf("FTS5 not available: %w\n\nFTS5 is required for Pommel. Build with: go build -tags fts5\nOr run tests with: go test -tags fts5 ./...\nAlternatively, use 'make build' or 'make test' which includes the fts5 tag", err)
+	}
+	// Clean up the test table
+	_, _ = db.conn.Exec("DROP TABLE IF EXISTS _fts5_check")
 	return nil
 }
 
