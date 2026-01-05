@@ -36,6 +36,16 @@ type Chunk struct {
 	// Subproject fields for v0.2 multi-repo support
 	SubprojectID   *string `json:"subproject_id,omitempty"`
 	SubprojectPath *string `json:"subproject_path,omitempty"`
+
+	// Split chunk fields for v0.7 large chunk handling
+	ParentChunkID string `json:"parent_chunk_id,omitempty"`
+	ChunkIndex    int    `json:"chunk_index,omitempty"`
+	IsPartial     bool   `json:"is_partial,omitempty"`
+}
+
+// IsSplit returns true if this chunk is part of a split.
+func (c *Chunk) IsSplit() bool {
+	return c.ParentChunkID != ""
 }
 
 // GenerateID creates a deterministic ID for the chunk

@@ -219,3 +219,66 @@ func TestNewFromConfig_Voyage_NoAPIKey(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "API key")
 }
+
+// =============================================================================
+// MaxContextTokens Tests
+// =============================================================================
+
+// --- Happy Path Tests ---
+
+func TestProviderType_MaxContextTokens_Ollama(t *testing.T) {
+	assert.Equal(t, 8000, ProviderOllama.MaxContextTokens())
+}
+
+func TestProviderType_MaxContextTokens_OllamaRemote(t *testing.T) {
+	assert.Equal(t, 8000, ProviderOllamaRemote.MaxContextTokens())
+}
+
+func TestProviderType_MaxContextTokens_OpenAI(t *testing.T) {
+	assert.Equal(t, 8000, ProviderOpenAI.MaxContextTokens())
+}
+
+func TestProviderType_MaxContextTokens_Voyage(t *testing.T) {
+	// Voyage has larger context
+	assert.Equal(t, 15000, ProviderVoyage.MaxContextTokens())
+}
+
+// --- Edge Case Tests ---
+
+func TestProviderType_MaxContextTokens_UnknownProvider(t *testing.T) {
+	// Unknown provider should return conservative default
+	unknown := ProviderType("unknown-provider")
+	assert.Equal(t, 8000, unknown.MaxContextTokens())
+}
+
+func TestProviderType_MaxContextTokens_EmptyString(t *testing.T) {
+	empty := ProviderType("")
+	assert.Equal(t, 8000, empty.MaxContextTokens())
+}
+
+// --- Consistency Tests ---
+
+func TestProviderType_MaxContextTokens_AllProvidersHaveLimits(t *testing.T) {
+	providers := []ProviderType{
+		ProviderOllama,
+		ProviderOllamaRemote,
+		ProviderOpenAI,
+		ProviderVoyage,
+	}
+
+	for _, p := range providers {
+		t.Run(string(p), func(t *testing.T) {
+			limit := p.MaxContextTokens()
+			assert.Greater(t, limit, 0, "Provider %s should have positive context limit", p)
+			assert.LessOrEqual(t, limit, 20000, "Provider %s limit seems too high", p)
+		})
+	}
+}
+
+func TestProviderType_MaxContextTokens_HasSafetyMargin(t *testing.T) {
+	// Verify limits have safety margin (not exact API limits)
+	// OpenAI: 8191 actual, we use 8000
+	// Voyage: 16000 actual, we use 15000
+	assert.Less(t, ProviderOpenAI.MaxContextTokens(), 8191)
+	assert.Less(t, ProviderVoyage.MaxContextTokens(), 16000)
+}

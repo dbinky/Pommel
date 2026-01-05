@@ -601,3 +601,77 @@ func TestChunkEdgeCases(t *testing.T) {
 		assert.NoError(t, err, "empty language should be valid (can be inferred later)")
 	})
 }
+
+// =============================================================================
+// Split Chunk Tests
+// =============================================================================
+
+func TestChunk_IsSplit(t *testing.T) {
+	t.Run("chunk with parent_chunk_id is a split", func(t *testing.T) {
+		chunk := createValidChunk()
+		chunk.ParentChunkID = "parent-123"
+		chunk.ChunkIndex = 0
+		chunk.IsPartial = true
+
+		assert.True(t, chunk.IsSplit())
+	})
+
+	t.Run("chunk without parent_chunk_id is not a split", func(t *testing.T) {
+		chunk := createValidChunk()
+		chunk.ParentChunkID = ""
+
+		assert.False(t, chunk.IsSplit())
+	})
+
+	t.Run("default chunk is not a split", func(t *testing.T) {
+		chunk := &Chunk{}
+
+		assert.False(t, chunk.IsSplit())
+	})
+
+	t.Run("empty parent_chunk_id is not a split", func(t *testing.T) {
+		chunk := createValidChunk()
+		chunk.ParentChunkID = ""
+		chunk.ChunkIndex = 5 // Other fields set but no parent
+		chunk.IsPartial = true
+
+		assert.False(t, chunk.IsSplit())
+	})
+}
+
+func TestChunk_SplitFields(t *testing.T) {
+	t.Run("can set all split fields", func(t *testing.T) {
+		chunk := createValidChunk()
+		chunk.ParentChunkID = "original-chunk-id"
+		chunk.ChunkIndex = 2
+		chunk.IsPartial = true
+
+		assert.Equal(t, "original-chunk-id", chunk.ParentChunkID)
+		assert.Equal(t, 2, chunk.ChunkIndex)
+		assert.True(t, chunk.IsPartial)
+	})
+
+	t.Run("split chunk with all fields is valid", func(t *testing.T) {
+		chunk := createValidChunk()
+		chunk.ParentChunkID = "parent-id"
+		chunk.ChunkIndex = 0
+		chunk.IsPartial = true
+
+		err := chunk.IsValid()
+		assert.NoError(t, err)
+	})
+
+	t.Run("default values for split fields", func(t *testing.T) {
+		chunk := &Chunk{
+			FilePath:  "/test.go",
+			StartLine: 1,
+			EndLine:   10,
+			Level:     ChunkLevelMethod,
+			Content:   "func test() {}",
+		}
+
+		assert.Equal(t, "", chunk.ParentChunkID)
+		assert.Equal(t, 0, chunk.ChunkIndex)
+		assert.False(t, chunk.IsPartial)
+	})
+}

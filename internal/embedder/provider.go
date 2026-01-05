@@ -66,6 +66,19 @@ func (p ProviderType) DefaultDimensions() int {
 	}
 }
 
+// MaxContextTokens returns the maximum context window size in tokens for this provider.
+// Returns a conservative limit with safety margin to prevent failures.
+func (p ProviderType) MaxContextTokens() int {
+	switch p {
+	case ProviderOpenAI:
+		return 8000 // text-embedding-3-small: 8191 minus safety margin
+	case ProviderVoyage:
+		return 15000 // voyage-code-3: 16000 minus safety margin
+	default: // ProviderOllama, ProviderOllamaRemote, unknown
+		return 8000 // Jina v2: 8192 minus safety margin
+	}
+}
+
 // AllProviders returns all available provider types
 func AllProviders() []ProviderType {
 	return []ProviderType{
