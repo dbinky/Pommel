@@ -400,68 +400,46 @@ func detectLanguagePatterns(projectRoot string) []string {
 const pommelClaudeInstructions = `
 ## Pommel - Semantic Code Search
 
-This project uses Pommel (v0.5.2) for semantic code search. Pommel indexes your codebase into semantic chunks and enables natural language search with hybrid vector + keyword matching.
+### Overview
+Pommel is a semantic code search tool designed as a first-line discovery method. It returns semantic matches with approximately 18x fewer tokens than grep-based searching.
 
-**Supported platforms:** macOS, Linux, Windows
-**Supported languages:** C#, Dart, Elixir, Go, Java, JavaScript, Kotlin, PHP, Python, Rust, Solidity, Swift, TypeScript
+### When to Use
 
-### Code Search Decision Tree
+**Use ` + "`pm search`" + ` for:**
+- Finding implementations
+- Locating where specific functionality is handled
+- Iterative code exploration
+- General code lookups (recommended as first attempt)
 
-**Use ` + "`pm search`" + ` FIRST for:**
-- Finding specific implementations ("where is X implemented")
-- Quick code lookups when you know what you're looking for
-- Iterative exploration (multiple related searches)
-- Cost/time-sensitive tasks (~18x fewer tokens, 1000x+ faster)
+**Use grep/file explorer instead for:**
+- Verifying something does NOT exist
+- Searching exact string literals and error messages
+- Understanding architecture and code flow
+- Needing full file context
 
-**Fall back to Explorer/Grep when:**
-- Verifying something does NOT exist (Pommel may return false positives)
-- Understanding architecture or code flow relationships
-- Need full context around matches (not just snippets)
-- Searching for exact string literals (specific error messages, identifiers)
+### Search Syntax Examples
 
-**Decision rule:** Start with ` + "`pm search`" + `. If results seem off-topic or you need to confirm absence, use Explorer.
-
-### When to Use Which Tool
-
-| Use Case                         | Recommended Tool          |
-|----------------------------------|---------------------------|
-| Quick code lookup                | Pommel                    |
-| Understanding architecture       | Explorer                  |
-| Finding specific implementations | Pommel                    |
-| Verifying if feature exists      | Explorer                  |
-| Iterative exploration            | Pommel                    |
-| Comprehensive documentation      | Explorer                  |
-| Cost-sensitive workflows         | Pommel (18x fewer tokens) |
-| Time-sensitive tasks             | Pommel (1000x+ faster)    |
-
-### Quick Search Examples
-` + "```" + `bash
-# Find code by semantic meaning (not just keywords)
-pm search "authentication logic"
-pm search "error handling patterns"
-
-# Search with JSON output for programmatic use
-pm search "user validation" --json
-
-# Limit results and filter by chunk level
-pm search "API endpoints" --limit 5
-pm search "class definitions" --level class
-
-# Show detailed match reasons and score breakdown
-pm search "rate limiting" --verbose
+` + "```bash" + `
+pm search "IPC handler for updates"
+pm search "validation logic" --path src/shared
+pm search "state management" --level function,method
+pm search "error handling" --json --limit 5
+pm search "authentication" --metrics
 ` + "```" + `
 
-### Available Commands
-- ` + "`pm search <query>`" + ` - Hybrid semantic + keyword search (~18x fewer tokens than grep)
-- ` + "`pm status`" + ` - Check daemon status and index statistics
-- ` + "`pm reindex`" + ` - Force a full reindex of the codebase
-- ` + "`pm start`" + ` / ` + "`pm stop`" + ` - Control the background daemon
+### Score Interpretation
 
-### Tips
-- **Low scores (< 0.5) suggest weak matches** - consider using Explorer to confirm
-- Use natural language queries - Pommel understands semantic meaning
-- Keep the daemon running (` + "`pm start`" + `) for always-current search results
-- Use ` + "`--verbose`" + ` to see why results matched (helpful for tuning queries)
+- **> 0.7**: Strong match - use directly
+- **0.5-0.7**: Moderate match - review snippet, may require additional reading
+- **< 0.5**: Weak match - try different query or use grep
+
+### Key Command Flags
+
+- ` + "`--path <prefix>`" + `: Scope results to specific directory
+- ` + "`--level <types>`" + `: Filter by code structure (file, class, function, method, block)
+- ` + "`--limit N`" + `: Limit number of results (default: 10)
+- ` + "`--verbose`" + `: Display match reasoning
+- ` + "`--json`" + `: Structured output format
 `
 
 // pommelClaudeMarker is used to identify Pommel sections in CLAUDE.md
@@ -662,64 +640,46 @@ func pommelSubprojectInstructions(sp *subproject.DetectedSubproject) string {
 	return fmt.Sprintf(`
 ## Pommel - Semantic Code Search
 
-This sub-project (%s) uses Pommel (v0.5.2) for semantic code search with hybrid vector + keyword matching.
+### Overview
+This sub-project (%s) uses Pommel for semantic code search. It returns semantic matches with approximately 18x fewer tokens than grep-based searching.
 
-**Supported languages:** C#, Dart, Elixir, Go, Java, JavaScript, Kotlin, PHP, Python, Rust, Solidity, Swift, TypeScript
+### When to Use
 
-### Code Search Decision Tree
+**Use `+"`pm search`"+` for:**
+- Finding implementations
+- Locating where specific functionality is handled
+- Iterative code exploration
+- General code lookups (recommended as first attempt)
 
-**Use `+"`pm search`"+` FIRST for:**
-- Finding specific implementations ("where is X implemented")
-- Quick code lookups when you know what you're looking for
-- Iterative exploration (multiple related searches)
-- Cost/time-sensitive tasks (~18x fewer tokens, 1000x+ faster)
+**Use grep/file explorer instead for:**
+- Verifying something does NOT exist
+- Searching exact string literals and error messages
+- Understanding architecture and code flow
+- Needing full file context
 
-**Fall back to Explorer/Grep when:**
-- Verifying something does NOT exist (Pommel may return false positives)
-- Understanding architecture or code flow relationships
-- Need full context around matches (not just snippets)
-- Searching for exact string literals (specific error messages, identifiers)
+### Search Syntax Examples
 
-**Decision rule:** Start with `+"`pm search`"+`. If results seem off-topic or you need to confirm absence, use Explorer.
-
-### When to Use Which Tool
-
-| Use Case                         | Recommended Tool          |
-|----------------------------------|---------------------------|
-| Quick code lookup                | Pommel                    |
-| Understanding architecture       | Explorer                  |
-| Finding specific implementations | Pommel                    |
-| Verifying if feature exists      | Explorer                  |
-| Iterative exploration            | Pommel                    |
-| Cost-sensitive workflows         | Pommel (18x fewer tokens) |
-| Time-sensitive tasks             | Pommel (1000x+ faster)    |
-
-### Quick Search Examples
 `+"```bash"+`
-# Search within this sub-project (default when running from here)
-pm search "authentication logic"
-
-# Search with JSON output
-pm search "error handling" --json
-
-# Search across entire monorepo
-pm search "shared utilities" --all
-
-# Show detailed match reasons
-pm search "rate limiting" --verbose
+pm search "IPC handler for updates"
+pm search "validation logic" --path src/shared
+pm search "state management" --level function,method
+pm search "error handling" --json --limit 5
+pm search "authentication" --metrics
 `+"```"+`
 
-### Available Commands
-- `+"`pm search <query>`"+` - Hybrid search (~18x fewer tokens than grep)
-- `+"`pm status`"+` - Check daemon status and index statistics
-- `+"`pm subprojects`"+` - List all sub-projects
-- `+"`pm start`"+` / `+"`pm stop`"+` - Control the background daemon
+### Score Interpretation
 
-### Tips
-- **Low scores (< 0.5) suggest weak matches** - consider using Explorer to confirm
-- Searches default to this sub-project when you're in this directory
-- Use `+"`--all`"+` to search across the entire monorepo
-- Use `+"`--verbose`"+` to see why results matched
+- **> 0.7**: Strong match - use directly
+- **0.5-0.7**: Moderate match - review snippet, may require additional reading
+- **< 0.5**: Weak match - try different query or use grep
+
+### Key Command Flags
+
+- `+"`--path <prefix>`"+`: Scope results to specific directory
+- `+"`--level <types>`"+`: Filter by code structure (file, class, function, method, block)
+- `+"`--limit N`"+`: Limit number of results (default: 10)
+- `+"`--verbose`"+`: Display match reasoning
+- `+"`--json`"+`: Structured output format
 `, sp.ID)
 }
 

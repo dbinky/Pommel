@@ -6,7 +6,7 @@ Local-first semantic code search for AI coding agents.
 [![Go Version](https://img.shields.io/github/go-mod/go-version/dbinky/Pommel)](https://go.dev/)
 [![License](https://img.shields.io/github/license/dbinky/Pommel)](LICENSE)
 
-**v0.6.0** - Now with 33 language support via YAML-driven configuration!
+**v0.7.0** - Now with intelligent chunk splitting for large code files!
 
 Pommel maintains a vector database of your code, enabling fast semantic search without loading files into context. Designed to complement AI coding assistants by providing targeted code discovery.
 
@@ -14,9 +14,11 @@ Pommel maintains a vector database of your code, enabling fast semantic search w
 
 - **Hybrid search** - Combines semantic vector search with keyword search (FTS5) using Reciprocal Rank Fusion for best-of-both-worlds results.
 - **Intelligent re-ranking** - Heuristic signals boost results based on name matches, exact phrases, file paths, recency, and code structure.
+- **Smart chunk splitting** - Automatically splits large methods/functions with overlap to stay within embedding context limits. Multiple split matches boost result scores.
 - **Semantic code search** - Find code by meaning, not just keywords. Search for "rate limiting logic" and find relevant implementations regardless of naming conventions.
 - **Always-fresh file watching** - Automatic file system monitoring keeps your index synchronized with code changes. No manual reindexing required.
 - **Multi-level chunks** - Search at file, class/module, or method/function granularity for precise results.
+- **Minified file detection** - Automatically skips minified JavaScript/CSS files that produce low-quality chunks.
 - **Low latency local embeddings** - All processing happens locally via Ollama with Jina Code Embeddings v2 (768-dim vectors).
 - **Context savings metrics** - See how much context window you're saving compared to grep-based approaches with `--metrics`.
 - **JSON output for agents** - All commands support `--json` flag for structured output, optimized for AI agent consumption.
