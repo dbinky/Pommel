@@ -373,6 +373,133 @@ function Test-GoInstalled {
     }
 }
 
+function Test-GitInstalled {
+    try {
+        $null = Get-Command git -ErrorAction Stop
+        return $true
+    }
+    catch {
+        return $false
+    }
+}
+
+function Install-PrebuiltBinaries {
+    param(
+        [string]$Version,
+        [string]$Arch,
+        [string]$BinDir
+    )
+
+    # Download archive
+    Write-Step "Downloading pre-built binaries..."
+    $archiveUrl = Get-ArchiveUrl -Version $Version -Arch $Arch
+    $tempZip = Join-Path $env:TEMP "pommel-$Version-windows-$Arch.zip"
+
+    try {
+        Invoke-WebRequest -Uri $archiveUrl -OutFile $tempZip -UseBasicParsing
+    }
+    catch {
+        Write-Warn "Failed to download from $archiveUrl"
+        return $false
+    }
+
+    # Extract binaries
+    Write-Step "Extracting binaries..."
+    try {
+        $tempExtract = Join-Path $env:TEMP "pommel-extract-$([System.Guid]::NewGuid().ToString('N'))"
+        Expand-Archive -Path $tempZip -DestinationPath $tempExtract -Force
+
+        $pmSource = Join-Path $tempExtract "pm-windows-$Arch.exe"
+        $daemonSource = Join-Path $tempExtract "pommeld-windows-$Arch.exe"
+
+        if (-not (Test-Path $pmSource) -or -not (Test-Path $daemonSource)) {
+            throw "Binaries not found in archive"
+        }
+
+        Copy-Item $pmSource (Join-Path $BinDir "pm.exe") -Force
+        Copy-Item $daemonSource (Join-Path $BinDir "pommeld.exe") -Force
+
+        # Test if binaries work (check for DLL issues)
+        $pmPath = Join-Path $BinDir "pm.exe"
+        $testResult = & $pmPath version 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            throw "Binary test failed - likely missing Visual C++ runtime"
+        }
+
+        Write-Success "Pre-built binaries installed"
+        return $true
+    }
+    catch {
+        Write-Warn "Pre-built binaries failed: $_"
+        return $false
+    }
+    finally {
+        Remove-Item $tempZip -Force -ErrorAction SilentlyContinue
+        if ($tempExtract -and (Test-Path $tempExtract)) {
+            Remove-Item $tempExtract -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
+function Install-FromSource {
+    param(
+        [string]$BinDir
+    )
+
+    if (-not (Test-GoInstalled)) {
+        return $false
+    }
+
+    if (-not (Test-GitInstalled)) {
+        Write-Warn "Git not found, cannot build from source"
+        return $false
+    }
+
+    $goVersion = (go version) -replace 'go version go', '' -replace ' .*', ''
+    Write-Success "Go $goVersion found - building from source"
+
+    $tempDir = Join-Path $env:TEMP "pommel-build-$([System.Guid]::NewGuid().ToString('N'))"
+
+    try {
+        Write-Step "Cloning repository..."
+        git clone --depth 1 "https://github.com/$script:Repo.git" $tempDir 2>&1 | Out-Null
+        if ($LASTEXITCODE -ne 0) {
+            throw "git clone failed"
+        }
+
+        Push-Location $tempDir
+
+        $gitVersion = git describe --tags 2>$null
+        if (-not $gitVersion) { $gitVersion = git rev-parse --short HEAD }
+        $gitCommit = git rev-parse --short HEAD
+        $buildDate = (Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ")
+        $ldflags = "-s -w -X main.version=$gitVersion -X main.commit=$gitCommit -X main.date=$buildDate"
+
+        Write-Step "Building binaries..."
+        $env:CGO_ENABLED = "1"
+
+        go build -trimpath -tags fts5 -ldflags $ldflags -o (Join-Path $BinDir "pm.exe") ./cmd/pm 2>&1
+        if ($LASTEXITCODE -ne 0) { throw "Failed to build pm.exe" }
+
+        go build -trimpath -tags fts5 -ldflags $ldflags -o (Join-Path $BinDir "pommeld.exe") ./cmd/pommeld 2>&1
+        if ($LASTEXITCODE -ne 0) { throw "Failed to build pommeld.exe" }
+
+        Write-Success "Built pm.exe and pommeld.exe from source"
+        Pop-Location
+        return $true
+    }
+    catch {
+        Write-Warn "Source build failed: $_"
+        if (Get-Location | Where-Object { $_.Path -eq $tempDir }) { Pop-Location }
+        return $false
+    }
+    finally {
+        if (Test-Path $tempDir) {
+            Remove-Item $tempDir -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
 function Install-PommelBinaries {
     param(
         [string]$Version,
@@ -382,67 +509,34 @@ function Install-PommelBinaries {
 
     $binDir = Join-Path $InstallPath "bin"
 
-    # Create directory if needed
     if (-not (Test-Path $binDir)) {
         New-Item -ItemType Directory -Path $binDir -Force | Out-Null
     }
 
-    # Check for Go
-    if (-not (Test-GoInstalled)) {
-        throw "Go is required but not installed. Install from https://go.dev/dl/"
+    # Strategy 1: Try pre-built binaries first (fastest)
+    if (Install-PrebuiltBinaries -Version $Version -Arch $Arch -BinDir $binDir) {
+        return $binDir
     }
 
-    $goVersion = (go version) -replace 'go version go', '' -replace ' .*', ''
-    Write-Success "Go $goVersion found"
-
-    # Clone and build from source
-    Write-Step "Cloning Pommel repository..."
-    $tempDir = Join-Path $env:TEMP "pommel-build-$([System.Guid]::NewGuid().ToString('N'))"
-
-    try {
-        git clone --depth 1 "https://github.com/$script:Repo.git" $tempDir 2>&1 | Out-Null
-        if ($LASTEXITCODE -ne 0) {
-            throw "git clone failed"
-        }
-        Write-Success "Cloned repository"
-
-        Push-Location $tempDir
-
-        # Get version info from git
-        $gitVersion = git describe --tags 2>$null
-        if (-not $gitVersion) { $gitVersion = git rev-parse --short HEAD }
-        $gitCommit = git rev-parse --short HEAD
-        $buildDate = (Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ")
-
-        $ldflags = "-s -w -X main.version=$gitVersion -X main.commit=$gitCommit -X main.date=$buildDate"
-
-        Write-Step "Building binaries..."
-
-        # Build pm.exe
-        $env:CGO_ENABLED = "1"
-        go build -trimpath -tags fts5 -ldflags $ldflags -o (Join-Path $binDir "pm.exe") ./cmd/pm 2>&1
-        if ($LASTEXITCODE -ne 0) {
-            throw "Failed to build pm.exe"
-        }
-
-        # Build pommeld.exe
-        go build -trimpath -tags fts5 -ldflags $ldflags -o (Join-Path $binDir "pommeld.exe") ./cmd/pommeld 2>&1
-        if ($LASTEXITCODE -ne 0) {
-            throw "Failed to build pommeld.exe"
-        }
-
-        Write-Success "Built pm.exe and pommeld.exe"
-
-        Pop-Location
-    }
-    finally {
-        # Cleanup
-        if (Test-Path $tempDir) {
-            Remove-Item $tempDir -Recurse -Force -ErrorAction SilentlyContinue
-        }
+    # Strategy 2: Build from source if Go is available
+    Write-Step "Trying to build from source..."
+    if (Install-FromSource -BinDir $binDir) {
+        return $binDir
     }
 
-    return $binDir
+    # Neither worked - provide helpful error
+    Write-Host ""
+    Write-Failure "Could not install Pommel binaries."
+    Write-Host ""
+    Write-Host "  Options to fix this:" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "  1. Install Visual C++ Redistributable (for pre-built binaries):"
+    Write-Host "     https://aka.ms/vs/17/release/vc_redist.x64.exe"
+    Write-Host ""
+    Write-Host "  2. Install Go (to build from source):"
+    Write-Host "     https://go.dev/dl/"
+    Write-Host ""
+    throw "Installation failed - see options above"
 }
 #endregion
 
