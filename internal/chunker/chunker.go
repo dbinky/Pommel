@@ -19,12 +19,16 @@ type Chunker interface {
 	Language() Language
 }
 
+// DefaultMaxTokens is the default token limit for chunk splitting
+const DefaultMaxTokens = 8000
+
 // ChunkerRegistry routes files to appropriate chunkers based on language
 type ChunkerRegistry struct {
 	parser          *Parser
 	chunkers        map[Language]Chunker
 	extensionToLang map[string]Language // maps file extensions to languages for O(1) lookup
 	fallback        Chunker
+	splitter        *Splitter
 }
 
 // NewChunkerRegistry creates a new ChunkerRegistry with all supported language chunkers.
@@ -78,6 +82,7 @@ func NewRegistryFromConfig(configDir string) (*ChunkerRegistry, error) {
 		chunkers:        make(map[Language]Chunker),
 		extensionToLang: make(map[string]Language),
 		fallback:        NewFallbackChunker(),
+		splitter:        NewSplitter(DefaultMaxTokens),
 	}
 
 	if err := reg.loadConfigs(configDir); err != nil {
@@ -175,13 +180,28 @@ func (r *ChunkerRegistry) Chunk(ctx context.Context, file *models.SourceFile) (*
 		return nil, fmt.Errorf("file is required")
 	}
 
+	// Skip minified files - they produce low-quality chunks
+	if IsMinified(file.Content, file.Path) {
+		return &models.ChunkResult{
+			File:   file,
+			Chunks: []*models.Chunk{},
+		}, nil
+	}
+
+	var result *models.ChunkResult
+	var err error
+
 	// Try to find chunker by file extension first (config-driven approach)
 	ext := strings.ToLower(filepath.Ext(file.Path))
 	if lang, ok := r.extensionToLang[ext]; ok {
 		if chunker, found := r.chunkers[lang]; found {
 			// Set language to the config's language name for this extension
 			file.Language = string(lang)
-			return chunker.Chunk(ctx, file)
+			result, err = chunker.Chunk(ctx, file)
+			if err != nil {
+				return nil, err
+			}
+			return r.processChunks(result, len(file.Content)), nil
 		}
 	}
 
@@ -189,12 +209,20 @@ func (r *ChunkerRegistry) Chunk(ctx context.Context, file *models.SourceFile) (*
 	lang := DetectLanguage(file.Path)
 	if chunker, ok := r.chunkers[lang]; ok {
 		file.Language = string(lang)
-		return chunker.Chunk(ctx, file)
+		result, err = chunker.Chunk(ctx, file)
+		if err != nil {
+			return nil, err
+		}
+		return r.processChunks(result, len(file.Content)), nil
 	}
 
 	// Use fallback for unsupported languages
 	file.Language = string(lang)
-	return r.fallback.Chunk(ctx, file)
+	result, err = r.fallback.Chunk(ctx, file)
+	if err != nil {
+		return nil, err
+	}
+	return r.processChunks(result, len(file.Content)), nil
 }
 
 // SupportedLanguages returns a list of all languages with registered chunkers
@@ -210,4 +238,61 @@ func (r *ChunkerRegistry) SupportedLanguages() []Language {
 func (r *ChunkerRegistry) IsSupported(lang Language) bool {
 	_, ok := r.chunkers[lang]
 	return ok
+}
+
+// SetMaxTokens configures the maximum token limit for chunk splitting.
+// This should be called with the embedding provider's context limit.
+func (r *ChunkerRegistry) SetMaxTokens(maxTokens int) {
+	r.splitter = NewSplitter(maxTokens)
+}
+
+// processChunks applies splitting logic to chunks that exceed the token limit.
+// File-level chunks are truncated or skipped for large files.
+// Class-level chunks are truncated.
+// Method-level chunks are split with overlap.
+func (r *ChunkerRegistry) processChunks(result *models.ChunkResult, fileSize int) *models.ChunkResult {
+	if result == nil || len(result.Chunks) == 0 {
+		return result
+	}
+
+	processed := &models.ChunkResult{
+		File:   result.File,
+		Chunks: make([]*models.Chunk, 0, len(result.Chunks)),
+		Errors: result.Errors,
+	}
+
+	for _, chunk := range result.Chunks {
+		switch chunk.Level {
+		case models.ChunkLevelFile:
+			// Handle file-level chunks (may skip or truncate)
+			if sc := r.splitter.HandleFileChunk(chunk, fileSize); sc != nil {
+				newChunk := sc.ToChunk(chunk)
+				newChunk.SetHashes()
+				processed.Chunks = append(processed.Chunks, newChunk)
+			}
+
+		case models.ChunkLevelClass:
+			// Handle class-level chunks (truncate if needed)
+			if sc := r.splitter.HandleClassChunk(chunk); sc != nil {
+				newChunk := sc.ToChunk(chunk)
+				newChunk.SetHashes()
+				processed.Chunks = append(processed.Chunks, newChunk)
+			}
+
+		case models.ChunkLevelMethod, models.ChunkLevelSection:
+			// Split method-level chunks if needed
+			splits := r.splitter.SplitMethod(chunk)
+			for _, sc := range splits {
+				newChunk := sc.ToChunk(chunk)
+				newChunk.SetHashes()
+				processed.Chunks = append(processed.Chunks, newChunk)
+			}
+
+		default:
+			// Pass through any other chunks unchanged
+			processed.Chunks = append(processed.Chunks, chunk)
+		}
+	}
+
+	return processed
 }
