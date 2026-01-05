@@ -290,7 +290,7 @@ func TestHandleFileChunk_ZeroFileSize(t *testing.T) {
 }
 
 func TestHandleFileChunk_SingleLineContent(t *testing.T) {
-	s := NewSplitter(100) // Low limit
+	s := NewSplitter(100)               // Low limit
 	content := strings.Repeat("x", 500) // Single line, will be truncated
 	chunk := &models.Chunk{
 		Content:   content,

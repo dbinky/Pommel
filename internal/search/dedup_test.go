@@ -159,9 +159,9 @@ func TestDeduplicateSplitResults_MixedSplitsAndNonSplits(t *testing.T) {
 
 	// Should be sorted by score
 	// After boost, split group has: 0.75 * 1.1 = 0.825
-	assert.Equal(t, float32(0.85), deduplicated[0].Score)  // regular-1
+	assert.Equal(t, float32(0.85), deduplicated[0].Score)          // regular-1
 	assert.InDelta(t, 0.825, float64(deduplicated[1].Score), 0.01) // split group boosted
-	assert.Equal(t, float32(0.60), deduplicated[2].Score)  // regular-2
+	assert.Equal(t, float32(0.60), deduplicated[2].Score)          // regular-2
 
 	// Check matched splits count
 	assert.Equal(t, 0, deduplicated[0].MatchedSplits) // Not a split
