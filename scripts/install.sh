@@ -375,8 +375,8 @@ install_pommel() {
     DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
     LDFLAGS="-s -w -X main.version=${VERSION} -X main.commit=${COMMIT} -X main.date=${DATE}"
 
-    go build -trimpath -ldflags "$LDFLAGS" -o pm ./cmd/pm
-    go build -trimpath -ldflags "$LDFLAGS" -o pommeld ./cmd/pommeld
+    go build -tags fts5 -trimpath -ldflags "$LDFLAGS" -o pm ./cmd/pm
+    go build -tags fts5 -trimpath -ldflags "$LDFLAGS" -o pommeld ./cmd/pommeld
 
     # Install binaries
     info "Installing to $INSTALL_DIR..."
