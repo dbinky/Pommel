@@ -943,18 +943,6 @@ Average tool calls per Explorer query: **8.2**
 
 **Key Observation:** Several Explorer agents used Pommel (`pm search`) as part of their exploration strategy, indicating complementary usage.
 
-### Cost-Benefit Analysis
-
-For a typical development session with 50 code searches:
-
-| Approach | Tokens Used | Estimated Cost* | Time |
-|----------|-------------|-----------------|------|
-| All Pommel | 25,000 | $0.05 | 1.1 seconds |
-| All Explorer | 10,558,150 | $21.12 | 12.5 minutes |
-| Hybrid (80/20) | 2,136,630 | $4.27 | 2.6 minutes |
-
-*Assuming $2/M input tokens
-
 ### Recommendations
 
 1. **Default to Pommel** for initial code discovery
