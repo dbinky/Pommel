@@ -421,3 +421,420 @@ func TestPathSeparatorNormalization(t *testing.T) {
 	// Should handle paths with OS-specific separators
 	assert.True(t, ignorer.ShouldIgnore(filepath.Join(tmpDir, "vendor", "pkg", "file.go")))
 }
+
+// =============================================================================
+// Cross-Platform Path Separator Tests (Windows Compatibility)
+// =============================================================================
+// These tests verify that patterns with forward slashes work correctly when
+// matching against paths that may contain backslashes (Windows-style paths).
+// The core bug: matchDoubleStarPattern doesn't normalize path separators,
+// causing patterns like **/.venv/** to fail on Windows where paths use \.
+
+// TestDoubleStarPatternWithBackslashPaths verifies ** patterns work with backslash paths
+func TestDoubleStarPatternWithBackslashPaths(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Pattern uses forward slashes (standard gitignore format)
+	patterns := []string{"**/.venv/**"}
+	ignorer, err := NewIgnorer(tmpDir, patterns)
+	require.NoError(t, err)
+
+	// Test with backslash-separated paths (simulating Windows)
+	// These paths simulate what fsnotify would provide on Windows
+	testCases := []struct {
+		name     string
+		path     string
+		expected bool
+	}{
+		{
+			name:     "venv root with backslashes",
+			path:     `.venv\site-packages\foo.py`,
+			expected: true,
+		},
+		{
+			name:     "venv nested with backslashes",
+			path:     `project\.venv\lib\python3.9\site-packages\requests\api.py`,
+			expected: true,
+		},
+		{
+			name:     "venv direct child with backslashes",
+			path:     `.venv\pyvenv.cfg`,
+			expected: true,
+		},
+		{
+			name:     "non-matching path with backslashes",
+			path:     `src\main.py`,
+			expected: false,
+		},
+		{
+			name:     "similar but non-matching with backslashes",
+			path:     `not_venv\file.py`,
+			expected: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := ignorer.ShouldIgnore(tc.path)
+			assert.Equal(t, tc.expected, result, "path: %s", tc.path)
+		})
+	}
+}
+
+// TestDoubleStarPatternWithMixedSeparators verifies ** patterns work with mixed separators
+func TestDoubleStarPatternWithMixedSeparators(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	patterns := []string{"**/node_modules/**"}
+	ignorer, err := NewIgnorer(tmpDir, patterns)
+	require.NoError(t, err)
+
+	// Test various separator combinations
+	testCases := []struct {
+		name     string
+		path     string
+		expected bool
+	}{
+		{
+			name:     "all forward slashes",
+			path:     "src/node_modules/lodash/index.js",
+			expected: true,
+		},
+		{
+			name:     "all backslashes",
+			path:     `src\node_modules\lodash\index.js`,
+			expected: true,
+		},
+		{
+			name:     "mixed separators forward then back",
+			path:     `src/node_modules\lodash\index.js`,
+			expected: true,
+		},
+		{
+			name:     "mixed separators back then forward",
+			path:     `src\node_modules/lodash/index.js`,
+			expected: true,
+		},
+		{
+			name:     "root node_modules with backslashes",
+			path:     `node_modules\package\file.js`,
+			expected: true,
+		},
+		{
+			name:     "deeply nested with backslashes",
+			path:     `a\b\c\node_modules\d\e\f.js`,
+			expected: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := ignorer.ShouldIgnore(tc.path)
+			assert.Equal(t, tc.expected, result, "path: %s", tc.path)
+		})
+	}
+}
+
+// TestDoubleStarDirectoryPatternVariations tests various ** directory pattern formats
+func TestDoubleStarDirectoryPatternVariations(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	testCases := []struct {
+		name     string
+		patterns []string
+		path     string
+		expected bool
+	}{
+		{
+			name:     "double star prefix and suffix with venv",
+			patterns: []string{"**/.venv/**"},
+			path:     `.venv\site-packages\foo.py`,
+			expected: true,
+		},
+		{
+			name:     "double star prefix only",
+			patterns: []string{"**/.venv"},
+			path:     `project\.venv`,
+			expected: true,
+		},
+		{
+			name:     "double star suffix with extension",
+			patterns: []string{"**/*.pyc"},
+			path:     `.venv\__pycache__\module.pyc`,
+			expected: true,
+		},
+		{
+			name:     "double star with __pycache__",
+			patterns: []string{"**/__pycache__/**"},
+			path:     `src\utils\__pycache__\helper.cpython-39.pyc`,
+			expected: true,
+		},
+		{
+			name:     "double star with .git",
+			patterns: []string{"**/.git/**"},
+			path:     `.git\objects\pack\pack-abc.idx`,
+			expected: true,
+		},
+		{
+			name:     "multiple double star patterns",
+			patterns: []string{"**/.venv/**", "**/node_modules/**", "**/__pycache__/**"},
+			path:     `backend\.venv\lib\site-packages\django\core\handlers\base.py`,
+			expected: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ignorer, err := NewIgnorer(tmpDir, tc.patterns)
+			require.NoError(t, err)
+			result := ignorer.ShouldIgnore(tc.path)
+			assert.Equal(t, tc.expected, result, "patterns: %v, path: %s", tc.patterns, tc.path)
+		})
+	}
+}
+
+// TestDoubleStarPatternEdgeCases tests edge cases for ** pattern matching
+func TestDoubleStarPatternEdgeCases(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	testCases := []struct {
+		name     string
+		patterns []string
+		path     string
+		expected bool
+	}{
+		{
+			name:     "empty path component before venv",
+			patterns: []string{"**/.venv/**"},
+			path:     `.venv\file.py`,
+			expected: true,
+		},
+		{
+			name:     "venv at root level",
+			patterns: []string{"**/.venv/**"},
+			path:     `.venv`,
+			expected: false, // The directory itself without contents
+		},
+		{
+			name:     "venv with trailing content",
+			patterns: []string{"**/.venv/**"},
+			path:     `.venv\`,
+			expected: false, // Trailing separator only
+		},
+		{
+			name:     "similar name not matching venv",
+			patterns: []string{"**/.venv/**"},
+			path:     `.venv_backup\file.py`,
+			expected: false,
+		},
+		{
+			name:     "venv in middle of path",
+			patterns: []string{"**/.venv/**"},
+			path:     `projects\myapp\.venv\lib\python.py`,
+			expected: true,
+		},
+		{
+			name:     "deeply nested venv",
+			patterns: []string{"**/.venv/**"},
+			path:     `a\b\c\d\e\.venv\f\g\h.py`,
+			expected: true,
+		},
+		{
+			name:     "pattern without leading double star",
+			patterns: []string{".venv/**"},
+			path:     `.venv\site-packages\pkg.py`,
+			expected: true,
+		},
+		{
+			name:     "pattern without leading double star - nested should not match",
+			patterns: []string{".venv/**"},
+			path:     `subdir\.venv\site-packages\pkg.py`,
+			expected: false, // .venv/** only matches at root
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ignorer, err := NewIgnorer(tmpDir, tc.patterns)
+			require.NoError(t, err)
+			result := ignorer.ShouldIgnore(tc.path)
+			assert.Equal(t, tc.expected, result, "patterns: %v, path: %s", tc.patterns, tc.path)
+		})
+	}
+}
+
+// TestWindowsAbsolutePathsWithDoubleStarPatterns tests Windows absolute paths
+func TestWindowsAbsolutePathsWithDoubleStarPatterns(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	patterns := []string{"**/.venv/**", "**/node_modules/**"}
+	ignorer, err := NewIgnorer(tmpDir, patterns)
+	require.NoError(t, err)
+
+	// Simulate Windows absolute paths that would be converted to relative
+	// After normalization, these should become relative paths
+	testCases := []struct {
+		name     string
+		path     string
+		expected bool
+	}{
+		{
+			name:     "relative venv path with backslashes",
+			path:     `.venv\Lib\site-packages\pip\__init__.py`,
+			expected: true,
+		},
+		{
+			name:     "relative node_modules with backslashes",
+			path:     `frontend\node_modules\react\index.js`,
+			expected: true,
+		},
+		{
+			name:     "source file should not be ignored",
+			path:     `src\components\App.tsx`,
+			expected: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := ignorer.ShouldIgnore(tc.path)
+			assert.Equal(t, tc.expected, result, "path: %s", tc.path)
+		})
+	}
+}
+
+// TestDoubleStarPatternFailureCases tests patterns that should NOT match
+func TestDoubleStarPatternFailureCases(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	patterns := []string{"**/.venv/**"}
+	ignorer, err := NewIgnorer(tmpDir, patterns)
+	require.NoError(t, err)
+
+	// These should all return false (not ignored)
+	testCases := []struct {
+		name string
+		path string
+	}{
+		{
+			name: "regular source file",
+			path: `src\main.py`,
+		},
+		{
+			name: "file with venv in name but not directory",
+			path: `src\venv_setup.py`,
+		},
+		{
+			name: "directory similar to venv",
+			path: `venv\file.py`, // Note: venv not .venv
+		},
+		{
+			name: "hidden file not in venv",
+			path: `.env`,
+		},
+		{
+			name: "nested regular file",
+			path: `project\src\utils\helper.py`,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := ignorer.ShouldIgnore(tc.path)
+			assert.False(t, result, "path %s should not be ignored", tc.path)
+		})
+	}
+}
+
+// TestMultipleDoubleStarPatternsWithBackslashes tests combining multiple ** patterns
+func TestMultipleDoubleStarPatternsWithBackslashes(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Common patterns that would be in a typical config
+	patterns := []string{
+		"**/node_modules/**",
+		"**/.venv/**",
+		"**/venv/**",
+		"**/__pycache__/**",
+		"**/.git/**",
+		"**/bin/**",
+		"**/obj/**",
+	}
+	ignorer, err := NewIgnorer(tmpDir, patterns)
+	require.NoError(t, err)
+
+	shouldIgnore := []struct {
+		name string
+		path string
+	}{
+		{"node_modules", `frontend\node_modules\lodash\index.js`},
+		{".venv", `backend\.venv\lib\site-packages\django.py`},
+		{"venv", `backend\venv\lib\site-packages\flask.py`},
+		{"__pycache__", `src\utils\__pycache__\helper.cpython-39.pyc`},
+		{".git", `.git\objects\ab\cdef123`},
+		{"bin", `project\bin\debug\app.exe`},
+		{"obj", `project\obj\release\app.dll`},
+	}
+
+	for _, tc := range shouldIgnore {
+		t.Run("ignore_"+tc.name, func(t *testing.T) {
+			result := ignorer.ShouldIgnore(tc.path)
+			assert.True(t, result, "path %s should be ignored", tc.path)
+		})
+	}
+
+	shouldNotIgnore := []struct {
+		name string
+		path string
+	}{
+		{"python source", `backend\src\app.py`},
+		{"typescript source", `frontend\src\App.tsx`},
+		{"config file", `project\config.yaml`},
+		{"readme", `README.md`},
+	}
+
+	for _, tc := range shouldNotIgnore {
+		t.Run("allow_"+tc.name, func(t *testing.T) {
+			result := ignorer.ShouldIgnore(tc.path)
+			assert.False(t, result, "path %s should not be ignored", tc.path)
+		})
+	}
+}
+
+// TestDoubleStarWithNestedDirectoryPattern tests ** with multi-component directory names
+func TestDoubleStarWithNestedDirectoryPattern(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	patterns := []string{"**/site-packages/**"}
+	ignorer, err := NewIgnorer(tmpDir, patterns)
+	require.NoError(t, err)
+
+	testCases := []struct {
+		name     string
+		path     string
+		expected bool
+	}{
+		{
+			name:     "site-packages with backslashes",
+			path:     `.venv\Lib\site-packages\requests\api.py`,
+			expected: true,
+		},
+		{
+			name:     "site-packages at different depth",
+			path:     `venv\lib\python3.9\site-packages\flask\app.py`,
+			expected: true,
+		},
+		{
+			name:     "non-matching path",
+			path:     `src\packages\main.py`,
+			expected: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := ignorer.ShouldIgnore(tc.path)
+			assert.Equal(t, tc.expected, result, "path: %s", tc.path)
+		})
+	}
+}
