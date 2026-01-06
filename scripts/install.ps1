@@ -895,18 +895,20 @@ function Main {
             Write-Host "                   Installation Complete!                       " -ForegroundColor Green
             Write-Host "================================================================" -ForegroundColor Green
             Write-Host ""
-            Write-Host "Next steps:" -ForegroundColor Cyan
-            Write-Host "  1. Open a new terminal (to refresh PATH)"
-            Write-Host "  2. Navigate to your project directory"
-            Write-Host "  3. Run: pm init"
-            Write-Host "  4. Start the daemon: pm start"
-            Write-Host "  5. Search your code: pm search ""your query"""
+            Write-Host "Getting Started:" -ForegroundColor Green
             Write-Host ""
-            Write-Host "For AI agents (Claude Code, etc.):"
-            Write-Host "  pm search ""authentication middleware"" --json"
+            Write-Host "  1. cd <your project directory>"
+            Write-Host "  2. pm init"
+            Write-Host "  3. pm start"
             Write-Host ""
-            Write-Host "Change provider later:"
-            Write-Host "  pm config provider"
+            Write-Host "Use 'pm status' to monitor indexing progress - but you can" -ForegroundColor Cyan
+            Write-Host "use Pommel with a partial index, too." -ForegroundColor Cyan
+            Write-Host ""
+            Write-Host "================================================================" -ForegroundColor Green
+            Write-Host ""
+            Write-Host "Search your code:        pm search ""your query"""
+            Write-Host "For AI agents:           pm search ""query"" --json"
+            Write-Host "Change provider later:   pm config provider"
             Write-Host ""
             Write-Host "Installed locations:" -ForegroundColor Cyan
             Write-Host "  Binaries:       $binDir"
