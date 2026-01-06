@@ -110,6 +110,9 @@ func TestDefault(t *testing.T) {
 	assert.Contains(t, cfg.ExcludePatterns, "**/node_modules/**")
 	assert.Contains(t, cfg.ExcludePatterns, "**/.git/**")
 	assert.Contains(t, cfg.ExcludePatterns, "**/.pommel/**")
+	// Python virtual environments (common cause of indexing too many files)
+	assert.Contains(t, cfg.ExcludePatterns, "**/.venv/**")
+	assert.Contains(t, cfg.ExcludePatterns, "**/venv/**")
 
 	// Watcher
 	assert.Equal(t, 500, cfg.Watcher.DebounceMs)

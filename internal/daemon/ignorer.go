@@ -175,25 +175,72 @@ func (i *Ignorer) matchesPattern(path string, pat pattern) bool {
 
 // matchDoubleStarPattern matches patterns containing **
 func (i *Ignorer) matchDoubleStarPattern(path, pattern string, dirOnly bool) bool {
+	// Normalize separators for cross-platform compatibility
+	// This ensures patterns with forward slashes match paths with backslashes (Windows)
+	// We explicitly replace backslashes because filepath.ToSlash only converts the
+	// OS-native separator, which doesn't help when testing with backslash paths on Unix
+	normalizedPath := strings.ReplaceAll(path, "\\", "/")
+	normalizedPattern := strings.ReplaceAll(pattern, "\\", "/")
+
+	// Trim trailing slashes to avoid matching directories without content
+	// e.g., ".venv/" should not match "**/.venv/**" (the pattern requires content inside)
+	normalizedPath = strings.TrimSuffix(normalizedPath, "/")
+
 	// Handle **/*.ext pattern - match at any depth
-	if strings.HasPrefix(pattern, "**/") {
-		subPattern := pattern[3:] // Remove **/
+	if strings.HasPrefix(normalizedPattern, "**/") {
+		subPattern := normalizedPattern[3:] // Remove **/
+
 		// Check against basename
-		base := filepath.Base(path)
+		base := filepath.Base(normalizedPath)
 		matched, _ := filepath.Match(subPattern, base)
 		if matched {
 			return true
 		}
+
+		// Handle patterns like **/.venv/** (directory with trailing **)
+		// These need special handling to match paths inside the directory
+		if strings.HasSuffix(subPattern, "/**") {
+			dirName := subPattern[:len(subPattern)-3] // Remove trailing /**
+
+			// Check if any path component matches the directory name
+			parts := strings.Split(normalizedPath, "/")
+			for idx, part := range parts {
+				if part == dirName {
+					// Check if there are actual (non-empty) components after this one
+					hasContentAfter := false
+					for j := idx + 1; j < len(parts); j++ {
+						if parts[j] != "" {
+							hasContentAfter = true
+							break
+						}
+					}
+					if hasContentAfter {
+						return true
+					}
+				}
+			}
+		}
+
 		// Also check against all path components
-		parts := strings.Split(path, string(filepath.Separator))
-		for i := 0; i < len(parts); i++ {
-			subPath := filepath.Join(parts[i:]...)
+		parts := strings.Split(normalizedPath, "/")
+		for idx := 0; idx < len(parts); idx++ {
+			subPath := strings.Join(parts[idx:], "/")
 			matched, _ := filepath.Match(subPattern, subPath)
 			if matched {
 				return true
 			}
 		}
 	}
+
+	// Handle patterns that end with ** but don't start with **
+	// e.g., ".venv/**" should match ".venv/anything"
+	if strings.HasSuffix(normalizedPattern, "/**") && !strings.HasPrefix(normalizedPattern, "**/") {
+		prefix := normalizedPattern[:len(normalizedPattern)-3] // Remove /**
+		if strings.HasPrefix(normalizedPath, prefix+"/") || normalizedPath == prefix {
+			return true
+		}
+	}
+
 	return false
 }
 

@@ -27,6 +27,8 @@ func Default() *Config {
 			"**/__pycache__/**",
 			"**/.git/**",
 			"**/.pommel/**",
+			"**/.venv/**",
+			"**/venv/**",
 		},
 		Watcher: WatcherConfig{
 			DebounceMs:  500,
