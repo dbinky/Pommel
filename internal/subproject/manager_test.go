@@ -15,7 +15,7 @@ import (
 
 func setupTestDB(t *testing.T) *db.DB {
 	tmpDir := t.TempDir()
-	database, err := db.Open(tmpDir)
+	database, err := db.Open(tmpDir, db.EmbeddingDimension)
 	require.NoError(t, err)
 
 	ctx := context.Background()

@@ -85,7 +85,7 @@ func testRouterLogger() *slog.Logger {
 
 // setupRouterTestDB creates a temporary database for router testing
 func setupRouterTestDB(t *testing.T, projectRoot string) *db.DB {
-	database, err := db.Open(projectRoot)
+	database, err := db.Open(projectRoot, db.EmbeddingDimension)
 	require.NoError(t, err)
 
 	err = database.Migrate(context.Background())

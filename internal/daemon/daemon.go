@@ -115,30 +115,7 @@ func New(projectRoot string, cfg *config.Config, logger *slog.Logger) (*Daemon, 
 		logger = slog.New(slog.NewTextHandler(os.Stderr, nil))
 	}
 
-	// Open database
-	database, err := db.Open(projectRoot)
-	if err != nil {
-		return nil, &DaemonError{
-			Code:       "DATABASE_OPEN_FAILED",
-			Message:    "Failed to open Pommel database",
-			Suggestion: "Check disk space and permissions for the .pommel directory. If the database is corrupted, try deleting .pommel/pommel.db and running 'pm init'",
-			Cause:      err,
-		}
-	}
-
-	// Run migrations
-	ctx := context.Background()
-	if err := database.Migrate(ctx); err != nil {
-		database.Close()
-		return nil, &DaemonError{
-			Code:       "DATABASE_MIGRATION_FAILED",
-			Message:    "Failed to run database migrations",
-			Suggestion: "This may indicate a corrupted database. Try deleting .pommel/pommel.db and running 'pm init'",
-			Cause:      err,
-		}
-	}
-
-	// Build provider config from embedding settings
+	// Build provider config from embedding settings (needed before db.Open for dimensions)
 	providerCfg := &embedder.ProviderConfig{
 		Provider: cfg.Embedding.Provider,
 		Ollama: embedder.OllamaProviderSettings{
@@ -162,6 +139,32 @@ func New(projectRoot string, cfg *config.Config, logger *slog.Logger) (*Daemon, 
 	// Use legacy model field if provider-specific model not set
 	if providerCfg.Ollama.Model == "" {
 		providerCfg.Ollama.Model = cfg.Embedding.Model
+	}
+
+	// Get embedding dimensions from provider before opening database
+	dims := embedder.ProviderType(providerCfg.Provider).DefaultDimensions()
+
+	// Open database with provider-specific dimensions
+	database, err := db.Open(projectRoot, dims)
+	if err != nil {
+		return nil, &DaemonError{
+			Code:       "DATABASE_OPEN_FAILED",
+			Message:    "Failed to open Pommel database",
+			Suggestion: "Check disk space and permissions for the .pommel directory. If the database is corrupted, try deleting .pommel/pommel.db and running 'pm init'",
+			Cause:      err,
+		}
+	}
+
+	// Run migrations
+	ctx := context.Background()
+	if err := database.Migrate(ctx); err != nil {
+		database.Close()
+		return nil, &DaemonError{
+			Code:       "DATABASE_MIGRATION_FAILED",
+			Message:    "Failed to run database migrations",
+			Suggestion: "This may indicate a corrupted database. Try deleting .pommel/pommel.db and running 'pm init'",
+			Cause:      err,
+		}
 	}
 
 	// Create embedder based on provider config

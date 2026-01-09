@@ -105,7 +105,7 @@ func TestInitCmd_CreatesDatabase(t *testing.T) {
 	require.NoError(t, err, "Database file should exist")
 
 	// Verify database can be opened and has correct schema
-	database, err := db.Open(tmpDir)
+	database, err := db.Open(tmpDir, db.EmbeddingDimension)
 	require.NoError(t, err, "Database should be openable")
 	defer database.Close()
 

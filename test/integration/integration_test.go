@@ -489,7 +489,7 @@ func TestIntegration_FullFlow(t *testing.T) {
 	require.NoError(t, err, "Failed to save config")
 
 	// Initialize database
-	database, err := db.Open(projectRoot)
+	database, err := db.Open(projectRoot, db.EmbeddingDimension)
 	require.NoError(t, err, "Failed to open database")
 	err = database.Migrate(context.Background())
 	require.NoError(t, err, "Failed to migrate database")
@@ -597,7 +597,7 @@ func TestIntegration_SearchReturnsRelevantResults(t *testing.T) {
 	err = loader.Save(cfg)
 	require.NoError(t, err)
 
-	database, err := db.Open(projectRoot)
+	database, err := db.Open(projectRoot, db.EmbeddingDimension)
 	require.NoError(t, err)
 	err = database.Migrate(context.Background())
 	require.NoError(t, err)
@@ -707,7 +707,7 @@ func TestIntegration_StatusEndpoint(t *testing.T) {
 	err = loader.Save(cfg)
 	require.NoError(t, err)
 
-	database, err := db.Open(projectRoot)
+	database, err := db.Open(projectRoot, db.EmbeddingDimension)
 	require.NoError(t, err)
 	err = database.Migrate(context.Background())
 	require.NoError(t, err)
@@ -785,7 +785,7 @@ func TestIntegration_ReindexEndpoint(t *testing.T) {
 	err = loader.Save(cfg)
 	require.NoError(t, err)
 
-	database, err := db.Open(projectRoot)
+	database, err := db.Open(projectRoot, db.EmbeddingDimension)
 	require.NoError(t, err)
 	err = database.Migrate(context.Background())
 	require.NoError(t, err)
@@ -856,7 +856,7 @@ func TestIntegration_FileWatchingAndReindexing(t *testing.T) {
 	err = loader.Save(cfg)
 	require.NoError(t, err)
 
-	database, err := db.Open(projectRoot)
+	database, err := db.Open(projectRoot, db.EmbeddingDimension)
 	require.NoError(t, err)
 	err = database.Migrate(context.Background())
 	require.NoError(t, err)

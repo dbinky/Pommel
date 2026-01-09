@@ -15,6 +15,7 @@ import (
 
 	"github.com/pommel-dev/pommel/internal/config"
 	"github.com/pommel-dev/pommel/internal/db"
+	"github.com/pommel-dev/pommel/internal/embedder"
 	"github.com/pommel-dev/pommel/internal/subproject"
 	"github.com/spf13/cobra"
 )
@@ -162,9 +163,14 @@ func runInitFull(projectRoot string, out, errOut *bytes.Buffer, jsonOutput bool,
 		}
 	}
 
-	// Initialize database
+	// Initialize database with provider-specific dimensions
 	ctx := context.Background()
-	database, err := db.Open(projectRoot)
+	provider := cfg.Embedding.Provider
+	if provider == "" {
+		provider = "ollama" // Default for backward compatibility
+	}
+	dims := embedder.ProviderType(provider).DefaultDimensions()
+	database, err := db.Open(projectRoot, dims)
 	if err != nil {
 		return WrapError(err,
 			"Failed to initialize database",

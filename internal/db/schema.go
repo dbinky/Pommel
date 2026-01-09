@@ -133,13 +133,13 @@ func (db *DB) migrateV1(ctx context.Context) error {
 	}
 
 	// Chunk embeddings table: sqlite-vec virtual table for vector similarity search
-	// Uses 768-dimensional vectors to match Jina Code Embeddings
-	if _, err := db.Exec(ctx, `
+	// Dimensions configured per-provider (768=ollama, 1536=openai, 1024=voyage)
+	if _, err := db.Exec(ctx, fmt.Sprintf(`
 		CREATE VIRTUAL TABLE IF NOT EXISTS chunk_embeddings USING vec0(
 			chunk_id TEXT PRIMARY KEY,
-			embedding FLOAT[768]
+			embedding FLOAT[%d]
 		)
-	`); err != nil {
+	`, db.dimensions)); err != nil {
 		return fmt.Errorf("failed to create chunk_embeddings table: %w", err)
 	}
 

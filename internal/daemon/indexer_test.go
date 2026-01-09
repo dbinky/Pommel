@@ -53,7 +53,7 @@ func testConfig() *config.Config {
 
 // setupTestDB creates a temporary database for testing
 func setupTestDB(t *testing.T, projectRoot string) *db.DB {
-	database, err := db.Open(projectRoot)
+	database, err := db.Open(projectRoot, db.EmbeddingDimension)
 	require.NoError(t, err)
 
 	err = database.Migrate(context.Background())
