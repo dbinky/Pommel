@@ -138,11 +138,43 @@ func New(projectRoot string, cfg *config.Config, logger *slog.Logger) (*Daemon, 
 		}
 	}
 
-	// Create Ollama embedder
-	baseEmbedder := embedder.NewOllamaClient(embedder.OllamaConfig{
-		BaseURL: "http://localhost:11434",
-		Model:   cfg.Embedding.Model,
-	})
+	// Build provider config from embedding settings
+	providerCfg := &embedder.ProviderConfig{
+		Provider: cfg.Embedding.Provider,
+		Ollama: embedder.OllamaProviderSettings{
+			URL:   cfg.Embedding.GetOllamaURL(),
+			Model: cfg.Embedding.Ollama.Model,
+		},
+		OpenAI: embedder.OpenAIProviderSettings{
+			APIKey: cfg.Embedding.GetOpenAIAPIKey(),
+			Model:  cfg.Embedding.OpenAI.Model,
+		},
+		Voyage: embedder.VoyageProviderSettings{
+			APIKey: cfg.Embedding.GetVoyageAPIKey(),
+			Model:  cfg.Embedding.Voyage.Model,
+		},
+	}
+
+	// Default to Ollama for backward compatibility
+	if providerCfg.Provider == "" {
+		providerCfg.Provider = "ollama"
+	}
+	// Use legacy model field if provider-specific model not set
+	if providerCfg.Ollama.Model == "" {
+		providerCfg.Ollama.Model = cfg.Embedding.Model
+	}
+
+	// Create embedder based on provider config
+	baseEmbedder, err := embedder.NewFromConfig(providerCfg)
+	if err != nil {
+		database.Close()
+		return nil, &DaemonError{
+			Code:       "EMBEDDER_CREATE_FAILED",
+			Message:    "Failed to create embedding provider",
+			Suggestion: "Check your embedding configuration. Run 'pm config provider' to reconfigure",
+			Cause:      err,
+		}
+	}
 
 	// Create cached embedder
 	cacheSize := cfg.Embedding.CacheSize
