@@ -1299,7 +1299,7 @@ func setupFTSTestDB(t *testing.T) *DB {
 		t.Fatalf("Failed to create .pommel dir: %v", err)
 	}
 
-	db, err := Open(tempDir)
+	db, err := Open(tempDir, EmbeddingDimension)
 	if err != nil {
 		t.Fatalf("Failed to open test database: %v", err)
 	}
@@ -1334,7 +1334,7 @@ func setupFTSTestDBNoMigration(t *testing.T) *DB {
 		t.Fatalf("Failed to create .pommel dir: %v", err)
 	}
 
-	db, err := Open(tempDir)
+	db, err := Open(tempDir, EmbeddingDimension)
 	if err != nil {
 		t.Fatalf("Failed to open test database: %v", err)
 	}

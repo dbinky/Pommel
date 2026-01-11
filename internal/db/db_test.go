@@ -16,7 +16,7 @@ import (
 func TestOpen(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	db, err := Open(tmpDir)
+	db, err := Open(tmpDir, EmbeddingDimension)
 	require.NoError(t, err)
 	defer db.Close()
 
@@ -39,7 +39,7 @@ func TestOpen_CreatesDirectory(t *testing.T) {
 	err := os.MkdirAll(projectDir, 0755)
 	require.NoError(t, err)
 
-	db, err := Open(projectDir)
+	db, err := Open(projectDir, EmbeddingDimension)
 	require.NoError(t, err)
 	defer db.Close()
 
@@ -53,7 +53,7 @@ func TestOpen_CreatesDirectory(t *testing.T) {
 func TestSqliteVecAvailable(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	db, err := Open(tmpDir)
+	db, err := Open(tmpDir, EmbeddingDimension)
 	require.NoError(t, err)
 	defer db.Close()
 
@@ -67,7 +67,7 @@ func TestSqliteVecAvailable(t *testing.T) {
 func TestMigrate(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	db, err := Open(tmpDir)
+	db, err := Open(tmpDir, EmbeddingDimension)
 	require.NoError(t, err)
 	defer db.Close()
 
@@ -86,7 +86,7 @@ func TestMigrate(t *testing.T) {
 func TestMigrate_CreatesFilesTable(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	db, err := Open(tmpDir)
+	db, err := Open(tmpDir, EmbeddingDimension)
 	require.NoError(t, err)
 	defer db.Close()
 
@@ -116,7 +116,7 @@ func TestMigrate_CreatesFilesTable(t *testing.T) {
 func TestMigrate_CreatesChunksTable(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	db, err := Open(tmpDir)
+	db, err := Open(tmpDir, EmbeddingDimension)
 	require.NoError(t, err)
 	defer db.Close()
 
@@ -158,7 +158,7 @@ func TestMigrate_CreatesChunksTable(t *testing.T) {
 func TestMigrate_CreatesChunkEmbeddingsTable(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	db, err := Open(tmpDir)
+	db, err := Open(tmpDir, EmbeddingDimension)
 	require.NoError(t, err)
 	defer db.Close()
 
@@ -203,7 +203,7 @@ func TestMigrate_CreatesChunkEmbeddingsTable(t *testing.T) {
 func TestMigrate_CreatesMetadataTable(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	db, err := Open(tmpDir)
+	db, err := Open(tmpDir, EmbeddingDimension)
 	require.NoError(t, err)
 	defer db.Close()
 
@@ -233,7 +233,7 @@ func TestMigrate_CreatesMetadataTable(t *testing.T) {
 func TestMigrate_Idempotent(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	db, err := Open(tmpDir)
+	db, err := Open(tmpDir, EmbeddingDimension)
 	require.NoError(t, err)
 	defer db.Close()
 
@@ -254,7 +254,7 @@ func TestMigrate_Idempotent(t *testing.T) {
 func TestClose(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	db, err := Open(tmpDir)
+	db, err := Open(tmpDir, EmbeddingDimension)
 	require.NoError(t, err)
 
 	err = db.Close()
@@ -268,7 +268,7 @@ func TestClose(t *testing.T) {
 func TestTableExists(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	db, err := Open(tmpDir)
+	db, err := Open(tmpDir, EmbeddingDimension)
 	require.NoError(t, err)
 	defer db.Close()
 
@@ -296,7 +296,7 @@ func TestTableExists(t *testing.T) {
 func TestVirtualTableExists(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	db, err := Open(tmpDir)
+	db, err := Open(tmpDir, EmbeddingDimension)
 	require.NoError(t, err)
 	defer db.Close()
 
@@ -333,7 +333,7 @@ func TestVirtualTableExists(t *testing.T) {
 func TestClearAll_ClearsAllTables(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	db, err := Open(tmpDir)
+	db, err := Open(tmpDir, EmbeddingDimension)
 	require.NoError(t, err)
 	defer db.Close()
 
@@ -374,7 +374,7 @@ func TestClearAll_ClearsAllTables(t *testing.T) {
 func TestInsertFile_ReturnsDifferentIDsForDifferentFiles(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	db, err := Open(tmpDir)
+	db, err := Open(tmpDir, EmbeddingDimension)
 	require.NoError(t, err)
 	defer db.Close()
 
@@ -401,7 +401,7 @@ func TestInsertFile_ReturnsDifferentIDsForDifferentFiles(t *testing.T) {
 func TestGetFileIDByPath_ReturnsZeroForNonExistent(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	db, err := Open(tmpDir)
+	db, err := Open(tmpDir, EmbeddingDimension)
 	require.NoError(t, err)
 	defer db.Close()
 
@@ -418,7 +418,7 @@ func TestGetFileIDByPath_ReturnsZeroForNonExistent(t *testing.T) {
 func TestDeleteFileByPath_NoopForNonExistent(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	db, err := Open(tmpDir)
+	db, err := Open(tmpDir, EmbeddingDimension)
 	require.NoError(t, err)
 	defer db.Close()
 
@@ -434,7 +434,7 @@ func TestDeleteFileByPath_NoopForNonExistent(t *testing.T) {
 func TestDeleteChunksByFile_NoopForNonExistent(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	db, err := Open(tmpDir)
+	db, err := Open(tmpDir, EmbeddingDimension)
 	require.NoError(t, err)
 	defer db.Close()
 
@@ -450,7 +450,7 @@ func TestDeleteChunksByFile_NoopForNonExistent(t *testing.T) {
 func TestGetChunkIDsByFile_ReturnsEmptyForNonExistent(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	db, err := Open(tmpDir)
+	db, err := Open(tmpDir, EmbeddingDimension)
 	require.NoError(t, err)
 	defer db.Close()
 
@@ -467,7 +467,7 @@ func TestGetChunkIDsByFile_ReturnsEmptyForNonExistent(t *testing.T) {
 func TestGetChunkByID_ReturnsNilForNonExistent(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	db, err := Open(tmpDir)
+	db, err := Open(tmpDir, EmbeddingDimension)
 	require.NoError(t, err)
 	defer db.Close()
 
@@ -484,7 +484,7 @@ func TestGetChunkByID_ReturnsNilForNonExistent(t *testing.T) {
 func TestEmbeddingCount_ReturnsZeroInitially(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	db, err := Open(tmpDir)
+	db, err := Open(tmpDir, EmbeddingDimension)
 	require.NoError(t, err)
 	defer db.Close()
 
@@ -500,7 +500,7 @@ func TestEmbeddingCount_ReturnsZeroInitially(t *testing.T) {
 func TestMigrate_IsIdempotent(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	db, err := Open(tmpDir)
+	db, err := Open(tmpDir, EmbeddingDimension)
 	require.NoError(t, err)
 	defer db.Close()
 
@@ -525,7 +525,7 @@ func TestMigrate_IsIdempotent(t *testing.T) {
 func TestInsertFile_WithAllFields(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	db, err := Open(tmpDir)
+	db, err := Open(tmpDir, EmbeddingDimension)
 	require.NoError(t, err)
 	defer db.Close()
 
@@ -547,7 +547,7 @@ func TestInsertFile_WithAllFields(t *testing.T) {
 func TestDeleteChunksByFileID_DeletesChunks(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	db, err := Open(tmpDir)
+	db, err := Open(tmpDir, EmbeddingDimension)
 	require.NoError(t, err)
 	defer db.Close()
 
@@ -589,7 +589,7 @@ func TestDeleteChunksByFileID_DeletesChunks(t *testing.T) {
 func TestGetChunksByIDs_ReturnsMultipleChunks(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	db, err := Open(tmpDir)
+	db, err := Open(tmpDir, EmbeddingDimension)
 	require.NoError(t, err)
 	defer db.Close()
 
@@ -626,7 +626,7 @@ func TestGetChunksByIDs_ReturnsMultipleChunks(t *testing.T) {
 func TestGetChunkIDsByFileID_ReturnsChunkIDs(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	db, err := Open(tmpDir)
+	db, err := Open(tmpDir, EmbeddingDimension)
 	require.NoError(t, err)
 	defer db.Close()
 

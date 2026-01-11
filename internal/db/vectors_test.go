@@ -12,7 +12,7 @@ import (
 // setupTestDB creates a test database with migrations applied.
 func setupTestDB(t *testing.T) *DB {
 	tmpDir := t.TempDir()
-	db, err := Open(tmpDir)
+	db, err := Open(tmpDir, EmbeddingDimension)
 	require.NoError(t, err)
 	require.NoError(t, db.Migrate(context.Background()))
 	t.Cleanup(func() { db.Close() })

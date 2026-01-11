@@ -24,7 +24,7 @@ import (
 func setupTestDB(b *testing.B) *db.DB {
 	b.Helper()
 	tmpDir := b.TempDir()
-	database, err := db.Open(tmpDir)
+	database, err := db.Open(tmpDir, db.EmbeddingDimension)
 	if err != nil {
 		b.Fatalf("failed to open database: %v", err)
 	}

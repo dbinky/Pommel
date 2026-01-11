@@ -16,11 +16,17 @@ const (
 )
 
 type DB struct {
-	conn *sql.DB
-	path string
+	conn       *sql.DB
+	path       string
+	dimensions int
 }
 
-func Open(projectRoot string) (*DB, error) {
+// Open creates or opens a database with the specified embedding dimensions.
+// The dimensions parameter must match the embedding provider being used:
+// - Ollama: 768 (Jina Code embeddings)
+// - OpenAI: 1536 (text-embedding-3-small)
+// - Voyage: 1024 (voyage-code-3)
+func Open(projectRoot string, dimensions int) (*DB, error) {
 	sqlite_vec.Auto()
 
 	dbDir := filepath.Join(projectRoot, ".pommel")
@@ -44,7 +50,7 @@ func Open(projectRoot string) (*DB, error) {
 		return nil, fmt.Errorf("failed to enable foreign keys: %w", err)
 	}
 
-	db := &DB{conn: conn, path: dbPath}
+	db := &DB{conn: conn, path: dbPath, dimensions: dimensions}
 
 	if err := db.verifySqliteVec(); err != nil {
 		conn.Close()
@@ -87,6 +93,11 @@ func (db *DB) Close() error {
 
 func (db *DB) Path() string {
 	return db.path
+}
+
+// Dimensions returns the embedding dimensions configured for this database.
+func (db *DB) Dimensions() int {
+	return db.dimensions
 }
 
 func (db *DB) Conn() *sql.DB {
