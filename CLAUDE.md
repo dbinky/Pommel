@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Pommel is a local-first semantic code search system designed to reduce context window consumption for AI coding agents. It maintains an always-current vector database of code embeddings, enabling targeted semantic searches instead of reading numerous files into context.
 
-**Status:** v0.7.0 - Multiple embedding providers and intelligent chunk splitting
+**Status:** v0.7.2 - Dynamic embedding dimensions and Windows path fixes
 
 ## Code Search Priority
 
