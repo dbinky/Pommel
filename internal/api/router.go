@@ -3,7 +3,6 @@ package api
 import (
 	"log/slog"
 	"net/http"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -25,7 +24,7 @@ func NewRouter(indexer *daemon.Indexer, cfg *config.Config, searcher Searcher) *
 	r := chi.NewRouter()
 
 	// Apply middleware
-	r.Use(middleware.Timeout(30 * time.Second))
+	r.Use(middleware.Timeout(cfg.Timeouts.APIRequestTimeout()))
 	r.Use(middleware.Recoverer)
 
 	// Register routes

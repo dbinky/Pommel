@@ -81,5 +81,6 @@ func Default() *Config {
 			Projects: nil,
 			Exclude:  nil,
 		},
+		Timeouts: DefaultTimeoutsConfig(),
 	}
 }

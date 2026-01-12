@@ -78,7 +78,7 @@ func runStart(cmd *cobra.Command, args []string) error {
 	address := cfg.Daemon.AddressWithPort(port)
 	healthURL := fmt.Sprintf("http://%s/health", address)
 
-	timeout := time.After(10 * time.Second)
+	timeout := time.After(cfg.Timeouts.DaemonStartTimeout())
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
 
