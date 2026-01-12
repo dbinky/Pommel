@@ -1,6 +1,9 @@
 package embedder
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 // ProviderType represents the type of embedding provider
 type ProviderType string
@@ -100,6 +103,7 @@ func APIProviders() []ProviderType {
 // ProviderConfig holds the configuration for creating an embedder
 type ProviderConfig struct {
 	Provider string
+	Timeout  time.Duration // Timeout for embedding requests
 	Ollama   OllamaProviderSettings
 	OpenAI   OpenAIProviderSettings
 	Voyage   VoyageProviderSettings
@@ -135,6 +139,7 @@ func NewFromConfig(cfg *ProviderConfig) (Embedder, error) {
 		return NewOllamaClient(OllamaConfig{
 			BaseURL: cfg.Ollama.URL,
 			Model:   cfg.Ollama.Model,
+			Timeout: cfg.Timeout,
 		}), nil
 
 	case ProviderOpenAI:
@@ -146,8 +151,9 @@ func NewFromConfig(cfg *ProviderConfig) (Embedder, error) {
 			}
 		}
 		return NewOpenAIClient(OpenAIConfig{
-			APIKey: cfg.OpenAI.APIKey,
-			Model:  cfg.OpenAI.Model,
+			APIKey:  cfg.OpenAI.APIKey,
+			Model:   cfg.OpenAI.Model,
+			Timeout: cfg.Timeout,
 		}), nil
 
 	case ProviderVoyage:
@@ -159,8 +165,9 @@ func NewFromConfig(cfg *ProviderConfig) (Embedder, error) {
 			}
 		}
 		return NewVoyageClient(VoyageConfig{
-			APIKey: cfg.Voyage.APIKey,
-			Model:  cfg.Voyage.Model,
+			APIKey:  cfg.Voyage.APIKey,
+			Model:   cfg.Voyage.Model,
+			Timeout: cfg.Timeout,
 		}), nil
 
 	default:

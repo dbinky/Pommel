@@ -27,6 +27,12 @@ func runStop(cmd *cobra.Command, args []string) error {
 		return ErrNotInitialized()
 	}
 
+	// Load config for timeout settings
+	cfg, err := loader.Load()
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+
 	// Check if running
 	stateManager := daemon.NewStateManager(projectRoot)
 	running, pid := stateManager.IsRunning()
@@ -50,7 +56,7 @@ func runStop(cmd *cobra.Command, args []string) error {
 	}
 
 	// Wait for process to exit with timeout
-	timeout := time.After(5 * time.Second)
+	timeout := time.After(cfg.Timeouts.DaemonStopTimeout())
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
 

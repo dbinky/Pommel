@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"time"
 
 	"github.com/pommel-dev/pommel/internal/api"
 	"github.com/pommel-dev/pommel/internal/config"
@@ -43,7 +42,7 @@ func NewClient(cfg *config.Config) *Client {
 	return &Client{
 		baseURL: fmt.Sprintf("http://%s", cfg.Daemon.Address()),
 		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
+			Timeout: cfg.Timeouts.ClientRequestTimeout(),
 		},
 	}
 }
@@ -65,7 +64,7 @@ func NewClientFromProjectRoot(projectRoot string) (*Client, error) {
 	return &Client{
 		baseURL: fmt.Sprintf("http://%s", cfg.Daemon.AddressWithPort(port)),
 		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
+			Timeout: cfg.Timeouts.ClientRequestTimeout(),
 		},
 	}, nil
 }
