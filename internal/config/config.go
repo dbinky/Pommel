@@ -17,6 +17,7 @@ type Config struct {
 	Embedding       EmbeddingConfig   `yaml:"embedding" json:"embedding" mapstructure:"embedding"`
 	Search          SearchConfig      `yaml:"search" json:"search" mapstructure:"search"`
 	Subprojects     SubprojectsConfig `yaml:"subprojects" json:"subprojects" mapstructure:"subprojects"`
+	Timeouts        TimeoutsConfig    `yaml:"timeouts" json:"timeouts" mapstructure:"timeouts"`
 }
 
 // WatcherConfig contains file watcher settings
@@ -162,6 +163,93 @@ type SubprojectsConfig struct {
 	Markers    []string          `yaml:"markers" json:"markers" mapstructure:"markers"`
 	Projects   []ProjectOverride `yaml:"projects" json:"projects,omitempty" mapstructure:"projects"`
 	Exclude    []string          `yaml:"exclude" json:"exclude,omitempty" mapstructure:"exclude"`
+}
+
+// TimeoutsConfig contains timeout settings for various operations.
+// All timeout values are in milliseconds.
+// Longer timeouts are useful when embedding models need to be loaded from disk
+// (cold start), which can take significantly longer than when the model is already in memory.
+type TimeoutsConfig struct {
+	// EmbeddingRequestMs is the timeout for embedding API requests (default: 120000 = 2 minutes).
+	// This should be long enough to allow for model loading on cold starts.
+	EmbeddingRequestMs int `yaml:"embedding_request_ms" json:"embedding_request_ms" mapstructure:"embedding_request_ms"`
+
+	// DaemonStartMs is the timeout for waiting for the daemon to start (default: 30000 = 30 seconds).
+	DaemonStartMs int `yaml:"daemon_start_ms" json:"daemon_start_ms" mapstructure:"daemon_start_ms"`
+
+	// DaemonStopMs is the timeout for waiting for the daemon to stop (default: 10000 = 10 seconds).
+	DaemonStopMs int `yaml:"daemon_stop_ms" json:"daemon_stop_ms" mapstructure:"daemon_stop_ms"`
+
+	// ClientRequestMs is the timeout for CLI client requests to the daemon (default: 120000 = 2 minutes).
+	// This should be long enough to handle search requests that trigger embedding generation.
+	ClientRequestMs int `yaml:"client_request_ms" json:"client_request_ms" mapstructure:"client_request_ms"`
+
+	// APIRequestMs is the timeout for API middleware (default: 120000 = 2 minutes).
+	APIRequestMs int `yaml:"api_request_ms" json:"api_request_ms" mapstructure:"api_request_ms"`
+
+	// ShutdownMs is the timeout for graceful daemon shutdown (default: 10000 = 10 seconds).
+	ShutdownMs int `yaml:"shutdown_ms" json:"shutdown_ms" mapstructure:"shutdown_ms"`
+}
+
+// DefaultTimeoutsConfig returns the default timeout configuration.
+// Defaults are set high enough to handle cold starts where models need to be loaded.
+func DefaultTimeoutsConfig() TimeoutsConfig {
+	return TimeoutsConfig{
+		EmbeddingRequestMs: 120000, // 2 minutes - allows for model loading
+		DaemonStartMs:      30000,  // 30 seconds
+		DaemonStopMs:       10000,  // 10 seconds
+		ClientRequestMs:    120000, // 2 minutes - allows for embedding generation
+		APIRequestMs:       120000, // 2 minutes
+		ShutdownMs:         10000,  // 10 seconds
+	}
+}
+
+// EmbeddingRequestTimeout returns the embedding request timeout as time.Duration.
+func (t TimeoutsConfig) EmbeddingRequestTimeout() time.Duration {
+	if t.EmbeddingRequestMs <= 0 {
+		return DefaultTimeoutsConfig().EmbeddingRequestTimeout()
+	}
+	return time.Duration(t.EmbeddingRequestMs) * time.Millisecond
+}
+
+// DaemonStartTimeout returns the daemon start timeout as time.Duration.
+func (t TimeoutsConfig) DaemonStartTimeout() time.Duration {
+	if t.DaemonStartMs <= 0 {
+		return DefaultTimeoutsConfig().DaemonStartTimeout()
+	}
+	return time.Duration(t.DaemonStartMs) * time.Millisecond
+}
+
+// DaemonStopTimeout returns the daemon stop timeout as time.Duration.
+func (t TimeoutsConfig) DaemonStopTimeout() time.Duration {
+	if t.DaemonStopMs <= 0 {
+		return DefaultTimeoutsConfig().DaemonStopTimeout()
+	}
+	return time.Duration(t.DaemonStopMs) * time.Millisecond
+}
+
+// ClientRequestTimeout returns the client request timeout as time.Duration.
+func (t TimeoutsConfig) ClientRequestTimeout() time.Duration {
+	if t.ClientRequestMs <= 0 {
+		return DefaultTimeoutsConfig().ClientRequestTimeout()
+	}
+	return time.Duration(t.ClientRequestMs) * time.Millisecond
+}
+
+// APIRequestTimeout returns the API request timeout as time.Duration.
+func (t TimeoutsConfig) APIRequestTimeout() time.Duration {
+	if t.APIRequestMs <= 0 {
+		return DefaultTimeoutsConfig().APIRequestTimeout()
+	}
+	return time.Duration(t.APIRequestMs) * time.Millisecond
+}
+
+// ShutdownTimeout returns the shutdown timeout as time.Duration.
+func (t TimeoutsConfig) ShutdownTimeout() time.Duration {
+	if t.ShutdownMs <= 0 {
+		return DefaultTimeoutsConfig().ShutdownTimeout()
+	}
+	return time.Duration(t.ShutdownMs) * time.Millisecond
 }
 
 // ProjectOverride defines a manual sub-project configuration

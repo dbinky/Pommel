@@ -6,7 +6,7 @@ Local-first semantic code search for AI coding agents.
 [![Go Version](https://img.shields.io/github/go-mod/go-version/dbinky/Pommel)](https://go.dev/)
 [![License](https://img.shields.io/github/license/dbinky/Pommel)](LICENSE)
 
-**v0.7.2** - Dynamic embedding dimensions and Windows path fixes!
+**v0.7.3** - Configurable timeouts for cold starts and slow connections!
 
 Pommel maintains a vector database of your code, enabling fast semantic search without loading files into context. Designed to complement AI coding assistants by providing targeted code discovery.
 

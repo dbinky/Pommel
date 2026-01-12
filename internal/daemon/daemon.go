@@ -118,6 +118,7 @@ func New(projectRoot string, cfg *config.Config, logger *slog.Logger) (*Daemon, 
 	// Build provider config from embedding settings (needed before db.Open for dimensions)
 	providerCfg := &embedder.ProviderConfig{
 		Provider: cfg.Embedding.Provider,
+		Timeout:  cfg.Timeouts.EmbeddingRequestTimeout(),
 		Ollama: embedder.OllamaProviderSettings{
 			URL:   cfg.Embedding.GetOllamaURL(),
 			Model: cfg.Embedding.Ollama.Model,
@@ -504,7 +505,7 @@ func (d *Daemon) shutdown() error {
 
 	// Shutdown API server
 	if d.server != nil {
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), d.config.Timeouts.ShutdownTimeout())
 		defer cancel()
 		if err := d.server.Shutdown(shutdownCtx); err != nil {
 			d.logger.Warn("server shutdown error", "error", err)
