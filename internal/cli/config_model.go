@@ -2,6 +2,8 @@ package cli
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/pommel-dev/pommel/internal/config"
 	"github.com/pommel-dev/pommel/internal/embedder"
@@ -40,8 +42,8 @@ func runConfigModel(cmd *cobra.Command, args []string) error {
 		return showCurrentModel(cmd, cfg)
 	}
 
-	// TODO: implement model switching in Task 3.2
-	return fmt.Errorf("model switching not yet implemented")
+	// Switch to requested model
+	return switchModel(cmd, loader, cfg, args[0])
 }
 
 func showCurrentModel(cmd *cobra.Command, cfg *config.Config) error {
@@ -56,5 +58,40 @@ func showCurrentModel(cmd *cobra.Command, cfg *config.Config) error {
 	}
 
 	fmt.Fprintf(cmd.OutOrStdout(), "Current model: %s (%s)\n", shortName, modelName)
+	return nil
+}
+
+func switchModel(cmd *cobra.Command, loader *config.Loader, cfg *config.Config, target string) error {
+	// Validate target model
+	targetInfo, err := embedder.GetModelInfo(target)
+	if err != nil {
+		return err
+	}
+
+	// Check if already using this model
+	currentModel := cfg.Embedding.Ollama.Model
+	if currentModel == targetInfo.Name {
+		shortName := embedder.GetShortNameForModel(currentModel)
+		fmt.Fprintf(cmd.OutOrStdout(), "Already using model %s\n", shortName)
+		return nil
+	}
+
+	// Check for existing database and delete if present
+	dbPath := filepath.Join(projectRoot, ".pommel", "pommel.db")
+	if _, err := os.Stat(dbPath); err == nil {
+		if err := os.Remove(dbPath); err != nil {
+			return fmt.Errorf("failed to delete existing database: %w", err)
+		}
+	}
+
+	// Update config
+	cfg.Embedding.Ollama.Model = targetInfo.Name
+	if err := loader.Save(cfg); err != nil {
+		return fmt.Errorf("failed to save configuration: %w", err)
+	}
+
+	shortName := embedder.GetShortNameForModel(targetInfo.Name)
+	fmt.Fprintf(cmd.OutOrStdout(), "Switched to model %s (%s)\n", shortName, targetInfo.Name)
+	fmt.Fprintf(cmd.OutOrStdout(), "Run 'pm start' to reindex with the new model.\n")
 	return nil
 }
