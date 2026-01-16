@@ -69,3 +69,15 @@ func GetDimensionsForModel(fullName string) int {
 	}
 	return info.Dimensions
 }
+
+// GetShortNameForModel returns the short name (v2, v4) for a full Ollama model name.
+// Returns empty string if the model is not in our registry.
+func GetShortNameForModel(fullName string) string {
+	fullName = strings.TrimSpace(fullName)
+	for shortName, info := range EmbeddingModels {
+		if info.Name == fullName {
+			return shortName
+		}
+	}
+	return ""
+}
