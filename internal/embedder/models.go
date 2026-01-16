@@ -44,3 +44,15 @@ func GetModelInfo(shortName string) (*ModelInfo, error) {
 	}
 	return &info, nil
 }
+
+// GetModelByFullName returns model info by full Ollama model name.
+// Returns nil if the model is not in our registry (unknown model).
+func GetModelByFullName(fullName string) *ModelInfo {
+	fullName = strings.TrimSpace(fullName)
+	for _, info := range EmbeddingModels {
+		if info.Name == fullName {
+			return &info
+		}
+	}
+	return nil
+}

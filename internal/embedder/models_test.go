@@ -45,3 +45,20 @@ func TestGetModelInfo_CaseInsensitive(t *testing.T) {
 	assert.Equal(t, 1024, info.Dimensions)
 	assert.Equal(t, 32768, info.ContextSize)
 }
+
+func TestGetModelByFullName_V2(t *testing.T) {
+	info := GetModelByFullName("unclemusclez/jina-embeddings-v2-base-code")
+	require.NotNil(t, info)
+	assert.Equal(t, 768, info.Dimensions)
+}
+
+func TestGetModelByFullName_V4(t *testing.T) {
+	info := GetModelByFullName("sellerscrisp/jina-embeddings-v4-text-code-q4")
+	require.NotNil(t, info)
+	assert.Equal(t, 1024, info.Dimensions)
+}
+
+func TestGetModelByFullName_Unknown(t *testing.T) {
+	info := GetModelByFullName("some-random-model")
+	assert.Nil(t, info)
+}
