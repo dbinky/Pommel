@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/pommel-dev/pommel/internal/db"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -266,7 +267,7 @@ embedding:
 	require.NoError(t, os.WriteFile(filepath.Join(pommelDir, "config.yaml"), []byte(configContent), 0644))
 
 	// Create a dummy database file
-	dbPath := filepath.Join(pommelDir, "pommel.db")
+	dbPath := filepath.Join(pommelDir, db.DatabaseFile)
 	require.NoError(t, os.WriteFile(dbPath, []byte("dummy db content"), 0644))
 
 	var stdout bytes.Buffer

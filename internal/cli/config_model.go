@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/pommel-dev/pommel/internal/config"
+	"github.com/pommel-dev/pommel/internal/db"
 	"github.com/pommel-dev/pommel/internal/embedder"
 	"github.com/spf13/cobra"
 )
@@ -77,11 +78,14 @@ func switchModel(cmd *cobra.Command, loader *config.Loader, cfg *config.Config, 
 	}
 
 	// Check for existing database and delete if present
-	dbPath := filepath.Join(projectRoot, ".pommel", "pommel.db")
+	dbPath := filepath.Join(projectRoot, ".pommel", db.DatabaseFile)
 	if _, err := os.Stat(dbPath); err == nil {
 		if err := os.Remove(dbPath); err != nil {
 			return fmt.Errorf("failed to delete existing database: %w", err)
 		}
+		// Clean up WAL/SHM files (ignore errors - they may not exist)
+		os.Remove(dbPath + "-wal")
+		os.Remove(dbPath + "-shm")
 	}
 
 	// Update config
