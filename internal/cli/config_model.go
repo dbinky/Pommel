@@ -22,7 +22,9 @@ func newConfigModelCmd() *cobra.Command {
 		Long: `View or change the embedding model used for code search.
 
 Without arguments, shows the current model.
-With an argument, switches to the specified model (requires reindex).
+With an argument, switches to the specified model.
+
+Warning: Switching models deletes the existing index and requires reindexing.
 
 Available models:
   v2  - Jina v2 Code (~300MB, 768 dims) - lightweight, fast
