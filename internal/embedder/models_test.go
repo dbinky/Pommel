@@ -62,3 +62,23 @@ func TestGetModelByFullName_Unknown(t *testing.T) {
 	info := GetModelByFullName("some-random-model")
 	assert.Nil(t, info)
 }
+
+func TestGetDimensionsForModel_V2(t *testing.T) {
+	dims := GetDimensionsForModel("unclemusclez/jina-embeddings-v2-base-code")
+	assert.Equal(t, 768, dims)
+}
+
+func TestGetDimensionsForModel_V4(t *testing.T) {
+	dims := GetDimensionsForModel("sellerscrisp/jina-embeddings-v4-text-code-q4")
+	assert.Equal(t, 1024, dims)
+}
+
+func TestGetDimensionsForModel_Unknown_DefaultsTo768(t *testing.T) {
+	dims := GetDimensionsForModel("some-unknown-model")
+	assert.Equal(t, 768, dims, "unknown models should default to 768")
+}
+
+func TestGetDimensionsForModel_Empty_DefaultsTo768(t *testing.T) {
+	dims := GetDimensionsForModel("")
+	assert.Equal(t, 768, dims, "empty model should default to 768")
+}

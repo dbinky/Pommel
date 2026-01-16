@@ -32,6 +32,9 @@ var EmbeddingModels = map[string]ModelInfo{
 // DefaultModel is the short name of the default embedding model.
 const DefaultModel = "v2"
 
+// DefaultDimensions is the fallback for unknown models.
+const DefaultDimensions = 768
+
 // GetModelInfo returns model info by short name (v2, v4).
 func GetModelInfo(shortName string) (*ModelInfo, error) {
 	shortName = strings.ToLower(strings.TrimSpace(shortName))
@@ -55,4 +58,14 @@ func GetModelByFullName(fullName string) *ModelInfo {
 		}
 	}
 	return nil
+}
+
+// GetDimensionsForModel returns dimensions for a model by full name.
+// Returns DefaultDimensions (768) for unknown models.
+func GetDimensionsForModel(fullName string) int {
+	info := GetModelByFullName(fullName)
+	if info == nil {
+		return DefaultDimensions
+	}
+	return info.Dimensions
 }
