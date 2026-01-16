@@ -304,7 +304,7 @@ func (c *OllamaClient) ModelName() string {
 	return c.model
 }
 
-// Dimensions returns the embedding dimension size (768 for Jina Code).
+// Dimensions returns the embedding dimension size based on the configured model.
 func (c *OllamaClient) Dimensions() int {
-	return 768
+	return GetDimensionsForModel(c.model)
 }

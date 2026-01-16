@@ -242,6 +242,30 @@ func TestOllamaClient_Dimensions(t *testing.T) {
 	assert.Equal(t, 768, dims, "Dimensions should return 768 for Jina Code embeddings")
 }
 
+func TestOllamaClient_Dimensions_V2Model(t *testing.T) {
+	cfg := OllamaConfig{
+		Model: "unclemusclez/jina-embeddings-v2-base-code",
+	}
+	client := NewOllamaClient(cfg)
+	assert.Equal(t, 768, client.Dimensions())
+}
+
+func TestOllamaClient_Dimensions_V4Model(t *testing.T) {
+	cfg := OllamaConfig{
+		Model: "sellerscrisp/jina-embeddings-v4-text-code-q4",
+	}
+	client := NewOllamaClient(cfg)
+	assert.Equal(t, 1024, client.Dimensions())
+}
+
+func TestOllamaClient_Dimensions_UnknownModel(t *testing.T) {
+	cfg := OllamaConfig{
+		Model: "some-random-model",
+	}
+	client := NewOllamaClient(cfg)
+	assert.Equal(t, 768, client.Dimensions(), "unknown models default to 768")
+}
+
 func TestOllamaClient_ModelName(t *testing.T) {
 	modelName := "unclemusclez/jina-embeddings-v2-base-code"
 
