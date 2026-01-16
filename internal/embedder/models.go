@@ -35,6 +35,9 @@ const DefaultModel = "v2"
 // DefaultDimensions is the fallback for unknown models.
 const DefaultDimensions = 768
 
+// DefaultContextSize is the fallback for unknown models.
+const DefaultContextSize = 8192
+
 // GetModelInfo returns model info by short name (v2, v4).
 func GetModelInfo(shortName string) (*ModelInfo, error) {
 	shortName = strings.ToLower(strings.TrimSpace(shortName))
@@ -68,6 +71,16 @@ func GetDimensionsForModel(fullName string) int {
 		return DefaultDimensions
 	}
 	return info.Dimensions
+}
+
+// GetContextSizeForModel returns context size for a model by full name.
+// Returns DefaultContextSize (8192) for unknown models.
+func GetContextSizeForModel(fullName string) int {
+	info := GetModelByFullName(fullName)
+	if info == nil {
+		return DefaultContextSize
+	}
+	return info.ContextSize
 }
 
 // GetShortNameForModel returns the short name (v2, v4) for a full Ollama model name.

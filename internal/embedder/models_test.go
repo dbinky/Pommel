@@ -97,3 +97,18 @@ func TestGetShortNameForModel_Unknown(t *testing.T) {
 	shortName := GetShortNameForModel("some-random-model")
 	assert.Equal(t, "", shortName, "unknown models should return empty string")
 }
+
+func TestGetContextSizeForModel_V2(t *testing.T) {
+	size := GetContextSizeForModel("unclemusclez/jina-embeddings-v2-base-code")
+	assert.Equal(t, 8192, size)
+}
+
+func TestGetContextSizeForModel_V4(t *testing.T) {
+	size := GetContextSizeForModel("sellerscrisp/jina-embeddings-v4-text-code-q4")
+	assert.Equal(t, 32768, size)
+}
+
+func TestGetContextSizeForModel_Unknown(t *testing.T) {
+	size := GetContextSizeForModel("unknown-model")
+	assert.Equal(t, 8192, size, "unknown models should default to 8192")
+}
