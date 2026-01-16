@@ -56,6 +56,7 @@ $script:OpenAIApiKey = ""
 $script:VoyageApiKey = ""
 $script:IsUpgrade = $false
 $script:CurrentVersion = ""
+$script:SelectedModel = "v2"  # Default to v2
 
 #region Output Functions
 function Write-Step {
@@ -180,6 +181,9 @@ function Select-Provider {
 function Setup-LocalOllama {
     $script:SelectedProvider = "ollama"
     Write-Success "Selected: Local Ollama"
+
+    # Select model
+    Select-OllamaModel
 }
 
 function Setup-RemoteOllama {
@@ -195,6 +199,10 @@ function Setup-RemoteOllama {
 
     $script:OllamaRemoteUrl = $url
     Write-Success "Selected: Remote Ollama at $url"
+
+    # Select model
+    Select-OllamaModel
+    Write-Warn "Make sure the selected model is available on the remote server"
 }
 
 function Setup-OpenAI {
@@ -238,6 +246,33 @@ function Setup-Voyage {
     else {
         $script:VoyageApiKey = ""
         Write-Step "Skipped. Run 'pm config provider' to add your API key later."
+    }
+}
+
+function Select-OllamaModel {
+    Write-Host ""
+    Write-Host "  Which embedding model?"
+    Write-Host ""
+    Write-Host "  1) Standard    - Jina v2 Code (~300MB, faster, good quality) (Recommended)"
+    Write-Host "  2) Maximum     - Jina v4 Code (~8GB, slower, best quality)"
+    Write-Host ""
+
+    $choice = Read-Host "  Choice [1]"
+    if ([string]::IsNullOrEmpty($choice)) { $choice = "1" }
+
+    switch ($choice) {
+        "1" {
+            $script:SelectedModel = "v2"
+            Write-Success "Selected: Jina v2 Code (Standard)"
+        }
+        "2" {
+            $script:SelectedModel = "v4"
+            Write-Success "Selected: Jina v4 Code (Maximum quality)"
+        }
+        default {
+            Write-Warn "Invalid choice. Using Standard (v2)."
+            $script:SelectedModel = "v2"
+        }
     }
 }
 
@@ -303,19 +338,29 @@ embedding:
 
     switch ($script:SelectedProvider) {
         "ollama" {
+            $modelName = if ($script:SelectedModel -eq "v4") {
+                "sellerscrisp/jina-embeddings-v4-text-code-q4"
+            } else {
+                "unclemusclez/jina-embeddings-v2-base-code"
+            }
             $yaml += @"
 
   ollama:
     url: "http://localhost:11434"
-    model: "unclemusclez/jina-embeddings-v2-base-code"
+    model: "$modelName"
 "@
         }
         "ollama-remote" {
+            $modelName = if ($script:SelectedModel -eq "v4") {
+                "sellerscrisp/jina-embeddings-v4-text-code-q4"
+            } else {
+                "unclemusclez/jina-embeddings-v2-base-code"
+            }
             $yaml += @"
 
   ollama:
     url: "$($script:OllamaRemoteUrl)"
-    model: "unclemusclez/jina-embeddings-v2-base-code"
+    model: "$modelName"
 "@
         }
         "openai" {
@@ -717,7 +762,16 @@ function Install-Ollama {
 
 #region Model Installation
 function Install-EmbeddingModel {
-    Write-Step "Pulling embedding model (this may take a few minutes)..."
+    # Determine model based on selection
+    $modelName = if ($script:SelectedModel -eq "v4") {
+        "sellerscrisp/jina-embeddings-v4-text-code-q4"
+    } else {
+        "unclemusclez/jina-embeddings-v2-base-code"
+    }
+    $modelSize = if ($script:SelectedModel -eq "v4") { "~8GB" } else { "~300MB" }
+
+    Write-Step "Pulling embedding model: $modelName ($modelSize)..."
+    Write-Step "This may take a few minutes on first run..."
 
     try {
         # Find ollama executable
@@ -729,7 +783,7 @@ function Install-EmbeddingModel {
             }
             else {
                 Write-Warn "Cannot find ollama executable"
-                Write-Host "  Run manually: ollama pull $script:OllamaModel"
+                Write-Host "  Run manually: ollama pull $modelName"
                 return $false
             }
         }
@@ -777,10 +831,10 @@ function Install-EmbeddingModel {
         # Pull the model
         Write-Host ""
         if ($ollamaCmd -is [System.Management.Automation.CommandInfo]) {
-            & $ollamaCmd.Source pull $script:OllamaModel
+            & $ollamaCmd.Source pull $modelName
         }
         else {
-            & $ollamaCmd pull $script:OllamaModel
+            & $ollamaCmd pull $modelName
         }
 
         if ($LASTEXITCODE -eq 0) {
@@ -793,7 +847,7 @@ function Install-EmbeddingModel {
     }
     catch {
         Write-Warn "Failed to pull model: $_"
-        Write-Host "  Run manually: ollama pull $script:OllamaModel"
+        Write-Host "  Run manually: ollama pull $modelName"
         return $false
     }
 }
