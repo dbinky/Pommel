@@ -41,6 +41,7 @@ OLLAMA_REMOTE_URL=""
 OPENAI_API_KEY=""
 VOYAGE_API_KEY=""
 OLLAMA_INSTALLED=false
+SELECTED_MODEL="v2"  # Default to v2
 INSTALL_DIR=""
 OS=""
 ARCH=""
@@ -170,6 +171,9 @@ setup_local_ollama() {
         success "Ollama found"
         OLLAMA_INSTALLED=true
     fi
+
+    # Select model
+    select_ollama_model
 }
 
 setup_remote_ollama() {
@@ -185,6 +189,10 @@ setup_remote_ollama() {
 
     OLLAMA_REMOTE_URL="$url"
     success "Selected: Remote Ollama at $url"
+
+    # Select model
+    select_ollama_model
+    warn "Make sure the selected model is available on the remote server"
 }
 
 setup_openai() {
@@ -225,6 +233,32 @@ setup_voyage() {
         VOYAGE_API_KEY=""
         info "Skipped. Run 'pm config provider' to add your API key later."
     fi
+}
+
+select_ollama_model() {
+    echo ""
+    echo "  Which embedding model?"
+    echo ""
+    echo "  1) Standard    - Jina v2 Code (~300MB, faster, good quality) (Recommended)"
+    echo "  2) Maximum     - Jina v4 Code (~8GB, slower, best quality)"
+    echo ""
+    read -p "  Choice [1]: " model_choice < /dev/tty
+    model_choice=${model_choice:-1}
+
+    case $model_choice in
+        1)
+            SELECTED_MODEL="v2"
+            success "Selected: Jina v2 Code (Standard)"
+            ;;
+        2)
+            SELECTED_MODEL="v4"
+            success "Selected: Jina v4 Code (Maximum quality)"
+            ;;
+        *)
+            warn "Invalid choice. Using Standard (v2)."
+            SELECTED_MODEL="v2"
+            ;;
+    esac
 }
 
 validate_openai_key() {
@@ -290,17 +324,29 @@ EOF
 
     case $SELECTED_PROVIDER in
         ollama)
+            local model_name
+            if [[ "$SELECTED_MODEL" == "v4" ]]; then
+                model_name="sellerscrisp/jina-embeddings-v4-text-code-q4"
+            else
+                model_name="unclemusclez/jina-embeddings-v2-base-code"
+            fi
             cat >> "$config_file" << EOF
   ollama:
     url: "http://localhost:11434"
-    model: "unclemusclez/jina-embeddings-v2-base-code"
+    model: "$model_name"
 EOF
             ;;
         ollama-remote)
+            local model_name
+            if [[ "$SELECTED_MODEL" == "v4" ]]; then
+                model_name="sellerscrisp/jina-embeddings-v4-text-code-q4"
+            else
+                model_name="unclemusclez/jina-embeddings-v2-base-code"
+            fi
             cat >> "$config_file" << EOF
   ollama:
     url: "$OLLAMA_REMOTE_URL"
-    model: "unclemusclez/jina-embeddings-v2-base-code"
+    model: "$model_name"
 EOF
             ;;
         openai)
@@ -461,10 +507,18 @@ setup_embedding_model() {
     step "[5/5] Setting up embedding model..."
     echo ""
 
-    MODEL="unclemusclez/jina-embeddings-v2-base-code"
+    local MODEL
+    local SIZE
+    if [[ "$SELECTED_MODEL" == "v4" ]]; then
+        MODEL="sellerscrisp/jina-embeddings-v4-text-code-q4"
+        SIZE="~8GB"
+    else
+        MODEL="unclemusclez/jina-embeddings-v2-base-code"
+        SIZE="~300MB"
+    fi
 
     info "Pulling embedding model: $MODEL"
-    info "This may take a few minutes on first run (~300MB)..."
+    info "This may take a few minutes on first run ($SIZE)..."
 
     # Check if Ollama is running
     if ! curl -s http://localhost:11434/ > /dev/null 2>&1; then

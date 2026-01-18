@@ -242,6 +242,54 @@ func TestOllamaClient_Dimensions(t *testing.T) {
 	assert.Equal(t, 768, dims, "Dimensions should return 768 for Jina Code embeddings")
 }
 
+func TestOllamaClient_Dimensions_V2Model(t *testing.T) {
+	cfg := OllamaConfig{
+		Model: "unclemusclez/jina-embeddings-v2-base-code",
+	}
+	client := NewOllamaClient(cfg)
+	assert.Equal(t, 768, client.Dimensions())
+}
+
+func TestOllamaClient_Dimensions_V4Model(t *testing.T) {
+	cfg := OllamaConfig{
+		Model: "sellerscrisp/jina-embeddings-v4-text-code-q4",
+	}
+	client := NewOllamaClient(cfg)
+	assert.Equal(t, 1024, client.Dimensions())
+}
+
+func TestOllamaClient_Dimensions_UnknownModel(t *testing.T) {
+	cfg := OllamaConfig{
+		Model: "some-random-model",
+	}
+	client := NewOllamaClient(cfg)
+	assert.Equal(t, 768, client.Dimensions(), "unknown models default to 768")
+}
+
+func TestOllamaClient_ContextSize_V2Model(t *testing.T) {
+	cfg := OllamaConfig{
+		Model: "unclemusclez/jina-embeddings-v2-base-code",
+	}
+	client := NewOllamaClient(cfg)
+	assert.Equal(t, 8192, client.ContextSize())
+}
+
+func TestOllamaClient_ContextSize_V4Model(t *testing.T) {
+	cfg := OllamaConfig{
+		Model: "sellerscrisp/jina-embeddings-v4-text-code-q4",
+	}
+	client := NewOllamaClient(cfg)
+	assert.Equal(t, 32768, client.ContextSize())
+}
+
+func TestOllamaClient_ContextSize_UnknownModel(t *testing.T) {
+	cfg := OllamaConfig{
+		Model: "some-random-model",
+	}
+	client := NewOllamaClient(cfg)
+	assert.Equal(t, 8192, client.ContextSize(), "unknown models default to 8192")
+}
+
 func TestOllamaClient_ModelName(t *testing.T) {
 	modelName := "unclemusclez/jina-embeddings-v2-base-code"
 
@@ -616,5 +664,49 @@ func TestOllamaClient_SetsNumCtxOption(t *testing.T) {
 	// JSON numbers decode as float64
 	numCtxFloat, ok := numCtx.(float64)
 	require.True(t, ok, "num_ctx should be a number")
-	assert.Equal(t, float64(8192), numCtxFloat, "num_ctx should be 8192 for full Jina context")
+	// Unknown model defaults to 8192
+	assert.Equal(t, float64(8192), numCtxFloat, "num_ctx should use model's context size (8192 default)")
+}
+
+func TestOllamaClient_SetsNumCtxOption_V4Model(t *testing.T) {
+	var receivedOptions map[string]interface{}
+
+	server := createMockOllamaServer(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/embed" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+
+		var req mockOllamaRequest
+		err := json.NewDecoder(r.Body).Decode(&req)
+		require.NoError(t, err)
+
+		// Capture the options for verification
+		receivedOptions = req.Options
+
+		resp := mockOllamaResponse{
+			Embeddings: [][]float32{generate768DimEmbedding()},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	})
+	defer server.Close()
+
+	client := NewOllamaClient(OllamaConfig{
+		BaseURL: server.URL,
+		Model:   "sellerscrisp/jina-embeddings-v4-text-code-q4",
+		Timeout: 5 * time.Second,
+	})
+
+	_, err := client.EmbedSingle(context.Background(), "test code")
+	require.NoError(t, err)
+
+	// Verify num_ctx was sent with v4 context size
+	require.NotNil(t, receivedOptions, "Options should be sent in request")
+	numCtx, ok := receivedOptions["num_ctx"]
+	require.True(t, ok, "num_ctx should be present in options")
+
+	numCtxFloat, ok := numCtx.(float64)
+	require.True(t, ok, "num_ctx should be a number")
+	assert.Equal(t, float64(32768), numCtxFloat, "num_ctx should be 32768 for v4 model")
 }
