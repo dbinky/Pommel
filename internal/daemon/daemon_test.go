@@ -1371,3 +1371,91 @@ func TestDaemon_HandleConfig_ReturnsConfig(t *testing.T) {
 	cancel()
 	<-errCh
 }
+
+// =============================================================================
+// Unknown Model Dimension Handling Tests
+// =============================================================================
+
+func TestNew_UnknownModel_NoDimensions_FailsToStart(t *testing.T) {
+	// Arrange
+	projectRoot := t.TempDir()
+	cfg := daemonTestConfig()
+	cfg.Embedding.Provider = "ollama"
+	cfg.Embedding.Ollama.Model = "unknown-custom-model"
+	cfg.Embedding.Ollama.Dimensions = 0 // No dimensions configured
+	logger := daemonTestLogger()
+
+	// Act
+	daemon, err := New(projectRoot, cfg, logger)
+
+	// Assert
+	require.Error(t, err)
+	require.Nil(t, daemon)
+
+	var daemonErr *DaemonError
+	require.ErrorAs(t, err, &daemonErr)
+	assert.Equal(t, "UNKNOWN_MODEL_DIMENSIONS", daemonErr.Code)
+	assert.Contains(t, daemonErr.Message, "unknown-custom-model")
+}
+
+func TestNew_UnknownModel_WithDimensions_Starts(t *testing.T) {
+	// Arrange
+	projectRoot := t.TempDir()
+	cfg := daemonTestConfig()
+	cfg.Embedding.Provider = "ollama"
+	cfg.Embedding.Ollama.Model = "custom-embedding-model"
+	cfg.Embedding.Ollama.Dimensions = 512
+	logger := daemonTestLogger()
+
+	// Act
+	daemon, err := New(projectRoot, cfg, logger)
+
+	// Assert
+	require.NoError(t, err)
+	require.NotNil(t, daemon)
+
+	// Cleanup
+	require.NoError(t, daemon.Close())
+}
+
+func TestNew_KnownModel_StartsWithoutDimensionsConfig(t *testing.T) {
+	// Arrange
+	projectRoot := t.TempDir()
+	cfg := daemonTestConfig()
+	cfg.Embedding.Provider = "ollama"
+	cfg.Embedding.Ollama.Model = "unclemusclez/jina-embeddings-v2-base-code"
+	cfg.Embedding.Ollama.Dimensions = 0 // No dimensions needed for known model
+	logger := daemonTestLogger()
+
+	// Act
+	daemon, err := New(projectRoot, cfg, logger)
+
+	// Assert
+	require.NoError(t, err)
+	require.NotNil(t, daemon)
+
+	// Cleanup
+	require.NoError(t, daemon.Close())
+}
+
+func TestNew_OllamaRemote_UnknownModel_RequiresDimensions(t *testing.T) {
+	// Arrange
+	projectRoot := t.TempDir()
+	cfg := daemonTestConfig()
+	cfg.Embedding.Provider = "ollama-remote"
+	cfg.Embedding.Ollama.URL = "http://remote-server:11434"
+	cfg.Embedding.Ollama.Model = "remote-custom-model"
+	cfg.Embedding.Ollama.Dimensions = 0 // No dimensions
+	logger := daemonTestLogger()
+
+	// Act
+	daemon, err := New(projectRoot, cfg, logger)
+
+	// Assert
+	require.Error(t, err)
+	require.Nil(t, daemon)
+
+	var daemonErr *DaemonError
+	require.ErrorAs(t, err, &daemonErr)
+	assert.Equal(t, "UNKNOWN_MODEL_DIMENSIONS", daemonErr.Code)
+}
