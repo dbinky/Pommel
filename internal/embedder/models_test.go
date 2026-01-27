@@ -112,3 +112,21 @@ func TestGetContextSizeForModel_Unknown(t *testing.T) {
 	size := GetContextSizeForModel("unknown-model")
 	assert.Equal(t, 8192, size, "unknown models should default to 8192")
 }
+
+func TestResolveDimensions_V2Model_Returns768(t *testing.T) {
+	dims, err := ResolveDimensions("unclemusclez/jina-embeddings-v2-base-code", 0)
+	require.NoError(t, err)
+	assert.Equal(t, 768, dims)
+}
+
+func TestResolveDimensions_V4Model_Returns1024(t *testing.T) {
+	dims, err := ResolveDimensions("sellerscrisp/jina-embeddings-v4-text-code-q4", 0)
+	require.NoError(t, err)
+	assert.Equal(t, 1024, dims)
+}
+
+func TestResolveDimensions_UnknownModel_WithDimensions_ReturnsConfigValue(t *testing.T) {
+	dims, err := ResolveDimensions("qwen3-embedding:0.6b", 1024)
+	require.NoError(t, err)
+	assert.Equal(t, 1024, dims)
+}

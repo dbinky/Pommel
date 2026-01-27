@@ -94,3 +94,31 @@ func GetShortNameForModel(fullName string) string {
 	}
 	return ""
 }
+
+// ResolveDimensions returns embedding dimensions for a model.
+// Priority: 1) Registry lookup, 2) Config override, 3) Error
+func ResolveDimensions(modelName string, configDimensions int) (int, error) {
+	modelName = strings.TrimSpace(modelName)
+	if modelName == "" {
+		return 0, fmt.Errorf("model name cannot be empty")
+	}
+
+	// Check registry first
+	if info := GetModelByFullName(modelName); info != nil {
+		return info.Dimensions, nil
+	}
+
+	// Unknown model - require config dimensions
+	if configDimensions <= 0 {
+		return 0, fmt.Errorf(`Unknown embedding model '%s' requires dimensions.
+Add to .pommel/config.yaml:
+
+  embedding:
+    ollama:
+      dimensions: <your-model-dimensions>
+
+Check your model's documentation for the correct dimension count.`, modelName)
+	}
+
+	return configDimensions, nil
+}
