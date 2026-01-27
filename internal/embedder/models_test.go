@@ -179,3 +179,23 @@ func TestResolveDimensions_UnknownModel_ZeroDimensions_ReturnsError(t *testing.T
 	require.Error(t, err)
 	assert.Equal(t, 0, dims)
 }
+
+func TestResolveDimensions_Error_ContainsModelName(t *testing.T) {
+	_, err := ResolveDimensions("my-custom-model", 0)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "my-custom-model")
+}
+
+func TestResolveDimensions_Error_ContainsConfigInstructions(t *testing.T) {
+	_, err := ResolveDimensions("unknown-model", 0)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), ".pommel/config.yaml")
+	assert.Contains(t, err.Error(), "embedding:")
+	assert.Contains(t, err.Error(), "ollama:")
+}
+
+func TestResolveDimensions_Error_MentionsDimensionsField(t *testing.T) {
+	_, err := ResolveDimensions("unknown-model", 0)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "dimensions")
+}
