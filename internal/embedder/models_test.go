@@ -199,3 +199,52 @@ func TestResolveDimensions_Error_MentionsDimensionsField(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "dimensions")
 }
+
+func TestResolveDimensions_ModelNameWithWhitespace_Trimmed(t *testing.T) {
+	// Leading/trailing whitespace should be trimmed
+	dims, err := ResolveDimensions("  unclemusclez/jina-embeddings-v2-base-code  ", 0)
+	require.NoError(t, err)
+	assert.Equal(t, 768, dims)
+}
+
+func TestResolveDimensions_EmptyModelName_ReturnsError(t *testing.T) {
+	dims, err := ResolveDimensions("", 1024)
+	require.Error(t, err)
+	assert.Equal(t, 0, dims)
+	assert.Contains(t, err.Error(), "cannot be empty")
+}
+
+func TestResolveDimensions_ModelNameCaseSensitive(t *testing.T) {
+	// Model names are case-sensitive (different from short names like v2/V2)
+	dims, err := ResolveDimensions("Unclemusclez/Jina-Embeddings-V2-Base-Code", 512)
+	require.NoError(t, err)
+	// Should use config value since case doesn't match registry
+	assert.Equal(t, 512, dims)
+}
+
+func TestResolveDimensions_NegativeDimensions_ReturnsError(t *testing.T) {
+	dims, err := ResolveDimensions("unknown-model", -100)
+	require.Error(t, err)
+	assert.Equal(t, 0, dims)
+}
+
+func TestResolveDimensions_Dimensions1_Succeeds(t *testing.T) {
+	// Minimum valid dimension
+	dims, err := ResolveDimensions("tiny-model", 1)
+	require.NoError(t, err)
+	assert.Equal(t, 1, dims)
+}
+
+func TestResolveDimensions_VeryLargeDimensions_Succeeds(t *testing.T) {
+	dims, err := ResolveDimensions("huge-model", 8192)
+	require.NoError(t, err)
+	assert.Equal(t, 8192, dims)
+}
+
+func TestResolveDimensions_PartialModelNameMatch_NotFound(t *testing.T) {
+	// Partial match should NOT find the model
+	dims, err := ResolveDimensions("jina-embeddings-v2", 512)
+	require.NoError(t, err)
+	// Should use config value since partial name doesn't match
+	assert.Equal(t, 512, dims)
+}
