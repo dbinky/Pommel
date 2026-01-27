@@ -49,8 +49,9 @@ type EmbeddingConfig struct {
 
 // OllamaProviderConfig contains Ollama-specific settings
 type OllamaProviderConfig struct {
-	URL   string `yaml:"url" json:"url" mapstructure:"url"`
-	Model string `yaml:"model" json:"model" mapstructure:"model"`
+	URL        string `yaml:"url" json:"url" mapstructure:"url"`
+	Model      string `yaml:"model" json:"model" mapstructure:"model"`
+	Dimensions int    `yaml:"dimensions" json:"dimensions" mapstructure:"dimensions"`
 }
 
 // OpenAIProviderConfig contains OpenAI-specific settings

@@ -111,8 +111,9 @@ type ProviderConfig struct {
 
 // OllamaProviderSettings holds Ollama-specific settings
 type OllamaProviderSettings struct {
-	URL   string
-	Model string
+	URL        string
+	Model      string
+	Dimensions int
 }
 
 // OpenAIProviderSettings holds OpenAI-specific settings
