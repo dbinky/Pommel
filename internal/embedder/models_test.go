@@ -167,3 +167,15 @@ func TestResolveDimensions_UnknownModel_Dimensions4096_Succeeds(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 4096, dims)
 }
+
+func TestResolveDimensions_UnknownModel_NoDimensions_ReturnsError(t *testing.T) {
+	dims, err := ResolveDimensions("unknown-model", 0)
+	require.Error(t, err)
+	assert.Equal(t, 0, dims)
+}
+
+func TestResolveDimensions_UnknownModel_ZeroDimensions_ReturnsError(t *testing.T) {
+	dims, err := ResolveDimensions("another-unknown-model", 0)
+	require.Error(t, err)
+	assert.Equal(t, 0, dims)
+}
