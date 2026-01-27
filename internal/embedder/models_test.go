@@ -130,3 +130,40 @@ func TestResolveDimensions_UnknownModel_WithDimensions_ReturnsConfigValue(t *tes
 	require.NoError(t, err)
 	assert.Equal(t, 1024, dims)
 }
+
+func TestResolveDimensions_V2Model_WithConfigOverride_ReturnsRegistryValue(t *testing.T) {
+	// Registry should take precedence over config
+	dims, err := ResolveDimensions("unclemusclez/jina-embeddings-v2-base-code", 1024)
+	require.NoError(t, err)
+	assert.Equal(t, 768, dims, "Registry value should override config")
+}
+
+func TestResolveDimensions_V4Model_WithConfigOverride_ReturnsRegistryValue(t *testing.T) {
+	dims, err := ResolveDimensions("sellerscrisp/jina-embeddings-v4-text-code-q4", 768)
+	require.NoError(t, err)
+	assert.Equal(t, 1024, dims, "Registry value should override config")
+}
+
+func TestResolveDimensions_UnknownModel_Dimensions256_Succeeds(t *testing.T) {
+	dims, err := ResolveDimensions("some-model-256", 256)
+	require.NoError(t, err)
+	assert.Equal(t, 256, dims)
+}
+
+func TestResolveDimensions_UnknownModel_Dimensions512_Succeeds(t *testing.T) {
+	dims, err := ResolveDimensions("some-model-512", 512)
+	require.NoError(t, err)
+	assert.Equal(t, 512, dims)
+}
+
+func TestResolveDimensions_UnknownModel_Dimensions1536_Succeeds(t *testing.T) {
+	dims, err := ResolveDimensions("some-model-1536", 1536)
+	require.NoError(t, err)
+	assert.Equal(t, 1536, dims)
+}
+
+func TestResolveDimensions_UnknownModel_Dimensions4096_Succeeds(t *testing.T) {
+	dims, err := ResolveDimensions("some-model-4096", 4096)
+	require.NoError(t, err)
+	assert.Equal(t, 4096, dims)
+}
