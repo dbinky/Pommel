@@ -1213,3 +1213,125 @@ func TestValidateProvider_InvalidProvider(t *testing.T) {
 	errors := ValidateProvider(cfg)
 	assert.True(t, errors.HasErrors())
 }
+
+// ============================================================================
+// Ollama dimensions config tests
+// ============================================================================
+
+func TestConfig_OllamaDimensions_ParsesFromYAML(t *testing.T) {
+	tmpDir := t.TempDir()
+	pommelDir := filepath.Join(tmpDir, ".pommel")
+	require.NoError(t, os.MkdirAll(pommelDir, 0755))
+
+	configContent := `
+version: 1
+chunk_levels:
+  - method
+include_patterns:
+  - "**/*.go"
+embedding:
+  provider: ollama
+  ollama:
+    url: http://localhost:11434
+    model: qwen3-embedding:0.6b
+    dimensions: 1024
+`
+	configPath := filepath.Join(pommelDir, "config.yaml")
+	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0644))
+
+	loader := NewLoader(tmpDir)
+	cfg, err := loader.Load()
+	require.NoError(t, err)
+
+	assert.Equal(t, 1024, cfg.Embedding.Ollama.Dimensions)
+}
+
+func TestConfig_FullOllamaConfig_WithDimensions(t *testing.T) {
+	tmpDir := t.TempDir()
+	pommelDir := filepath.Join(tmpDir, ".pommel")
+	require.NoError(t, os.MkdirAll(pommelDir, 0755))
+
+	configContent := `
+version: 1
+chunk_levels:
+  - method
+include_patterns:
+  - "**/*.go"
+embedding:
+  provider: ollama
+  batch_size: 32
+  cache_size: 1000
+  ollama:
+    url: http://remote-server:11434
+    model: gemmaembedding
+    dimensions: 768
+`
+	configPath := filepath.Join(pommelDir, "config.yaml")
+	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0644))
+
+	loader := NewLoader(tmpDir)
+	cfg, err := loader.Load()
+	require.NoError(t, err)
+
+	assert.Equal(t, "ollama", cfg.Embedding.Provider)
+	assert.Equal(t, "http://remote-server:11434", cfg.Embedding.Ollama.URL)
+	assert.Equal(t, "gemmaembedding", cfg.Embedding.Ollama.Model)
+	assert.Equal(t, 768, cfg.Embedding.Ollama.Dimensions)
+}
+
+func TestConfig_OllamaDimensions_Omitted_ReturnsZero(t *testing.T) {
+	tmpDir := t.TempDir()
+	pommelDir := filepath.Join(tmpDir, ".pommel")
+	require.NoError(t, os.MkdirAll(pommelDir, 0755))
+
+	configContent := `
+version: 1
+chunk_levels:
+  - method
+include_patterns:
+  - "**/*.go"
+embedding:
+  provider: ollama
+  ollama:
+    url: http://localhost:11434
+    model: some-model
+`
+	configPath := filepath.Join(pommelDir, "config.yaml")
+	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0644))
+
+	loader := NewLoader(tmpDir)
+	cfg, err := loader.Load()
+	require.NoError(t, err)
+
+	assert.Equal(t, 0, cfg.Embedding.Ollama.Dimensions, "Omitted dimensions should be zero")
+}
+
+func TestConfig_OllamaDimensions_WithCustomURL(t *testing.T) {
+	tmpDir := t.TempDir()
+	pommelDir := filepath.Join(tmpDir, ".pommel")
+	require.NoError(t, os.MkdirAll(pommelDir, 0755))
+
+	configContent := `
+version: 1
+chunk_levels:
+  - method
+include_patterns:
+  - "**/*.go"
+embedding:
+  provider: ollama-remote
+  ollama:
+    url: http://192.168.1.100:11434
+    model: custom-embedder
+    dimensions: 512
+`
+	configPath := filepath.Join(pommelDir, "config.yaml")
+	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0644))
+
+	loader := NewLoader(tmpDir)
+	cfg, err := loader.Load()
+	require.NoError(t, err)
+
+	assert.Equal(t, "ollama-remote", cfg.Embedding.Provider)
+	assert.Equal(t, "http://192.168.1.100:11434", cfg.Embedding.Ollama.URL)
+	assert.Equal(t, 512, cfg.Embedding.Ollama.Dimensions)
+}

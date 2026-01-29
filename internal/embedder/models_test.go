@@ -112,3 +112,133 @@ func TestGetContextSizeForModel_Unknown(t *testing.T) {
 	size := GetContextSizeForModel("unknown-model")
 	assert.Equal(t, 8192, size, "unknown models should default to 8192")
 }
+
+func TestResolveDimensions_V2Model_Returns768(t *testing.T) {
+	dims, err := ResolveDimensions("unclemusclez/jina-embeddings-v2-base-code", 0)
+	require.NoError(t, err)
+	assert.Equal(t, 768, dims)
+}
+
+func TestResolveDimensions_V4Model_Returns1024(t *testing.T) {
+	dims, err := ResolveDimensions("sellerscrisp/jina-embeddings-v4-text-code-q4", 0)
+	require.NoError(t, err)
+	assert.Equal(t, 1024, dims)
+}
+
+func TestResolveDimensions_UnknownModel_WithDimensions_ReturnsConfigValue(t *testing.T) {
+	dims, err := ResolveDimensions("qwen3-embedding:0.6b", 1024)
+	require.NoError(t, err)
+	assert.Equal(t, 1024, dims)
+}
+
+func TestResolveDimensions_V2Model_WithConfigOverride_ReturnsRegistryValue(t *testing.T) {
+	// Registry should take precedence over config
+	dims, err := ResolveDimensions("unclemusclez/jina-embeddings-v2-base-code", 1024)
+	require.NoError(t, err)
+	assert.Equal(t, 768, dims, "Registry value should override config")
+}
+
+func TestResolveDimensions_V4Model_WithConfigOverride_ReturnsRegistryValue(t *testing.T) {
+	dims, err := ResolveDimensions("sellerscrisp/jina-embeddings-v4-text-code-q4", 768)
+	require.NoError(t, err)
+	assert.Equal(t, 1024, dims, "Registry value should override config")
+}
+
+func TestResolveDimensions_UnknownModel_Dimensions256_Succeeds(t *testing.T) {
+	dims, err := ResolveDimensions("some-model-256", 256)
+	require.NoError(t, err)
+	assert.Equal(t, 256, dims)
+}
+
+func TestResolveDimensions_UnknownModel_Dimensions512_Succeeds(t *testing.T) {
+	dims, err := ResolveDimensions("some-model-512", 512)
+	require.NoError(t, err)
+	assert.Equal(t, 512, dims)
+}
+
+func TestResolveDimensions_UnknownModel_Dimensions1536_Succeeds(t *testing.T) {
+	dims, err := ResolveDimensions("some-model-1536", 1536)
+	require.NoError(t, err)
+	assert.Equal(t, 1536, dims)
+}
+
+func TestResolveDimensions_UnknownModel_Dimensions4096_Succeeds(t *testing.T) {
+	dims, err := ResolveDimensions("some-model-4096", 4096)
+	require.NoError(t, err)
+	assert.Equal(t, 4096, dims)
+}
+
+func TestResolveDimensions_UnknownModel_NoDimensions_ReturnsError(t *testing.T) {
+	dims, err := ResolveDimensions("unknown-model", 0)
+	require.Error(t, err)
+	assert.Equal(t, 0, dims)
+}
+
+func TestResolveDimensions_Error_ContainsModelName(t *testing.T) {
+	_, err := ResolveDimensions("my-custom-model", 0)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "my-custom-model")
+}
+
+func TestResolveDimensions_Error_ContainsConfigInstructions(t *testing.T) {
+	_, err := ResolveDimensions("unknown-model", 0)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), ".pommel/config.yaml")
+	assert.Contains(t, err.Error(), "embedding:")
+	assert.Contains(t, err.Error(), "ollama:")
+}
+
+func TestResolveDimensions_Error_MentionsDimensionsField(t *testing.T) {
+	_, err := ResolveDimensions("unknown-model", 0)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "dimensions")
+}
+
+func TestResolveDimensions_ModelNameWithWhitespace_Trimmed(t *testing.T) {
+	// Leading/trailing whitespace should be trimmed
+	dims, err := ResolveDimensions("  unclemusclez/jina-embeddings-v2-base-code  ", 0)
+	require.NoError(t, err)
+	assert.Equal(t, 768, dims)
+}
+
+func TestResolveDimensions_EmptyModelName_ReturnsError(t *testing.T) {
+	dims, err := ResolveDimensions("", 1024)
+	require.Error(t, err)
+	assert.Equal(t, 0, dims)
+	assert.Contains(t, err.Error(), "cannot be empty")
+}
+
+func TestResolveDimensions_ModelNameCaseSensitive(t *testing.T) {
+	// Model names are case-sensitive (different from short names like v2/V2)
+	dims, err := ResolveDimensions("Unclemusclez/Jina-Embeddings-V2-Base-Code", 512)
+	require.NoError(t, err)
+	// Should use config value since case doesn't match registry
+	assert.Equal(t, 512, dims)
+}
+
+func TestResolveDimensions_NegativeDimensions_ReturnsError(t *testing.T) {
+	dims, err := ResolveDimensions("unknown-model", -100)
+	require.Error(t, err)
+	assert.Equal(t, 0, dims)
+}
+
+func TestResolveDimensions_Dimensions1_Succeeds(t *testing.T) {
+	// Minimum valid dimension
+	dims, err := ResolveDimensions("tiny-model", 1)
+	require.NoError(t, err)
+	assert.Equal(t, 1, dims)
+}
+
+func TestResolveDimensions_VeryLargeDimensions_Succeeds(t *testing.T) {
+	dims, err := ResolveDimensions("huge-model", 8192)
+	require.NoError(t, err)
+	assert.Equal(t, 8192, dims)
+}
+
+func TestResolveDimensions_PartialModelNameMatch_NotFound(t *testing.T) {
+	// Partial match should NOT find the model
+	dims, err := ResolveDimensions("jina-embeddings-v2", 512)
+	require.NoError(t, err)
+	// Should use config value since partial name doesn't match
+	assert.Equal(t, 512, dims)
+}

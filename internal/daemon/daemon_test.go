@@ -1371,3 +1371,137 @@ func TestDaemon_HandleConfig_ReturnsConfig(t *testing.T) {
 	cancel()
 	<-errCh
 }
+
+// =============================================================================
+// Unknown Model Dimension Handling Tests
+// =============================================================================
+
+func TestNew_UnknownModel_NoDimensions_FailsToStart(t *testing.T) {
+	// Arrange
+	projectRoot := t.TempDir()
+	cfg := daemonTestConfig()
+	cfg.Embedding.Provider = "ollama"
+	cfg.Embedding.Ollama.Model = "unknown-custom-model"
+	cfg.Embedding.Ollama.Dimensions = 0 // No dimensions configured
+	logger := daemonTestLogger()
+
+	// Act
+	daemon, err := New(projectRoot, cfg, logger)
+
+	// Assert
+	require.Error(t, err)
+	require.Nil(t, daemon)
+
+	var daemonErr *DaemonError
+	require.ErrorAs(t, err, &daemonErr)
+	assert.Equal(t, "UNKNOWN_MODEL_DIMENSIONS", daemonErr.Code)
+	assert.Contains(t, daemonErr.Message, "unknown-custom-model")
+}
+
+func TestNew_UnknownModel_WithDimensions_Starts(t *testing.T) {
+	// Arrange
+	projectRoot := t.TempDir()
+	cfg := daemonTestConfig()
+	cfg.Embedding.Provider = "ollama"
+	cfg.Embedding.Ollama.Model = "custom-embedding-model"
+	cfg.Embedding.Ollama.Dimensions = 512
+	logger := daemonTestLogger()
+
+	// Act
+	daemon, err := New(projectRoot, cfg, logger)
+
+	// Assert
+	require.NoError(t, err)
+	require.NotNil(t, daemon)
+
+	// Cleanup
+	require.NoError(t, daemon.Close())
+}
+
+func TestNew_KnownModel_StartsWithoutDimensionsConfig(t *testing.T) {
+	// Arrange
+	projectRoot := t.TempDir()
+	cfg := daemonTestConfig()
+	cfg.Embedding.Provider = "ollama"
+	cfg.Embedding.Ollama.Model = "unclemusclez/jina-embeddings-v2-base-code"
+	cfg.Embedding.Ollama.Dimensions = 0 // No dimensions needed for known model
+	logger := daemonTestLogger()
+
+	// Act
+	daemon, err := New(projectRoot, cfg, logger)
+
+	// Assert
+	require.NoError(t, err)
+	require.NotNil(t, daemon)
+
+	// Cleanup
+	require.NoError(t, daemon.Close())
+}
+
+func TestNew_OllamaRemote_UnknownModel_RequiresDimensions(t *testing.T) {
+	// Arrange
+	projectRoot := t.TempDir()
+	cfg := daemonTestConfig()
+	cfg.Embedding.Provider = "ollama-remote"
+	cfg.Embedding.Ollama.URL = "http://remote-server:11434"
+	cfg.Embedding.Ollama.Model = "remote-custom-model"
+	cfg.Embedding.Ollama.Dimensions = 0 // No dimensions
+	logger := daemonTestLogger()
+
+	// Act
+	daemon, err := New(projectRoot, cfg, logger)
+
+	// Assert
+	require.Error(t, err)
+	require.Nil(t, daemon)
+
+	var daemonErr *DaemonError
+	require.ErrorAs(t, err, &daemonErr)
+	assert.Equal(t, "UNKNOWN_MODEL_DIMENSIONS", daemonErr.Code)
+}
+
+// =============================================================================
+// Database Dimension Verification Tests
+// =============================================================================
+
+func TestNew_UnknownModel_DatabaseHasCorrectDimensions(t *testing.T) {
+	// Arrange
+	projectRoot := t.TempDir()
+	cfg := daemonTestConfig()
+	cfg.Embedding.Provider = "ollama"
+	cfg.Embedding.Ollama.Model = "custom-model-1024"
+	cfg.Embedding.Ollama.Dimensions = 1024
+	logger := daemonTestLogger()
+
+	// Act
+	daemon, err := New(projectRoot, cfg, logger)
+	require.NoError(t, err)
+	require.NotNil(t, daemon)
+
+	// Assert - verify database was created with correct dimensions
+	assert.Equal(t, 1024, daemon.db.Dimensions())
+
+	// Cleanup
+	require.NoError(t, daemon.Close())
+}
+
+func TestNew_KnownModel_DatabaseHasRegistryDimensions(t *testing.T) {
+	// Arrange
+	projectRoot := t.TempDir()
+	cfg := daemonTestConfig()
+	cfg.Embedding.Provider = "ollama"
+	cfg.Embedding.Ollama.Model = "sellerscrisp/jina-embeddings-v4-text-code-q4"
+	cfg.Embedding.Ollama.Dimensions = 768 // Wrong dimensions in config - should be ignored
+	logger := daemonTestLogger()
+
+	// Act
+	daemon, err := New(projectRoot, cfg, logger)
+	require.NoError(t, err)
+	require.NotNil(t, daemon)
+
+	// Assert - registry dimensions (1024) should be used, not config (768)
+	assert.Equal(t, 1024, daemon.db.Dimensions())
+
+	// Cleanup
+	require.NoError(t, daemon.Close())
+}

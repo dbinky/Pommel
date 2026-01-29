@@ -142,8 +142,21 @@ func New(projectRoot string, cfg *config.Config, logger *slog.Logger) (*Daemon, 
 		providerCfg.Ollama.Model = cfg.Embedding.Model
 	}
 
-	// Get embedding dimensions from provider before opening database
-	dims := embedder.ProviderType(providerCfg.Provider).DefaultDimensions()
+	// Get embedding dimensions - use ResolveDimensions for Ollama providers
+	var dims int
+	if providerCfg.Provider == "ollama" || providerCfg.Provider == "ollama-remote" {
+		var err error
+		dims, err = embedder.ResolveDimensions(providerCfg.Ollama.Model, cfg.Embedding.Ollama.Dimensions)
+		if err != nil {
+			return nil, &DaemonError{
+				Code:       "UNKNOWN_MODEL_DIMENSIONS",
+				Message:    err.Error(),
+				Suggestion: "See error message above for config instructions",
+			}
+		}
+	} else {
+		dims = embedder.ProviderType(providerCfg.Provider).DefaultDimensions()
+	}
 
 	// Open database with provider-specific dimensions
 	database, err := db.Open(projectRoot, dims)
