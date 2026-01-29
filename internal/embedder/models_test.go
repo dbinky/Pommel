@@ -174,12 +174,6 @@ func TestResolveDimensions_UnknownModel_NoDimensions_ReturnsError(t *testing.T) 
 	assert.Equal(t, 0, dims)
 }
 
-func TestResolveDimensions_UnknownModel_ZeroDimensions_ReturnsError(t *testing.T) {
-	dims, err := ResolveDimensions("another-unknown-model", 0)
-	require.Error(t, err)
-	assert.Equal(t, 0, dims)
-}
-
 func TestResolveDimensions_Error_ContainsModelName(t *testing.T) {
 	_, err := ResolveDimensions("my-custom-model", 0)
 	require.Error(t, err)
