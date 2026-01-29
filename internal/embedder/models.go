@@ -110,14 +110,13 @@ func ResolveDimensions(modelName string, configDimensions int) (int, error) {
 
 	// Unknown model - require config dimensions
 	if configDimensions <= 0 {
-		return 0, fmt.Errorf(`Unknown embedding model '%s' requires dimensions.
-Add to .pommel/config.yaml:
+		return 0, fmt.Errorf(`unknown embedding model '%s' requires dimensions, add to .pommel/config.yaml:
 
   embedding:
     ollama:
       dimensions: <your-model-dimensions>
 
-Check your model's documentation for the correct dimension count.`, modelName)
+check your model's documentation for the correct dimension count`, modelName)
 	}
 
 	return configDimensions, nil
