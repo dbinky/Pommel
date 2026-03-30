@@ -49,7 +49,7 @@ jobs:
           CGO_LDFLAGS: ${{ runner.os == 'Windows' && '-L/c/sqlite' || '' }}
 
       - name: Upload coverage
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         if: matrix.os == 'ubuntu-latest' && matrix.go-version == '1.22'
         with:
           files: ./coverage.out
